@@ -1,0 +1,37 @@
+# Secrets. The Supabase secret key is full admin and bypasses every RLS
+# policy, so it must never reach a commit or a frontend bundle. The real
+# values live outside this tree, in
+# ../../../point-taken-biz/api-keys/supabase-point-taken-2026.env
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build and test output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Supabase CLI local state
+.branches/
+.temp/
+supabase/.temp/
+
+# Editor and OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Local-only scratch, mirroring the convention in point-taken-brain
+_local/
