@@ -17,6 +17,8 @@ this tree. Nothing in here holds a secret.
 app/                    Next App Router. /api/health is the deploy probe.
 lib/events/types.ts     the 28 event types in TypeScript, mirroring the database
 lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents / readGameEvents
+lib/db/types.ts         players, games, game_players: read-shaped, because a trigger writes them
+lib/db/games.ts         createGame and the reads over those tables
 lib/supabase/server.ts  service-role client, server-only, never importable from a client component
 supabase/migrations/    ordered SQL, applied in filename order
 ```
@@ -28,6 +30,12 @@ supabase/migrations/    ordered SQL, applied in filename order
 `BRAIN-T260819-18`). Every projection, badge criterion, analytic, and replay reads that table, so
 its shape is the hardest thing here to change later. The type catalogue is
 `0002_event_type_catalogue.sql` plus `../../docs/reference/materials/spec/2026-08-22_event-type-catalogue.md`.
+
+`0004_identity_and_games.sql` adds the tables the log points at, with
+`../../docs/reference/materials/spec/2026-08-22_identity-and-read-models.md` as its prose half
+(registry row `BRAIN-T260822-09`). **`games` and `game_players` are read models.** One trigger on
+`game_events` maintains them and nothing else may write them. If you find yourself updating a game's
+status by hand, the event you should have appended is the actual fix.
 
 **The database is the authority and `lib/events/types.ts` mirrors it.** Adding an event type means
 a migration first, then the TypeScript. Changing one without the other is a bug in the TypeScript.
@@ -41,8 +49,9 @@ TMPDIR=/tmp npm run dev
 ```
 
 `http://localhost:3000/api/health?deep=1` should report 28 catalogue types in the database, 28 in
-code, and empty `missing_in_db` / `missing_in_code`. That is the fastest proof the app is talking
-to the right project.
+code, empty `missing_in_db` / `missing_in_code`, and a `tables` block with a count for each of
+`players`, `games`, `game_players`, and `game_events`. That is the fastest proof the app is talking
+to the right project with every migration applied.
 
 **`TMPDIR=/tmp` is a local quirk, not a project setting.** Turbopack's postcss worker cannot bind
 its socket under a very long temp path, and the sandbox this repo is usually developed in hands out

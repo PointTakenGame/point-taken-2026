@@ -40,6 +40,18 @@ export async function GET(request: Request) {
       body.retired = (data ?? [])
         .filter((r) => r.retired)
         .map((r) => r.type as string);
+
+      // Migrations applied, not just credentials valid: a project missing 0004
+      // answers the catalogue query fine and then fails at the first game.
+      const tables = ["players", "games", "game_players", "game_events"];
+      const reachable: Record<string, number | string> = {};
+      for (const table of tables) {
+        const { count: n, error: tableError } = await supabase
+          .from(table)
+          .select("*", { count: "exact", head: true });
+        reachable[table] = tableError ? `ERROR: ${tableError.message}` : (n ?? 0);
+      }
+      body.tables = reachable;
     }
 
     return NextResponse.json(body);
