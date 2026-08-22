@@ -20,6 +20,7 @@ lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents 
 lib/db/types.ts         players, games, game_players: read-shaped, because a trigger writes them
 lib/db/games.ts         createGame and the reads over those tables
 lib/db/players.ts       player reads and ensureDisplayName, the one player write
+lib/db/stats.ts         getPlayerStats, a thin wrapper over the player_stats function
 lib/names/              the display-name word list (content) and the draw (mechanism)
 lib/supabase/server.ts  service-role client, server-only, never importable from a client component
 supabase/migrations/    ordered SQL, applied in filename order
@@ -43,6 +44,14 @@ status by hand, the event you should have appended is the actual fix.
 `lib/names/wordlist.ts`, not in a migration**, and `ensureDisplayName` in `lib/db/players.ts` is the
 only thing that writes it: a guarded update that fires only while the column is still null, so two
 concurrent callers cannot overwrite each other. Registry row `BRAIN-T260714-71`.
+
+`0005_player_stats.sql` adds `player_stats(uuid)`, the account-page counters: games played and
+completed, thread resolutions by emoji, tiles placed, and revised-topic wins. **Nothing is cached.**
+Every one of those facts is already in the log, so a stats column on the player row would be a
+second source of truth that goes stale the first time a projection changes. Add a projection table
+when a real page is measurably slow, not before. The function is granted to **service_role only**:
+it takes a player id and does not check it against the caller, so granting it to `authenticated`
+would let anyone count anyone. `lib/db/stats.ts` is the wrapper. Registry row `BRAIN-T260714-70`.
 
 **The database is the authority and `lib/events/types.ts` mirrors it.** Adding an event type means
 a migration first, then the TypeScript. Changing one without the other is a bug in the TypeScript.
