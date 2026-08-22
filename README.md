@@ -4,10 +4,8 @@ The rebuilt Point Taken game: Next on Vercel, Supabase for Postgres + Auth + Rea
 mail. Replaces the Nuxt frontend / Express backend / DynamoDB stack in `../point-taken-frontend`
 and `../point-taken-backend`.
 
-**This folder is not yet a GitHub repo.** It has local git history only, waiting on Steve's
-permission to create `PointTakenGame/point-taken-2026` and push. Adding a remote is the only step
-between here and there, which is why the history starts clean rather than living inside the brain
-agent's repo.
+Repo: `PointTakenGame/point-taken-2026` (private). It lives inside the brain agent's working tree
+but has its own git history and its own remote; nothing here is tracked by the outer repo.
 
 Supabase project `point-taken-2026`, ref `tvtmltchotkzviqaywdy`, us-east-1. Credentials live in
 `../../../point-taken-biz/api-keys/supabase-point-taken-2026.env`, which is gitignored and outside
@@ -16,6 +14,10 @@ this tree. Nothing in here holds a secret.
 ## Layout
 
 ```
+app/                    Next App Router. /api/health is the deploy probe.
+lib/events/types.ts     the 28 event types in TypeScript, mirroring the database
+lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents / readGameEvents
+lib/supabase/server.ts  service-role client, server-only, never importable from a client component
 supabase/migrations/    ordered SQL, applied in filename order
 ```
 
@@ -24,4 +26,29 @@ supabase/migrations/    ordered SQL, applied in filename order
 `supabase/migrations/0001_event_log.sql` and its prose half,
 `../../docs/reference/materials/spec/2026-08-19_event-log-contract.md` (registry row
 `BRAIN-T260819-18`). Every projection, badge criterion, analytic, and replay reads that table, so
-its shape is the hardest thing here to change later.
+its shape is the hardest thing here to change later. The type catalogue is
+`0002_event_type_catalogue.sql` plus `../../docs/reference/materials/spec/2026-08-22_event-type-catalogue.md`.
+
+**The database is the authority and `lib/events/types.ts` mirrors it.** Adding an event type means
+a migration first, then the TypeScript. Changing one without the other is a bug in the TypeScript.
+
+## Running it locally
+
+```
+cp .env.example .env.local     # fill from the api-keys file above
+npm install
+TMPDIR=/tmp npm run dev
+```
+
+`http://localhost:3000/api/health?deep=1` should report 28 catalogue types in the database, 28 in
+code, and empty `missing_in_db` / `missing_in_code`. That is the fastest proof the app is talking
+to the right project.
+
+**`TMPDIR=/tmp` is a local quirk, not a project setting.** Turbopack's postcss worker cannot bind
+its socket under a very long temp path, and the sandbox this repo is usually developed in hands out
+exactly that. It panics with `binding to a port: Operation not permitted`. Vercel is unaffected, so
+`npm run build` stays plain `next build`. `next build --webpack` also sidesteps it.
+
+`npx tsc --noEmit` needs one `next build` first: Next 16 generates the typed-routes globals
+(`LayoutProps`, `PageProps`) into `.next/types` at build time, so on a clean checkout tsc fails on
+names that do not exist yet.
