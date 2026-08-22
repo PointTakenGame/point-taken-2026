@@ -15,6 +15,8 @@ this tree. Nothing in here holds a secret.
 
 ```
 app/                    Next App Router. /api/health is the deploy probe.
+app/account/            the post-login page: name, counters, game history
+app/api/auth/anonymous  POST to sign in with no email and get named
 lib/events/types.ts     the 28 event types in TypeScript, mirroring the database
 lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents / readGameEvents
 lib/db/types.ts         players, games, game_players: read-shaped, because a trigger writes them
@@ -23,6 +25,8 @@ lib/db/players.ts       player reads and ensureDisplayName, the one player write
 lib/db/stats.ts         getPlayerStats, a thin wrapper over the player_stats function
 lib/names/              the display-name word list (content) and the draw (mechanism)
 lib/supabase/server.ts  service-role client, server-only, never importable from a client component
+lib/supabase/session.ts the signed-in player's own client, and currentPlayerId()
+proxy.ts                keeps the session cookie fresh (Next 16's name for middleware)
 supabase/migrations/    ordered SQL, applied in filename order
 ```
 
@@ -52,6 +56,18 @@ second source of truth that goes stale the first time a projection changes. Add 
 when a real page is measurably slow, not before. The function is granted to **service_role only**:
 it takes a player id and does not check it against the caller, so granting it to `authenticated`
 would let anyone count anyone. `lib/db/stats.ts` is the wrapper. Registry row `BRAIN-T260714-70`.
+
+**Players sign in anonymously first.** `POST /api/auth/anonymous` creates a real auth user with no
+email and no password, which makes the `players` row by trigger and names it in the same call. An
+email attached later claims that same account instead of making a second one. Session cookies are
+refreshed in `proxy.ts`: that file is Next 16's rename of `middleware.ts`, so every Supabase guide
+you find will use the old name. Read the session with `currentPlayerId()`, which asks the auth
+server; `getSession()` trusts a cookie the browser could have written and must never gate a page.
+
+`/account` is the page a player lands on: display name, headline counters from `player_stats`, and
+every game they have been in. It is plain on purpose. Rannie's profile frames carry a level ladder,
+a ranked division and a cooperation score that are not decided yet (`BRAIN-T260817-02`), and
+re-opening a past board waits on a board renderer. Registry row `BRAIN-T260714-69`.
 
 **The database is the authority and `lib/events/types.ts` mirrors it.** Adding an event type means
 a migration first, then the TypeScript. Changing one without the other is a bug in the TypeScript.
