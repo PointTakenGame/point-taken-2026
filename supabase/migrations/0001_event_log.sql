@@ -162,7 +162,7 @@ comment on function public.append_game_event is
   'advisory lock so simultaneous moves do not collide on the unique constraint.';
 
 -- The gym is client-authoritative (Steve's decision, 2026-08-19), so a whole
--- practice run arrives as one upload rather than as a move-by-move stream.
+-- gym run arrives as one upload rather than as a move-by-move stream.
 -- Fable's crit is blunt that this cannot be retrofitted: "a client-authoritative
 -- gym wants events designed for batch upload and replay validation, and
 -- retrofitting that is a rewrite." Hence a batch path in the first migration,
