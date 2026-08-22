@@ -19,6 +19,8 @@ lib/events/types.ts     the 28 event types in TypeScript, mirroring the database
 lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents / readGameEvents
 lib/db/types.ts         players, games, game_players: read-shaped, because a trigger writes them
 lib/db/games.ts         createGame and the reads over those tables
+lib/db/players.ts       player reads and ensureDisplayName, the one player write
+lib/names/              the display-name word list (content) and the draw (mechanism)
 lib/supabase/server.ts  service-role client, server-only, never importable from a client component
 supabase/migrations/    ordered SQL, applied in filename order
 ```
@@ -36,6 +38,11 @@ its shape is the hardest thing here to change later. The type catalogue is
 (registry row `BRAIN-T260822-09`). **`games` and `game_players` are read models.** One trigger on
 `game_events` maintains them and nothing else may write them. If you find yourself updating a game's
 status by hand, the event you should have appended is the actual fix.
+
+`players.display_name` is null until the app assigns one. **The word list is content, so it lives in
+`lib/names/wordlist.ts`, not in a migration**, and `ensureDisplayName` in `lib/db/players.ts` is the
+only thing that writes it: a guarded update that fires only while the column is still null, so two
+concurrent callers cannot overwrite each other. Registry row `BRAIN-T260714-71`.
 
 **The database is the authority and `lib/events/types.ts` mirrors it.** Adding an event type means
 a migration first, then the TypeScript. Changing one without the other is a bug in the TypeScript.
@@ -57,6 +64,9 @@ to the right project with every migration applied.
 its socket under a very long temp path, and the sandbox this repo is usually developed in hands out
 exactly that. It panics with `binding to a port: Operation not permitted`. Vercel is unaffected, so
 `npm run build` stays plain `next build`. `next build --webpack` also sidesteps it.
+
+`npm test` runs the vitest suites under `lib/` (the name generator and the naming race). They are
+pure unit tests: nothing in them touches Supabase, so they need no credentials and no network.
 
 `npx tsc --noEmit` needs one `next build` first: Next 16 generates the typed-routes globals
 (`LayoutProps`, `PageProps`) into `.next/types` at build time, so on a clean checkout tsc fails on

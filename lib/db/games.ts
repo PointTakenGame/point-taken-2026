@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/server";
 import type { Uuid } from "@/lib/events/types";
-import type { GameMode, GamePlayerRow, GameRow, PlayerRow } from "./types";
+import type { GameMode, GamePlayerRow, GameRow } from "./types";
 
 /**
  * Creating a game is the one place the app writes a row before its event.
@@ -78,35 +78,7 @@ export async function getGamePlayers(gameId: Uuid): Promise<GamePlayerRow[]> {
   return (data ?? []) as GamePlayerRow[];
 }
 
-export async function getPlayer(playerId: Uuid): Promise<PlayerRow | null> {
-  const { data, error } = await serviceClient()
-    .from("players")
-    .select("*")
-    .eq("id", playerId)
-    .maybeSingle();
-
-  if (error) throw new Error(`read player failed: ${error.message}`);
-  return (data as PlayerRow) ?? null;
-}
-
-/**
- * Claim a display name. Unique case-insensitively, so a collision comes back
- * as a 23505 and is a normal outcome of a name race, not a bug.
- */
-export async function setDisplayName(
-  playerId: Uuid,
-  displayName: string,
-): Promise<PlayerRow> {
-  const { data, error } = await serviceClient()
-    .from("players")
-    .update({ display_name: displayName })
-    .eq("id", playerId)
-    .select()
-    .single();
-
-  if (error) throw new Error(`set display name failed: ${error.message}`);
-  return data as PlayerRow;
-}
+// Player reads and the display-name write live in ./players.ts.
 
 /** A player's own games, newest first. The history a dashboard reads. */
 export async function listGamesForPlayer(
