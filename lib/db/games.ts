@@ -2,6 +2,7 @@ import "server-only";
 import { serviceClient } from "@/lib/supabase/server";
 import type { Uuid } from "@/lib/events/types";
 import type { GameMode, GamePlayerRow, GameRow } from "./types";
+import { generateJoinCode } from "@/lib/games/joinCode";
 
 /**
  * Creating a game is the one place the app writes a row before its event.
@@ -20,22 +21,44 @@ export interface CreateGameInput {
   clientBuild?: string | null;
 }
 
+/** Redraws before giving up on a free room code. */
+export const JOIN_CODE_ATTEMPTS = 5;
+
+const UNIQUE_VIOLATION = "23505";
+
 export async function createGame(input: CreateGameInput): Promise<GameRow> {
   if (input.mode === "gym" && input.joinCode) {
     throw new Error("A gym run has nobody to invite, so it takes no join code.");
   }
 
-  const { data, error } = await serviceClient().rpc("create_game", {
-    p_mode: input.mode,
-    p_created_by: input.createdBy,
-    p_level_id: input.levelId ?? null,
-    p_boss_id: input.bossId ?? null,
-    p_join_code: input.joinCode ?? null,
-    p_client_build: input.clientBuild ?? null,
-  });
+  // A live game nobody can join is not a live game, so draw a code when the
+  // caller did not name one. A caller-supplied code is used as given.
+  const drawing = input.mode === "live" && !input.joinCode;
+  const attempts = drawing ? JOIN_CODE_ATTEMPTS : 1;
 
-  if (error) throw new Error(`create_game failed: ${error.message}`);
-  return data as GameRow;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const joinCode = drawing ? generateJoinCode() : (input.joinCode ?? null);
+
+    const { data, error } = await serviceClient().rpc("create_game", {
+      p_mode: input.mode,
+      p_created_by: input.createdBy,
+      p_level_id: input.levelId ?? null,
+      p_boss_id: input.bossId ?? null,
+      p_join_code: joinCode,
+      p_client_build: input.clientBuild ?? null,
+    });
+
+    if (!error) return data as GameRow;
+
+    // Another open game holds that code. Redraw only when we chose it: a
+    // caller who asked for a specific code wants to hear that it is taken.
+    if (drawing && error.code === UNIQUE_VIOLATION) continue;
+    throw new Error(`create_game failed: ${error.message}`);
+  }
+
+  throw new Error(
+    `could not find a free join code in ${JOIN_CODE_ATTEMPTS} tries`,
+  );
 }
 
 export async function getGame(gameId: Uuid): Promise<GameRow | null> {

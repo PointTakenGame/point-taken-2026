@@ -21,6 +21,7 @@ lib/events/types.ts     the 28 event types in TypeScript, mirroring the database
 lib/events/append.ts    the only write path: appendGameEvent / appendGameEvents / readGameEvents
 lib/db/types.ts         players, games, game_players: read-shaped, because a trigger writes them
 lib/db/games.ts         createGame and the reads over those tables
+lib/games/joinCode.ts   the six-character room code a player reads aloud
 lib/db/players.ts       player reads and ensureDisplayName, the one player write
 lib/db/stats.ts         getPlayerStats, a thin wrapper over the player_stats function
 lib/names/              the display-name word list (content) and the draw (mechanism)
@@ -43,6 +44,13 @@ its shape is the hardest thing here to change later. The type catalogue is
 (registry row `BRAIN-T260822-09`). **`games` and `game_players` are read models.** One trigger on
 `game_events` maintains them and nothing else may write them. If you find yourself updating a game's
 status by hand, the event you should have appended is the actual fix.
+
+**A live game draws its own join code.** `createGame` picks one from a 32-character alphabet with
+0/O and 1/I removed, because codes get spoken and handwritten (`BRAIN-T260713-12`), and redraws on
+a collision. The database is what actually guarantees uniqueness: `games_join_code_open_key` is a
+**partial** unique index over open games only, so a code frees up when its game ends. A caller who
+passes an explicit code gets told it is taken rather than quietly given a different one. Registry
+row `BRAIN-T260714-67`.
 
 `players.display_name` is null until the app assigns one. **The word list is content, so it lives in
 `lib/names/wordlist.ts`, not in a migration**, and `ensureDisplayName` in `lib/db/players.ts` is the
