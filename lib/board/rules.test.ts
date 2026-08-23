@@ -12,11 +12,13 @@ import {
   canRemoveTile,
   isAbandoned,
   isResolved,
+  MAX_THREADS,
   MIN_THREADS_TO_END,
   proposalsAwaiting,
   proposalsFrom,
   threadsWinReached,
   TILE_MAX_CHARS,
+  topicAgreementEndsGame,
 } from "./rules";
 import type { AnyGameEvent, EventPayloads, GameEventType } from "@/lib/events/types";
 
@@ -425,5 +427,75 @@ describe("isAbandoned", () => {
     l.push("game_ended", { win_condition: "threads_resolved" });
     l.push("player_left", { reason: "quit" }, BOB);
     expect(isAbandoned(projectBoard(l.events))).toBe(false);
+  });
+});
+
+describe("the six-thread ceiling", () => {
+  /** An active board carrying `count` open threads, each with a root tile. */
+  function boardWithThreads(count: number) {
+    const l = opened();
+    for (let i = 1; i <= count; i++) {
+      l.push("tile_placed", tile(`t${i}`, null, `t${i}`, `Root ${i}.`), ALICE);
+    }
+    return { l, board: projectBoard(l.events) };
+  }
+
+  it("allows the sixth new thread", () => {
+    const { board } = boardWithThreads(MAX_THREADS - 1);
+    expect(canPlaceTile(board, "One more reason.", null)).toEqual({ ok: true });
+  });
+
+  it("refuses the seventh, and says where to put it instead", () => {
+    const { board } = boardWithThreads(MAX_THREADS);
+    const verdict = canPlaceTile(board, "One more reason.", null);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok === false && verdict.error).toContain(String(MAX_THREADS));
+  });
+
+  it("still lets a full board grow, as long as it grows downward", () => {
+    const { board } = boardWithThreads(MAX_THREADS);
+    expect(canPlaceTile(board, "A reply to the first one.", "t1")).toEqual({ ok: true });
+  });
+
+  it("frees a slot when every tile in a thread is removed", () => {
+    const { l } = boardWithThreads(MAX_THREADS);
+    expect(canPlaceTile(projectBoard(l.events), "New thread.", null).ok).toBe(false);
+    l.push("tile_removed", { tile_id: "t1" }, ALICE);
+    // An emptied thread is not an argument anybody is having, so it does not
+    // hold a slot. Same rule threadsWinReached uses at the other end.
+    expect(canPlaceTile(projectBoard(l.events), "New thread.", null)).toEqual({ ok: true });
+  });
+});
+
+describe("topicAgreementEndsGame", () => {
+  function created(
+    mode: "live" | "gym",
+    level: string | null = null,
+    boss: string | null = null,
+  ) {
+    const l = log();
+    l.push("game_created", {
+      mode,
+      level_id: level,
+      boss_id: boss,
+      join_code: "PTKN24",
+    });
+    return projectBoard(l.events);
+  }
+
+  it("ends a live game", () => {
+    expect(topicAgreementEndsGame(created("live"))).toBe(true);
+  });
+
+  it("does not end free gym practice, where a rewrite is the point of being there", () => {
+    expect(topicAgreementEndsGame(created("gym"))).toBe(false);
+  });
+
+  it("ends a gym game running a written level", () => {
+    expect(topicAgreementEndsGame(created("gym", "level-opening-moves"))).toBe(true);
+  });
+
+  it("ends a gym game running a boss", () => {
+    expect(topicAgreementEndsGame(created("gym", null, "boss-the-whataboutist"))).toBe(true);
   });
 });

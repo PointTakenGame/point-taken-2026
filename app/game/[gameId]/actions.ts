@@ -329,13 +329,16 @@ export async function acceptProposal(
       ...me,
       payload: { text: proposal.content.text, via_proposal_id: proposal.id },
     }));
-    // Both sides now stand behind one statement, which is the second win.
-    batch.push(newEvent({
-      type: "game_ended",
-      actorRole: "server",
-      source: "system",
-      payload: { win_condition: "topic_agreed" },
-    }));
+    // Both sides now stand behind one statement, which is the second win,
+    // everywhere except free gym practice. See rules.topicAgreementEndsGame.
+    if (rules.topicAgreementEndsGame(board)) {
+      batch.push(newEvent({
+        type: "game_ended",
+        actorRole: "server",
+        source: "system",
+        payload: { win_condition: "topic_agreed" },
+      }));
+    }
   }
 
   if (

@@ -99,6 +99,13 @@ export interface BoardSettings {
 
 export interface BoardState {
   mode: GameMode | null;
+  /**
+   * The designed run this game is, if it is one. A gym game carrying a level or
+   * boss is a written scenario rather than free practice, which is why it plays
+   * by live rules on endings.
+   */
+  levelId: string | null;
+  bossId: string | null;
   status: GameStatus;
   winCondition: WinCondition | null;
   topic: BoardTopic | null;
@@ -141,6 +148,8 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
   const state: BoardState = {
     mode: null,
+    levelId: null,
+    bossId: null,
     status: "lobby",
     winCondition: null,
     topic: null,
@@ -176,6 +185,8 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     switch (event.type) {
       case "game_created": {
         state.mode = event.payload.mode;
+        state.levelId = event.payload.level_id;
+        state.bossId = event.payload.boss_id;
         break;
       }
 

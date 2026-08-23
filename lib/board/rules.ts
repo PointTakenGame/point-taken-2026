@@ -13,13 +13,29 @@ import type { Side, Uuid } from "@/lib/events/types";
 export const TILE_MAX_CHARS = 100;
 
 /**
- * The two tokens a thread resolves with. 👍 reads as settled, 👀 as seen but
- * still apart. The event-type catalogue records this vocabulary as unsettled
- * (its §7.2), which is why it lives here rather than in the payload type: a
- * change is a change to the rules package, not a schema migration.
+ * The two tokens a thread resolves with. 👍 reads as settled, 👀 as "I can see
+ * why we disagree here."
+ *
+ * SETTLED 2026-08-23 (Steve), which retires the catalogue's §7.2 open question.
+ * Two ship. Later, behind progression, 👀 graduates into three more nuanced
+ * versions of itself: we disagree about a fact, about priorities, or about
+ * taste. That is Steve's 2026-07-09 wording, restated unprompted today, so it
+ * is the intent rather than a reading of it. The frontend's old `wine` and
+ * `scale` values were an earlier attempt at those three and are dead.
+ *
+ * Adding the three later costs nothing at the log: `emoji` is a string, so a
+ * new token is a new value, not a migration, and every game already recorded
+ * keeps meaning what it meant.
  */
 export const RESOLUTION_TOKENS = ["👍", "👀"] as const;
 export type ResolutionToken = (typeof RESOLUTION_TOKENS)[number];
+
+/**
+ * The three 👀 becomes, once there is a level system to gate them. Named here
+ * so the split is a planned widening rather than a rediscovery. Not accepted
+ * by `isResolutionToken`, so nothing can place one yet.
+ */
+export const DEFERRED_RESOLUTION_TOKENS = ["🔍", "⚖️", "🍷"] as const;
 
 export function isResolutionToken(value: string): value is ResolutionToken {
   return (RESOLUTION_TOKENS as readonly string[]).includes(value);
@@ -27,12 +43,33 @@ export function isResolutionToken(value: string): value is ResolutionToken {
 
 /**
  * How many threads a game must have resolved before resolving them all ends it.
- * The deployed 2024 server used four, and nothing in the roadmap replaces that
- * number, so four is carried forward rather than invented. Without a floor, one
- * thread resolved on the first exchange would end the game.
- * GAP: Steve has not ratified the number (BRAIN-T260823-10).
+ * Without a floor, one thread resolved on the first exchange ends the game.
+ * GAP: Steve ruled the ceiling on 2026-08-23 and did not restate this number,
+ * so four is still carried forward from the deployed 2024 server rather than
+ * ratified (BRAIN-T260823-10).
  */
 export const MIN_THREADS_TO_END = 4;
+
+/**
+ * The most threads a game may hold. Steve, 2026-08-23: games end by resolving
+ * every thread, up to six. The cap is what makes that ending reachable, since
+ * a board people can keep widening never runs out of threads to resolve.
+ * Enforced on placement: a tile that would open a seventh thread is refused.
+ */
+export const MAX_THREADS = 6;
+
+/**
+ * Whether agreeing on a rewritten topic ends this game.
+ *
+ * Steve, 2026-08-23: yes, but only in live play or in a baked gym game. Free
+ * gym practice is somewhere to try a rewrite and keep going, so there the topic
+ * changes and the board stays open. A gym run carrying a level or a boss is a
+ * written scenario with an intended ending, so it counts.
+ */
+export function topicAgreementEndsGame(board: BoardState): boolean {
+  if (board.mode === "live") return true;
+  return board.levelId !== null || board.bossId !== null;
+}
 
 export const OTHER_SIDE: Record<Side, Side> = { plus: "minus", minus: "plus" };
 
@@ -115,7 +152,15 @@ export function canPlaceTile(
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
   }
 
-  if (parentTileId !== null) {
+  if (parentTileId === null) {
+    // A tile with no parent opens a new thread, and six is all a game gets.
+    const live = board.threads.filter((thread) => thread.tileCount > 0).length;
+    if (live >= MAX_THREADS) {
+      return no(
+        `A game holds at most ${MAX_THREADS} threads. Add this to one of them instead.`,
+      );
+    }
+  } else {
     const parent = board.tiles.find((tile) => tile.id === parentTileId);
     if (!parent) return no("That reason is not on this board.");
     if (parent.removed) return no("That reason was taken off the board.");
