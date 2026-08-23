@@ -7,5 +7,8 @@ export default defineConfig({
       // server-only throws outside a bundler; the guard is a build concern.
       "server-only": path.resolve(import.meta.dirname, "lib/test/empty.ts"),
     } },
-  test: { include: ["lib/**/*.test.ts"], environment: "node" },
+  test: {
+    include: ["{lib,components}/**/*.test.{ts,tsx}"],
+    environment: "node",
+  },
 });

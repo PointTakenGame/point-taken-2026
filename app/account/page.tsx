@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { currentPlayerId } from "@/lib/supabase/session";
 import { getPlayer } from "@/lib/db/players";
 import { getPlayerStats, type PlayerStats } from "@/lib/db/stats";
@@ -12,7 +13,8 @@ import { StartPlaying } from "./start-playing";
  * Deliberately unstyled beyond plain type. Rannie's profile frames carry a
  * level ladder, a ranked division and a cooperation score that are not decided
  * yet (BRAIN-T260817-02, BRAIN-T260816-08), so building to them now would bake
- * in numbers the game does not have. Registry row BRAIN-T260714-69.
+ * in numbers the game does not have. Each game in the history opens its board,
+ * replayed from the log at /game/[gameId]. Registry row BRAIN-T260714-69.
  */
 
 export const dynamic = "force-dynamic";
@@ -51,20 +53,25 @@ function History({ games }: { games: GameRow[] }) {
   return (
     <ul className="flex flex-col divide-y divide-current/10">
       {games.map((game) => (
-        <li key={game.id} className="flex items-baseline justify-between gap-4 py-3">
-          <span>
-            {game.mode === "gym" ? "Gym" : "Live"}
-            <span className="opacity-70">
-              {game.status === "ended"
-                ? ` ${OUTCOME[game.win_condition ?? ""] ?? "Ended"}`
-                : game.status === "active"
-                  ? " In progress"
-                  : " Waiting to start"}
+        <li key={game.id}>
+          <Link
+            href={`/game/${game.id}`}
+            className="flex items-baseline justify-between gap-4 py-3 hover:underline"
+          >
+            <span>
+              {game.mode === "gym" ? "Gym" : "Live"}
+              <span className="opacity-70">
+                {game.status === "ended"
+                  ? ` ${OUTCOME[game.win_condition ?? ""] ?? "Ended"}`
+                  : game.status === "active"
+                    ? " In progress"
+                    : " Waiting to start"}
+              </span>
             </span>
-          </span>
-          <span className="shrink-0 text-sm opacity-70">
-            {day(game.ended_at ?? game.started_at ?? game.created_at)}
-          </span>
+            <span className="shrink-0 text-sm opacity-70">
+              {day(game.ended_at ?? game.started_at ?? game.created_at)}
+            </span>
+          </Link>
         </li>
       ))}
     </ul>
