@@ -83,7 +83,16 @@ export function CoachPanel({
   me: { playerId: string };
   enabled: boolean;
 }): ReactElement {
+  // The switch is optimistic, so it keeps its own copy; but the server value is
+  // the truth, and it changes under us whenever the page refetches (or, in the
+  // dev hot seat, whenever we become the other player). React's documented
+  // recipe for that: notice the prop moved, and take it.
   const [on, setOn] = useState(enabled);
+  const [lastFromServer, setLastFromServer] = useState(enabled);
+  if (lastFromServer !== enabled) {
+    setLastFromServer(enabled);
+    setOn(enabled);
+  }
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
