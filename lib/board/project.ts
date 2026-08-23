@@ -1,5 +1,6 @@
 import type {
   AnyGameEvent,
+  GameEventType,
   ProposalContent,
   ProposalKind,
   Side,
@@ -120,6 +121,87 @@ export interface CoachReading {
   shown: boolean;
 }
 
+/**
+ * One thing the coach said unprompted, rather than about a tile the player just
+ * wrote. Nothing writes these in live play: the nudge is a script directive a
+ * gym run steps through. Projected anyway, because the alternative is a read
+ * model that silently loses events the moment the gym lands.
+ */
+export interface BoardNudge {
+  seq: number;
+  kind: string;
+  text: string | null;
+  targetTileId: Uuid | null;
+  cardId: string | null;
+  /** Whose coach nudged them. */
+  forPlayer: Uuid | null;
+}
+
+/**
+ * An event this projection could not fold, and did not pretend to.
+ *
+ * The log contract is that a reader declares the (type, version) pairs it
+ * understands, skips everything else, and says so. Silence is the failure mode
+ * worth naming: an event written at version 2 and folded as if it were
+ * version 1 is a board that is quietly wrong, which is worse than a board that
+ * is visibly missing something.
+ */
+export interface SkippedEvent {
+  seq: number;
+  type: string;
+  schemaVersion: number;
+  /** `unknown_type`: the log is ahead of this code. `unknown_version`: same
+      type, a shape this code has never seen. */
+  reason: "unknown_type" | "unknown_version";
+}
+
+/**
+ * What this projection understands, stated once.
+ *
+ * A number list means "folded, at these payload versions". `null` means
+ * "deliberately not board state", and the comment beside it says why: those are
+ * skipped in silence, because a declared decision is not a gap.
+ *
+ * Typed as a total Record on purpose. Adding an event type to `EventPayloads`
+ * fails to compile until someone decides which of the two this is, which is the
+ * whole point: the 28th type got missed here once already.
+ */
+export const PROJECTED_VERSIONS: Record<GameEventType, number[] | null> = {
+  game_created: [1],
+  player_joined: [1],
+  role_selected: [1],
+  agreement_signed: [1],
+  topic_set: [1],
+  game_started: [1],
+  player_left: [1],
+  game_ended: [1],
+  tile_placed: [1],
+  tile_edited: [1],
+  tile_revised: [1],
+  tile_relocated: [1],
+  tile_removed: [1],
+  resolution_emoji_placed: [1],
+  resolution_emoji_removed: [1],
+  thread_resolved: [1],
+  proposal_made: [1],
+  proposal_accepted: [1],
+  proposal_rejected: [1],
+  topic_revised: [1],
+  card_thrown: [1],
+  card_throw_declined: [1],
+  generosity_token_given: [1],
+  ai_feedback_returned: [1],
+  ai_feedback_shown: [1],
+  coach_nudge_delivered: [1],
+  // A client's own account of a gym run: rules version, build, its event count.
+  // It exists to be compared against the log by a validator, so folding it into
+  // the board would make the board a party to its own audit.
+  gym_run_recorded: null,
+  // Folded, but in the pre-pass: a redaction rewrites the event it points at,
+  // so it has to be known before the fold starts rather than during it.
+  content_redacted: [1],
+};
+
 export interface BoardState {
   mode: GameMode | null;
   /**
@@ -142,6 +224,10 @@ export interface BoardState {
   proposals: BoardProposal[];
   /** Every coach reading, both sides'. Filter by `forPlayer` before rendering. */
   coachReadings: CoachReading[];
+  /** Every unprompted coach nudge, both sides'. Filter by `forPlayer` too. */
+  nudges: BoardNudge[];
+  /** Events this code did not understand. Empty is the normal case. */
+  skipped: SkippedEvent[];
   /** Null until game_started. The board is not playable before then. */
   settings: BoardSettings | null;
   generosity: Record<Side, number>;
@@ -171,6 +257,10 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   const players = new Map<Uuid, BoardPlayer>();
   const proposals = new Map<Uuid, BoardProposal>();
   const readings = new Map<number, CoachReading>();
+  const nudges: BoardNudge[] = [];
+  // Which tile a throw landed on, by the throw's own seq, so a later decline
+  // can take it back off that tile.
+  const throwTargets = new Map<number, Uuid>();
 
   const state: BoardState = {
     mode: null,
@@ -185,6 +275,8 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     tiles: [],
     proposals: [],
     coachReadings: [],
+    nudges: [],
+    skipped: [],
     settings: null,
     generosity: { plus: 0, minus: 0 },
     lastSeq: 0,
@@ -208,6 +300,30 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
   for (const event of ordered) {
     state.lastSeq = Math.max(state.lastSeq, event.seq);
+
+    // Declared understanding, checked before the fold rather than trusted.
+    // lastSeq is still advanced above: the board's position in the log is a
+    // fact about the log, not about how much of it this code could read.
+    const understood = PROJECTED_VERSIONS[event.type as GameEventType];
+    if (understood === undefined) {
+      state.skipped.push({
+        seq: event.seq,
+        type: event.type,
+        schemaVersion: event.schema_version,
+        reason: "unknown_type",
+      });
+      continue;
+    }
+    if (understood === null) continue;
+    if (!understood.includes(event.schema_version)) {
+      state.skipped.push({
+        seq: event.seq,
+        type: event.type,
+        schemaVersion: event.schema_version,
+        reason: "unknown_version",
+      });
+      continue;
+    }
 
     switch (event.type) {
       case "game_created": {
@@ -413,7 +529,21 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
       case "card_thrown": {
         const tile = tiles.get(event.payload.target_tile_id);
-        if (tile) tile.cardsThrown += 1;
+        if (!tile) break;
+        tile.cardsThrown += 1;
+        throwTargets.set(event.seq, tile.id);
+        break;
+      }
+
+      case "card_throw_declined": {
+        // A declined throw did not land, so the tile it aimed at should not go
+        // on carrying it. Corrective, in the log's sense: the throw stays in
+        // the history and stops counting on the board.
+        const tileId = throwTargets.get(event.payload.in_response_to_seq);
+        if (!tileId) break;
+        throwTargets.delete(event.payload.in_response_to_seq);
+        const tile = tiles.get(tileId);
+        if (tile && tile.cardsThrown > 0) tile.cardsThrown -= 1;
         break;
       }
 
@@ -440,11 +570,25 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
         break;
       }
 
+      case "coach_nudge_delivered": {
+        nudges.push({
+          seq: event.seq,
+          kind: event.payload.nudge_kind,
+          text: isRedacted(event.seq) ? REDACTED_TEXT : event.payload.text,
+          targetTileId: event.payload.target_tile_id ?? null,
+          cardId: event.payload.card_id ?? null,
+          forPlayer: event.actor_id,
+        });
+        break;
+      }
+
       case "generosity_token_given": {
         state.generosity[event.payload.to_role] += 1;
         break;
       }
 
+      // Unreachable: the gate above already sent anything undeclared to
+      // `skipped`. Kept so the switch stays exhaustive to the compiler.
       default:
         break;
     }
@@ -468,6 +612,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     (a, b) => a.askedAtSeq - b.askedAtSeq,
   );
   state.coachReadings = [...readings.values()].sort((a, b) => a.seq - b.seq);
+  state.nudges = nudges;
   state.threads = [...threads.values()];
   state.tiles = [...tiles.values()].sort((a, b) => a.placedAtSeq - b.placedAtSeq);
   return state;

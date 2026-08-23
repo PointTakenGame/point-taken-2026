@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { projectBoard, REDACTED_TEXT } from "./project";
-import type {
-  AnyGameEvent,
-  EventPayloads,
-  GameEventType,
+import { projectBoard, PROJECTED_VERSIONS, REDACTED_TEXT } from "./project";
+import {
+  EVENT_TYPES,
+  EVENT_TYPE_NAMES,
+  type AnyGameEvent,
+  type EventPayloads,
+  type GameEventType,
 } from "@/lib/events/types";
 
 const GAME = "00000000-0000-4000-8000-000000000000";
@@ -245,5 +247,145 @@ describe("projectBoard", () => {
     const board = projectBoard(l.events);
     expect(board.players).toHaveLength(2);
     expect(board.players[1].left).toBeNull();
+  });
+});
+
+describe("the declared contract", () => {
+  it("has an entry for every event type in the catalogue", () => {
+    // The point of this one: adding a type to EVENT_PAYLOADS and forgetting the
+    // board is exactly how three types ended up silently unread. A new type now
+    // fails here until someone says whether it changes the board or not.
+    for (const name of EVENT_TYPE_NAMES) {
+      expect(PROJECTED_VERSIONS).toHaveProperty(name);
+    }
+    expect(Object.keys(PROJECTED_VERSIONS).sort()).toEqual(
+      [...EVENT_TYPE_NAMES].sort(),
+    );
+  });
+
+  it("understands the version each type is currently written at", () => {
+    for (const [name, versions] of Object.entries(PROJECTED_VERSIONS)) {
+      if (versions === null) continue;
+      const current = EVENT_TYPES[name as GameEventType].schemaVersion;
+      expect(
+        versions,
+        `${name} is written at v${current} but this projection reads ${versions.join(", ")}`,
+      ).toContain(current);
+    }
+  });
+
+  it("skips an unknown type and says so", () => {
+    const l = opened();
+    l.events.push({
+      id: "future",
+      game_id: GAME,
+      seq: l.events.length + 1,
+      type: "tile_smelted",
+      schema_version: 1,
+      actor_role: "plus",
+      source: "human",
+      actor_id: ALICE,
+      payload: {},
+      created_at: "2026-08-22T00:00:00Z",
+    } as unknown as AnyGameEvent);
+
+    const board = projectBoard(l.events);
+    expect(board.skipped).toEqual([
+      {
+        seq: l.events.length,
+        type: "tile_smelted",
+        schemaVersion: 1,
+        reason: "unknown_type",
+      },
+    ]);
+    // Still the log's last seq: how far the board has read is a fact about the
+    // log, not about how much of it this code understood.
+    expect(board.lastSeq).toBe(l.events.length);
+  });
+
+  it("skips a known type at an unknown version rather than guessing", () => {
+    const l = opened();
+    const root = l.push(
+      "tile_placed",
+      {
+        tile_id: "aaaaaaaa-0000-4000-8000-000000000001",
+        parent_tile_id: null,
+        thread_root_id: "aaaaaaaa-0000-4000-8000-000000000001",
+        text: "Rent caps cut new construction.",
+        side: "minus",
+      },
+      BOB,
+    );
+    l.events.push({
+      id: "v2",
+      game_id: GAME,
+      seq: l.events.length + 1,
+      type: "tile_removed",
+      schema_version: 2,
+      actor_role: "minus",
+      source: "human",
+      actor_id: BOB,
+      payload: { tile_id: "aaaaaaaa-0000-4000-8000-000000000001" },
+      created_at: "2026-08-22T00:00:00Z",
+    } as unknown as AnyGameEvent);
+
+    const board = projectBoard(l.events);
+    expect(board.skipped).toEqual([
+      {
+        seq: l.events.length,
+        type: "tile_removed",
+        schemaVersion: 2,
+        reason: "unknown_version",
+      },
+    ]);
+    // Not folded as if it were v1: the tile is still standing.
+    expect(board.tiles.find((t) => t.placedAtSeq === root)?.removed).toBe(false);
+  });
+
+  it("leaves skipped empty on an ordinary game", () => {
+    const l = opened();
+    expect(projectBoard(l.events).skipped).toEqual([]);
+  });
+
+  it("takes a declined card throw back off the tile", () => {
+    const l = opened();
+    const tileId = "aaaaaaaa-0000-4000-8000-000000000002";
+    l.push(
+      "tile_placed",
+      {
+        tile_id: tileId,
+        parent_tile_id: null,
+        thread_root_id: tileId,
+        text: "Caps help the people already housed.",
+        side: "plus",
+      },
+      ALICE,
+    );
+    const thrown = l.push(
+      "card_thrown",
+      { card_id: "hasty-generalisation", rung_id: null, target_tile_id: tileId },
+      BOB,
+    );
+    expect(projectBoard(l.events).tiles[0].cardsThrown).toBe(1);
+
+    l.push(
+      "card_throw_declined",
+      { in_response_to_seq: thrown, reason: "Fair point, withdrawn." },
+      ALICE,
+    );
+    expect(projectBoard(l.events).tiles[0].cardsThrown).toBe(0);
+  });
+
+  it("keeps a coach nudge, and says whose it was", () => {
+    const l = opened();
+    l.push(
+      "coach_nudge_delivered",
+      { nudge_kind: "opening", text: "Say what you actually want here." },
+      ALICE,
+    );
+    const board = projectBoard(l.events);
+    expect(board.nudges).toHaveLength(1);
+    expect(board.nudges[0].kind).toBe("opening");
+    expect(board.nudges[0].forPlayer).toBe(ALICE);
   });
 });
