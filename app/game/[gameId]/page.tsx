@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FinishedMap } from "@/components/board/finished-map";
+import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { GameSetup } from "@/components/board/game-setup";
 import { LiveBoard } from "@/components/board/live-board";
 import { projectBoard } from "@/lib/board/project";
+import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { readGameEvents } from "@/lib/events/append";
 import { readSeat } from "@/lib/games/membership";
 
@@ -38,6 +40,19 @@ export default async function GamePage({
 
   const board = projectBoard(await readGameEvents(gameId));
 
+  // Local sandbox bypass, see docs/filed/SANDBOX.md. Inert outside local dev.
+  const hotseat = hotseatAllowed() ? (
+    <HotseatBar
+      gameId={gameId}
+      me={seat.seat.playerId}
+      players={board.players.map((player) => ({
+        id: player.id,
+        displayName: player.displayName,
+        role: player.role,
+      }))}
+    />
+  ) : null;
+
   if (board.status === "ended") {
     return (
       <>
@@ -50,18 +65,22 @@ export default async function GamePage({
             Start another room
           </Link>
         </nav>
+        {hotseat}
       </>
     );
   }
 
   if (board.status === "lobby") {
     return (
-      <GameSetup
-        gameId={gameId}
-        board={board}
-        joinCode={seat.seat.game.join_code}
-        me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
-      />
+      <>
+        <GameSetup
+          gameId={gameId}
+          board={board}
+          joinCode={seat.seat.game.join_code}
+          me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
+        />
+        {hotseat}
+      </>
     );
   }
 
@@ -69,20 +88,26 @@ export default async function GamePage({
   // both roles. Send them back to setup rather than render a sideless board.
   if (seat.seat.role === null) {
     return (
-      <GameSetup
-        gameId={gameId}
-        board={board}
-        joinCode={seat.seat.game.join_code}
-        me={{ playerId: seat.seat.playerId, role: null }}
-      />
+      <>
+        <GameSetup
+          gameId={gameId}
+          board={board}
+          joinCode={seat.seat.game.join_code}
+          me={{ playerId: seat.seat.playerId, role: null }}
+        />
+        {hotseat}
+      </>
     );
   }
 
   return (
-    <LiveBoard
-      gameId={gameId}
-      board={board}
-      me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
-    />
+    <>
+      <LiveBoard
+        gameId={gameId}
+        board={board}
+        me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
+      />
+      {hotseat}
+    </>
   );
 }

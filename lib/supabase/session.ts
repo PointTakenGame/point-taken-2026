@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Uuid } from "@/lib/events/types";
+import { hotseatPlayerId } from "@/lib/dev/hotseat";
 
 /**
  * The signed-in player's own client, carrying their session rather than the
@@ -50,8 +51,15 @@ export async function sessionClient(): Promise<SupabaseClient> {
  * Who is signed in, or null. This asks the auth server rather than trusting
  * the cookie: a session cookie is user-supplied data and `getSession()` does
  * not verify it, so it must never decide what a page is allowed to show.
+ *
+ * The dev hot-seat override is checked first and is inert outside local dev
+ * (see lib/dev/hotseat.ts). It changes who you are, never what you may do:
+ * membership and actor_role are still read from the database afterwards.
  */
 export async function currentPlayerId(): Promise<Uuid | null> {
+  const pretending = await hotseatPlayerId();
+  if (pretending) return pretending;
+
   const supabase = await sessionClient();
   const { data, error } = await supabase.auth.getUser();
   if (error) return null;
