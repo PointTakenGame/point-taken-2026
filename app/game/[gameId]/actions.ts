@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as rules from "@/lib/board/rules";
 import type { GameEventType, NewEvent, Side, Uuid } from "@/lib/events/types";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
+import { runCoach } from "@/lib/coach/run";
+import { setCoachEnabled } from "@/lib/db/players";
 import { endIfAbandoned } from "@/lib/games/abandon";
 import {
   MEMBERSHIP_MESSAGES,
@@ -64,6 +67,12 @@ function refresh(gameId: string): void {
   revalidatePath(`/game/${gameId}`);
 }
 
+/** The claim a thread hangs off, which is what "on topic" is measured against.
+    Null when the root itself is the tile being read. */
+function rootText(board: BoardState, threadRootId: Uuid): string | null {
+  return board.tiles.find((tile) => tile.id === threadRootId)?.text ?? null;
+}
+
 export async function placeTile(
   gameId: string,
   input: { text: string; parentTileId: string | null },
@@ -92,6 +101,21 @@ export async function placeTile(
       text: input.text.trim(),
     },
   });
+
+  // The reading happens after the response goes out, so placing a tile never
+  // waits on a model call. It lands on the board a second later over realtime,
+  // and only for the player whose tile it is.
+  after(
+    runCoach(gameId, {
+      playerId: membership.playerId,
+      tileId,
+      input: {
+        topic: board.currentTopicText ?? "",
+        threadRoot: parent ? rootText(board, parent.threadRootId) : null,
+        text: input.text.trim(),
+      },
+    }),
+  );
 
   refresh(gameId);
   return { ok: true };
@@ -462,6 +486,53 @@ export async function leaveGame(
     payload: { reason: input.reason },
   });
   await endIfAbandoned(gameId);
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * Turn the coach on or off. A preference, not a move, so it never reaches the
+ * log; what does reach the log is anything the coach actually says.
+ */
+export async function setCoach(
+  gameId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+
+  await setCoachEnabled(loaded.membership.playerId, enabled);
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * Dismiss a coach reading. It is an event rather than local state because a
+ * reload should not hand the player the same note again, and because the study
+ * cares about the difference between advice given and advice read.
+ */
+export async function dismissCoachReading(
+  gameId: string,
+  seq: number,
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const reading = board.coachReadings.find((item) => item.seq === seq);
+  if (!reading) return failed("There is no such note.");
+  // Only the player it was written for. The projection holds both sides'.
+  if (reading.forPlayer !== membership.playerId) {
+    return failed("That note is not yours.");
+  }
+  if (reading.shown) return { ok: true };
+
+  await appendGameEvent(gameId, {
+    type: "ai_feedback_shown",
+    ...asPlayer(membership),
+    payload: { in_response_to_seq: seq },
+  });
 
   refresh(gameId);
   return { ok: true };

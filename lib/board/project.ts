@@ -97,6 +97,29 @@ export interface BoardSettings {
   coach: { coachId: string; temperament: string } | null;
 }
 
+/**
+ * One thing the coach said about one tile.
+ *
+ * `forPlayer` is the only thing that makes a reading private. The server
+ * projects the log through the service role, which bypasses RLS, so this array
+ * holds both players' readings and the board must filter it. The database
+ * refuses the same rows to a browser client (policy `game_events_read_member`),
+ * which is what keeps a curious opponent out; the filter here is what keeps the
+ * page from rendering something it should not.
+ */
+export interface CoachReading {
+  seq: number;
+  tileId: Uuid;
+  /** Whose coach this was. Null only for readings written before 0008. */
+  forPlayer: Uuid | null;
+  /** Card ids from the deck. At most one, but the payload allows more. */
+  cardIds: string[];
+  feedback: string | null;
+  suggestion: string | null;
+  /** The player has seen it. Dismissing is an event, so it survives a reload. */
+  shown: boolean;
+}
+
 export interface BoardState {
   mode: GameMode | null;
   /**
@@ -117,6 +140,8 @@ export interface BoardState {
   tiles: BoardTile[];
   /** Every proposal ever made, in the order asked. */
   proposals: BoardProposal[];
+  /** Every coach reading, both sides'. Filter by `forPlayer` before rendering. */
+  coachReadings: CoachReading[];
   /** Null until game_started. The board is not playable before then. */
   settings: BoardSettings | null;
   generosity: Record<Side, number>;
@@ -145,6 +170,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   const threads = new Map<Uuid, BoardThread>();
   const players = new Map<Uuid, BoardPlayer>();
   const proposals = new Map<Uuid, BoardProposal>();
+  const readings = new Map<number, CoachReading>();
 
   const state: BoardState = {
     mode: null,
@@ -158,6 +184,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     threads: [],
     tiles: [],
     proposals: [],
+    coachReadings: [],
     settings: null,
     generosity: { plus: 0, minus: 0 },
     lastSeq: 0,
@@ -390,6 +417,29 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
         break;
       }
 
+      case "ai_feedback_returned": {
+        readings.set(event.seq, {
+          seq: event.seq,
+          tileId: event.payload.tile_id,
+          forPlayer: event.actor_id,
+          cardIds: event.payload.error_types,
+          feedback: isRedacted(event.seq, "feedback")
+            ? REDACTED_TEXT
+            : event.payload.feedback,
+          suggestion: isRedacted(event.seq, "suggestion")
+            ? REDACTED_TEXT
+            : event.payload.suggestion,
+          shown: false,
+        });
+        break;
+      }
+
+      case "ai_feedback_shown": {
+        const reading = readings.get(event.payload.in_response_to_seq);
+        if (reading) reading.shown = true;
+        break;
+      }
+
       case "generosity_token_given": {
         state.generosity[event.payload.to_role] += 1;
         break;
@@ -417,6 +467,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   state.proposals = [...proposals.values()].sort(
     (a, b) => a.askedAtSeq - b.askedAtSeq,
   );
+  state.coachReadings = [...readings.values()].sort((a, b) => a.seq - b.seq);
   state.threads = [...threads.values()];
   state.tiles = [...tiles.values()].sort((a, b) => a.placedAtSeq - b.placedAtSeq);
   return state;

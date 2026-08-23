@@ -1,0 +1,72 @@
+import { FIRST_RELEASE_CARDS } from "@/lib/board/setup";
+
+/**
+ * What the coach is allowed to say.
+ *
+ * The coach's whole vocabulary is the card set the players already hold. That
+ * is deliberate: a coach that invents its own categories teaches a second,
+ * invisible rulebook, and the player has no card to throw in response to it.
+ * If it is not a card, the coach does not raise it.
+ *
+ * The full ruleset is not settled (Steve, 2026-08-23: build the infrastructure,
+ * the rules come later), so this is the first-release four and nothing else.
+ * Adding a rung or a fifth card means adding it here, not editing the prompt.
+ */
+export interface CoachCard {
+  id: string;
+  icon: string;
+  name: string;
+  /** What breaking it looks like, written for the model, not for a player. */
+  breaks: string;
+  /** Shown to the player under the card name when the coach cites it. */
+  plain: string;
+}
+
+export const COACH_CARDS: readonly CoachCard[] = [
+  {
+    id: "you_is_taboo",
+    icon: "\u{1F645}",
+    name: '"You" is Taboo',
+    breaks:
+      'The reason describes the other player rather than the question: what they believe, why they believe it, what kind of person holds that view. Second-person address about the argument ("you said", "as you noted") is fine. Characterising the person is not.',
+    plain: "This talks about the other player rather than the question.",
+  },
+  {
+    id: "stick_to_root",
+    icon: "\u{1F3AF}",
+    name: "Stick to the Thread's Root",
+    breaks:
+      "The reason does not bear on the claim at the root of the thread it was played into. It may be true and interesting and still belong in a thread of its own.",
+    plain: "This is a different argument from the one this thread is about.",
+  },
+  {
+    id: "no_exaggeration",
+    icon: "\u{1F4CF}",
+    name: "No Exaggeration",
+    breaks:
+      'The reason overstates: an absolute where the evidence supports a tendency ("always", "never", "everyone"), a worst case presented as the expected case, or a number with no source behind it.',
+    plain: "This claims more than it can carry.",
+  },
+  {
+    id: "help_me_understand",
+    icon: "\u{1F4AC}",
+    name: "Help Me Understand",
+    breaks:
+      "The reason is too compressed to answer. A key term is undefined, or the step from the evidence to the conclusion is left for the reader to guess at.",
+    plain: "The other side cannot answer this without guessing what you meant.",
+  },
+];
+
+export const COACH_CARD_IDS: readonly string[] = COACH_CARDS.map((card) => card.id);
+
+export function coachCard(id: string): CoachCard | undefined {
+  return COACH_CARDS.find((card) => card.id === id);
+}
+
+/** Fails loudly if the two lists drift apart, which is the bug that would make
+    the coach cite a card nobody is holding. */
+export function coachCardsMatchDeck(): boolean {
+  const deck = FIRST_RELEASE_CARDS.map((card) => card.id).slice().sort();
+  const coach = COACH_CARD_IDS.slice().sort();
+  return deck.length === coach.length && deck.every((id, i) => id === coach[i]);
+}

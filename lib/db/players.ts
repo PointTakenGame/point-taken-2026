@@ -82,3 +82,22 @@ export async function setDisplayName(
   if (error) throw new Error(`set display name failed: ${error.message}`);
   return data as PlayerRow;
 }
+
+/**
+ * Turn the coach on or off for this player. It is a preference, not a move: it
+ * stays off the event log, and it only ever affects whose reasons get read.
+ */
+export async function setCoachEnabled(
+  playerId: Uuid,
+  enabled: boolean,
+): Promise<PlayerRow> {
+  const { data, error } = await serviceClient()
+    .from("players")
+    .update({ coach_enabled: enabled })
+    .eq("id", playerId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`set coach_enabled failed: ${error.message}`);
+  return data as PlayerRow;
+}

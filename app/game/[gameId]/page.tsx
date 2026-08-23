@@ -6,6 +6,7 @@ import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { GameSetup } from "@/components/board/game-setup";
 import { LiveBoard } from "@/components/board/live-board";
 import { projectBoard } from "@/lib/board/project";
+import { getPlayer } from "@/lib/db/players";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { readGameEvents } from "@/lib/events/append";
 import { readSeat } from "@/lib/games/membership";
@@ -39,6 +40,8 @@ export default async function GamePage({
   if (!seat.ok) notFound();
 
   const board = projectBoard(await readGameEvents(gameId));
+  // A preference, not a move, so it lives on the player row rather than the log.
+  const player = await getPlayer(seat.seat.playerId);
 
   // Local sandbox bypass, see docs/filed/SANDBOX.md. Inert outside local dev.
   const hotseat = hotseatAllowed() ? (
@@ -106,6 +109,7 @@ export default async function GamePage({
         gameId={gameId}
         board={board}
         me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
+        coachEnabled={player?.coach_enabled ?? false}
       />
       {hotseat}
     </>

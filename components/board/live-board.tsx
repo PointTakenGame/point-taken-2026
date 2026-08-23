@@ -18,6 +18,7 @@ import {
   proposalsFrom,
 } from "@/lib/board/rules";
 import { useGameFeed } from "./use-game-feed";
+import { CoachPanel } from "./coach-panel";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
@@ -44,6 +45,8 @@ export interface LiveBoardProps {
   gameId: string;
   board: BoardState;
   me: { playerId: string; role: Side };
+  /** Whether this player has the coach switched on. Off by default. */
+  coachEnabled: boolean;
 }
 
 /** Every live tile that has no live parent and is not a thread root. */
@@ -576,7 +579,12 @@ function ThreadBlock({
   );
 }
 
-export function LiveBoard({ gameId, board, me }: LiveBoardProps): ReactElement {
+export function LiveBoard({
+  gameId,
+  board,
+  me,
+  coachEnabled,
+}: LiveBoardProps): ReactElement {
   const awaiting = proposalsAwaiting(board, me.role);
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
@@ -619,6 +627,8 @@ export function LiveBoard({ gameId, board, me }: LiveBoardProps): ReactElement {
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Place a tile</h2>
         <Composer gameId={gameId} board={board} />
       </section>
+
+      <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
 
       {board.threads.length === 0 ? (
         <p className="opacity-70">No threads yet. Place the first tile above.</p>

@@ -34,6 +34,8 @@ export interface PlayerRow {
   display_name: string | null;
   claimed_at: string | null;
   created_at: string;
+  /** Player has asked the coach to read their reasons. Off by default. */
+  coach_enabled: boolean;
 }
 
 export interface GameRow {
