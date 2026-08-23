@@ -1,5 +1,7 @@
 import type {
   AnyGameEvent,
+  ProposalContent,
+  ProposalKind,
   Side,
   Uuid,
 } from "@/lib/events/types";
@@ -40,8 +42,13 @@ export interface BoardThread {
   /** Live tiles in the thread whose parent is gone. Never silently dropped. */
   orphans: BoardTile[];
   tileCount: number;
-  /** An emoji placed but not yet committed by `thread_resolved`. */
-  pendingEmoji: string | null;
+  /**
+   * What each side has put down but not yet committed. A thread resolves only
+   * when both sides show the same token, so one value per side is the whole
+   * mechanic: a single shared field could not tell agreement from one player
+   * changing their mind.
+   */
+  pending: Record<Side, string | null>;
   resolution: { emoji: string; note: string | null; seq: number } | null;
 }
 
@@ -49,6 +56,8 @@ export interface BoardPlayer {
   id: Uuid;
   displayName: string | null;
   role: Side | null;
+  /** Which lines they signed, or null if they have not signed. */
+  signed: string[] | null;
   left: "disconnect" | "quit" | null;
 }
 
@@ -58,6 +67,34 @@ export interface BoardTopic {
   topicId: string | null;
   redacted: boolean;
   revisions: { text: string; seq: number; redacted: boolean }[];
+}
+
+export type ProposalStatus = "pending" | "accepted" | "rejected";
+
+export interface BoardProposal {
+  id: Uuid;
+  kind: ProposalKind;
+  content: ProposalContent;
+  targetTileId: Uuid | null;
+  targetThreadRootId: Uuid | null;
+  /** Which side asked. The other side is the one who may answer. */
+  askedBy: Side | null;
+  askedByPlayer: Uuid | null;
+  askedAtSeq: number;
+  status: ProposalStatus;
+  /** Set when rejected with a reason. */
+  reason: string | null;
+  answeredAtSeq: number | null;
+}
+
+/** The rules this game was started under. Settled once, at game_started. */
+export interface BoardSettings {
+  cardSet: {
+    policy: "intersection" | "raised";
+    cardIds: string[];
+    raisedBy: Uuid | null;
+  };
+  coach: { coachId: string; temperament: string } | null;
 }
 
 export interface BoardState {
@@ -71,6 +108,10 @@ export interface BoardState {
   threads: BoardThread[];
   /** Every tile in placement order, removed ones included. */
   tiles: BoardTile[];
+  /** Every proposal ever made, in the order asked. */
+  proposals: BoardProposal[];
+  /** Null until game_started. The board is not playable before then. */
+  settings: BoardSettings | null;
   generosity: Record<Side, number>;
   lastSeq: number;
 }
@@ -96,6 +137,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   const tiles = new Map<Uuid, BoardTile>();
   const threads = new Map<Uuid, BoardThread>();
   const players = new Map<Uuid, BoardPlayer>();
+  const proposals = new Map<Uuid, BoardProposal>();
 
   const state: BoardState = {
     mode: null,
@@ -106,6 +148,8 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     players: [],
     threads: [],
     tiles: [],
+    proposals: [],
+    settings: null,
     generosity: { plus: 0, minus: 0 },
     lastSeq: 0,
   };
@@ -118,7 +162,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
         root: null,
         orphans: [],
         tileCount: 0,
-        pendingEmoji: null,
+        pending: { plus: null, minus: null },
         resolution: null,
       };
       threads.set(rootId, existing);
@@ -144,6 +188,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
             id: event.actor_id,
             displayName: event.payload.display_name,
             role: null,
+            signed: null,
             left: null,
           });
         break;
@@ -152,6 +197,12 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
       case "role_selected": {
         const player = event.actor_id && players.get(event.actor_id);
         if (player) player.role = event.payload.role;
+        break;
+      }
+
+      case "agreement_signed": {
+        const player = event.actor_id && players.get(event.actor_id);
+        if (player) player.signed = event.payload.items;
         break;
       }
 
@@ -186,6 +237,19 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
       case "game_started": {
         if (state.status === "lobby") state.status = "active";
+        state.settings = {
+          cardSet: {
+            policy: event.payload.card_set.policy,
+            cardIds: event.payload.card_set.card_ids,
+            raisedBy: event.payload.card_set.raised_by,
+          },
+          coach: event.payload.coach
+            ? {
+                coachId: event.payload.coach.coach_id,
+                temperament: event.payload.coach.temperament,
+              }
+            : null,
+        };
         break;
       }
 
@@ -252,12 +316,15 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
       }
 
       case "resolution_emoji_placed": {
-        thread(event.payload.thread_root_id).pendingEmoji = event.payload.emoji;
+        if (event.actor_role === "server") break;
+        thread(event.payload.thread_root_id).pending[event.actor_role] =
+          event.payload.emoji;
         break;
       }
 
       case "resolution_emoji_removed": {
-        thread(event.payload.thread_root_id).pendingEmoji = null;
+        if (event.actor_role === "server") break;
+        thread(event.payload.thread_root_id).pending[event.actor_role] = null;
         break;
       }
 
@@ -268,7 +335,41 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
           note: isRedacted(event.seq, "note") ? REDACTED_TEXT : event.payload.note,
           seq: event.seq,
         };
-        target.pendingEmoji = null;
+        target.pending = { plus: null, minus: null };
+        break;
+      }
+
+      case "proposal_made": {
+        proposals.set(event.payload.proposal_id, {
+          id: event.payload.proposal_id,
+          kind: event.payload.kind,
+          content: event.payload.content,
+          targetTileId: event.payload.target_tile_id,
+          targetThreadRootId: event.payload.target_thread_root_id,
+          askedBy: event.actor_role === "server" ? null : event.actor_role,
+          askedByPlayer: event.actor_id,
+          askedAtSeq: event.seq,
+          status: "pending",
+          reason: null,
+          answeredAtSeq: null,
+        });
+        break;
+      }
+
+      case "proposal_accepted": {
+        const proposal = proposals.get(event.payload.proposal_id);
+        if (!proposal || proposal.status !== "pending") break;
+        proposal.status = "accepted";
+        proposal.answeredAtSeq = event.seq;
+        break;
+      }
+
+      case "proposal_rejected": {
+        const proposal = proposals.get(event.payload.proposal_id);
+        if (!proposal || proposal.status !== "pending") break;
+        proposal.status = "rejected";
+        proposal.reason = event.payload.reason;
+        proposal.answeredAtSeq = event.seq;
         break;
       }
 
@@ -302,6 +403,9 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   }
 
   state.players = [...players.values()];
+  state.proposals = [...proposals.values()].sort(
+    (a, b) => a.askedAtSeq - b.askedAtSeq,
+  );
   state.threads = [...threads.values()];
   state.tiles = [...tiles.values()].sort((a, b) => a.placedAtSeq - b.placedAtSeq);
   return state;

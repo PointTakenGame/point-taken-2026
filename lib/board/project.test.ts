@@ -171,7 +171,7 @@ describe("projectBoard", () => {
     l.push("thread_resolved", { thread_root_id: "t1", emoji: "⚖️", note: "We weigh it differently." }, BOB);
 
     const thread = projectBoard(l.events).threads[0];
-    expect(thread.pendingEmoji).toBeNull();
+    expect(thread.pending).toEqual({ plus: null, minus: null });
     expect(thread.resolution?.emoji).toBe("⚖️");
     expect(thread.resolution?.note).toBe("We weigh it differently.");
   });
@@ -181,7 +181,8 @@ describe("projectBoard", () => {
     l.push("tile_placed", tile("t1", null, "t1", "Root."), ALICE);
     l.push("resolution_emoji_placed", { thread_root_id: "t1", emoji: "🧭" }, ALICE);
     const thread = projectBoard(l.events).threads[0];
-    expect(thread.pendingEmoji).toBe("🧭");
+    expect(thread.pending.plus).toBe("🧭");
+    expect(thread.pending.minus).toBeNull();
     expect(thread.resolution).toBeNull();
   });
 
