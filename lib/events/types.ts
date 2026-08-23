@@ -318,6 +318,12 @@ export interface GameEventRow<T extends GameEventType = GameEventType> {
   created_at: string;
 }
 
+/** Every row shape as one discriminated union, so `switch (event.type)`
+    narrows the payload. `GameEventRow` alone cannot: its payload is a union. */
+export type AnyGameEvent = {
+  [T in GameEventType]: GameEventRow<T>;
+}[GameEventType];
+
 /** One event to write. schema_version comes from EVENT_TYPES, not the caller. */
 export interface NewEvent<T extends GameEventType = GameEventType> {
   type: T;

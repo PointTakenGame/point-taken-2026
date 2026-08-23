@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase/server";
 import {
   EVENT_TYPES,
   PAYLOAD_HARD_CAP_BYTES,
+  type AnyGameEvent,
   type GameEventRow,
   type GameEventType,
   type NewEvent,
@@ -92,7 +93,7 @@ export async function appendGameEvents(
 }
 
 /** The whole log for one game, in order. Every projection starts here. */
-export async function readGameEvents(gameId: Uuid): Promise<GameEventRow[]> {
+export async function readGameEvents(gameId: Uuid): Promise<AnyGameEvent[]> {
   const { data, error } = await serviceClient()
     .from("game_events")
     .select("*")
@@ -100,5 +101,5 @@ export async function readGameEvents(gameId: Uuid): Promise<GameEventRow[]> {
     .order("seq", { ascending: true });
 
   if (error) throw new Error(`read events failed: ${error.message}`);
-  return (data ?? []) as GameEventRow[];
+  return (data ?? []) as AnyGameEvent[];
 }
