@@ -44,6 +44,28 @@ export interface GameSetupProps {
   me: { playerId: string; role: Side | null };
 }
 
+/** The code, and the link that carries it, for whoever the host is inviting. */
+function Invite({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const path = `/join/${code}`;
+
+  async function copy() {
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+    setCopied(true);
+  }
+
+  return (
+    <p className="flex items-baseline gap-2 text-sm opacity-70">
+      <span>
+        Invite code <span className="font-mono font-semibold">{code}</span>
+      </span>
+      <button type="button" onClick={copy} className="underline">
+        {copied ? "link copied" : "copy link"}
+      </button>
+    </p>
+  );
+}
+
 function Who({ player, me }: { player: BoardPlayer; me: string }) {
   const name = player.displayName ?? "someone";
   const side = player.role ? SIDE_LABEL[player.role] : "no side yet";
@@ -93,11 +115,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Before you start</h1>
-        {joinCode ? (
-          <p className="text-sm opacity-70">
-            Invite code <span className="font-mono font-semibold">{joinCode}</span>
-          </p>
-        ) : null}
+        {joinCode ? <Invite code={joinCode} /> : null}
         <p className="text-xs opacity-50">
           {connected ? "live" : "not listening"} &middot; {here.length}/{MAX_PLAYERS} here
         </p>

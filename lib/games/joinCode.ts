@@ -22,3 +22,15 @@ export function generateJoinCode(pick: Picker = randomIndex): string {
   }
   return code;
 }
+
+/**
+ * The typed-in form of a code, cleaned up, or null if it cannot be one.
+ *
+ * Players type these off a text message, so lowercase, stray spaces and a
+ * hyphen in the middle all mean the code they were sent.
+ */
+export function normalizeJoinCode(raw: string): string | null {
+  const code = raw.trim().toUpperCase().replace(/[\s-]/g, "");
+  if (code.length !== JOIN_CODE_LENGTH) return null;
+  return [...code].every((ch) => JOIN_CODE_ALPHABET.includes(ch)) ? code : null;
+}
