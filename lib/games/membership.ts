@@ -33,12 +33,24 @@ export type MembershipResult =
   | { ok: true; membership: Membership }
   | { ok: false; denial: MembershipDenial };
 
+/** A seat before a side has been picked. What the lobby works with. */
+export interface Seat {
+  playerId: Uuid;
+  role: Side | null;
+  leftAt: string | null;
+  game: GameRow;
+}
+
+export type SeatResult =
+  | { ok: true; seat: Seat }
+  | { ok: false; denial: "anonymous" | "not_found" };
+
 /**
- * A non-member gets "not_found", the same answer a nonexistent game gets. That
- * is deliberate (BRAIN-T260822-14): distinguishing the two would let anyone
- * probe which game ids are real.
+ * The same trust check as readMembership, minus the demand for a side. The
+ * setup screen needs this: picking a side is one of the things it does, so it
+ * cannot require one to get in the door.
  */
-export async function readMembership(gameId: Uuid): Promise<MembershipResult> {
+export async function readSeat(gameId: Uuid): Promise<SeatResult> {
   const playerId = await currentPlayerId();
   if (!playerId) return { ok: false, denial: "anonymous" };
 
@@ -49,12 +61,25 @@ export async function readMembership(gameId: Uuid): Promise<MembershipResult> {
   const game = await getGame(gameId);
   if (!game) return { ok: false, denial: "not_found" };
 
-  if (mine.role === null) return { ok: false, denial: "no_side" };
-
   return {
     ok: true,
-    membership: { playerId, role: mine.role, leftAt: mine.left_at, game },
+    seat: { playerId, role: mine.role, leftAt: mine.left_at, game },
   };
+}
+
+/**
+ * A non-member gets "not_found", the same answer a nonexistent game gets. That
+ * is deliberate (BRAIN-T260822-14): distinguishing the two would let anyone
+ * probe which game ids are real.
+ */
+export async function readMembership(gameId: Uuid): Promise<MembershipResult> {
+  const found = await readSeat(gameId);
+  if (!found.ok) return found;
+
+  const { role } = found.seat;
+  if (role === null) return { ok: false, denial: "no_side" };
+
+  return { ok: true, membership: { ...found.seat, role } };
 }
 
 export const MEMBERSHIP_MESSAGES: Record<MembershipDenial, string> = {
