@@ -127,7 +127,10 @@ export default async function AccountPage() {
         <p className="text-sm opacity-70">
           {player?.claimed_at
             ? `Account kept since ${day(player.claimed_at)}.`
-            : "This account is anonymous. Attach an email to keep it."}
+            : "This account is anonymous. Attach an email to keep it."}{" "}
+          <Link href="/settings" className="underline">
+            Settings
+          </Link>
         </p>
       </header>
 
