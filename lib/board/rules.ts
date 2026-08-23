@@ -58,6 +58,19 @@ export function threadsWinReached(board: BoardState): boolean {
   );
 }
 
+/**
+ * Whether nobody is left to play this game, so it should close itself.
+ *
+ * A live board needs both sides, so one deliberate walk-out ends it. A lobby can
+ * wait for somebody else to use the code, unless the last person left. A
+ * disconnect never ends anything: reloading puts them back in the same seat.
+ */
+export function isAbandoned(board: BoardState): boolean {
+  if (board.status === "ended") return false;
+  const here = board.players.filter((player) => player.left !== "quit");
+  return board.status === "active" ? here.length < 2 : here.length === 0;
+}
+
 /** Proposals still waiting on an answer from the given side. */
 export function proposalsAwaiting(board: BoardState, side: Side): BoardProposal[] {
   return board.proposals.filter(

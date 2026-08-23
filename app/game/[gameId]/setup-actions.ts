@@ -6,6 +6,7 @@ import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as setup from "@/lib/board/setup";
 import { appendGameEvent, readGameEvents } from "@/lib/events/append";
 import type { ActorRole, Side, Uuid } from "@/lib/events/types";
+import { endIfAbandoned } from "@/lib/games/abandon";
 import { readSeat, type Seat } from "@/lib/games/membership";
 import type { ActionResult } from "./actions";
 
@@ -178,6 +179,7 @@ export async function leaveLobby(gameId: string): Promise<ActionResult> {
     ...actor(seat),
     payload: { reason: "quit" },
   });
+  await endIfAbandoned(gameId);
 
   refresh(gameId);
   return { ok: true };

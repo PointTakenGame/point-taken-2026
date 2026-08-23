@@ -6,6 +6,7 @@ import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as rules from "@/lib/board/rules";
 import type { GameEventType, NewEvent, Side, Uuid } from "@/lib/events/types";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
+import { endIfAbandoned } from "@/lib/games/abandon";
 import {
   MEMBERSHIP_MESSAGES,
   readMembership,
@@ -457,6 +458,7 @@ export async function leaveGame(
     ...asPlayer(membership),
     payload: { reason: input.reason },
   });
+  await endIfAbandoned(gameId);
 
   refresh(gameId);
   return { ok: true };

@@ -10,6 +10,7 @@ import {
   canProposeRelocation,
   canProposeTopicRevision,
   canRemoveTile,
+  isAbandoned,
   isResolved,
   MIN_THREADS_TO_END,
   proposalsAwaiting,
@@ -380,5 +381,49 @@ describe("canProposeTopicRevision", () => {
     expect(canProposeTopicRevision(board, "Cities should cap rent increases.")).toEqual({
       ok: true,
     });
+  });
+});
+
+describe("isAbandoned", () => {
+  /** Created and both seated, but never started. */
+  function waiting() {
+    const l = log();
+    l.push("game_created", {
+      mode: "live",
+      level_id: null,
+      boss_id: null,
+      join_code: "PTKN23",
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "Quiet Amber Fjord" }, BOB);
+    return l;
+  }
+
+  it("is true once somebody quits a live board, because it needs both sides", () => {
+    const l = opened();
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
+    l.push("player_left", { reason: "quit" }, BOB);
+    expect(isAbandoned(projectBoard(l.events))).toBe(true);
+  });
+
+  it("is false for a disconnect, since reloading returns them to the same seat", () => {
+    const l = opened();
+    l.push("player_left", { reason: "disconnect" }, BOB);
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
+  });
+
+  it("waits for the last person to leave a lobby, since the code can still be used", () => {
+    const l = waiting();
+    l.push("player_left", { reason: "quit" }, BOB);
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
+    l.push("player_left", { reason: "quit" }, ALICE);
+    expect(isAbandoned(projectBoard(l.events))).toBe(true);
+  });
+
+  it("is false once the game has ended, so a late leave cannot end it twice", () => {
+    const l = opened();
+    l.push("game_ended", { win_condition: "threads_resolved" });
+    l.push("player_left", { reason: "quit" }, BOB);
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FinishedMap } from "@/components/board/finished-map";
@@ -38,7 +39,19 @@ export default async function GamePage({
   const board = projectBoard(await readGameEvents(gameId));
 
   if (board.status === "ended") {
-    return <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />;
+    return (
+      <>
+        <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+        <nav className="mx-auto flex w-full max-w-3xl gap-4 px-8 pb-8 print:hidden">
+          <Link href="/account" className="underline">
+            Your games
+          </Link>
+          <Link href="/" className="underline">
+            Start another room
+          </Link>
+        </nav>
+      </>
+    );
   }
 
   if (board.status === "lobby") {

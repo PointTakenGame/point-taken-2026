@@ -24,6 +24,7 @@ import {
   clearResolutionToken,
   editTile,
   giveGenerosityToken,
+  leaveGame,
   placeResolutionToken,
   placeTile,
   proposeTopicRevision,
@@ -490,6 +491,45 @@ function GenerosityButton({ gameId }: { gameId: string }) {
   );
 }
 
+/**
+ * Walking out. A live board needs both sides, so this ends the game for the
+ * other player too, which is why it takes a second press.
+ */
+function LeaveButton({ gameId }: { gameId: string }) {
+  const [sure, setSure] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const leave = () => {
+    if (!sure) {
+      setSure(true);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await leaveGame(gameId, { reason: "quit" });
+      if (!result.ok) setError(result.error);
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        disabled={pending}
+        onClick={leave}
+      >
+        {sure ? "Yes, end it for both of us" : "Leave this game"}
+      </button>
+      <p className="text-sm opacity-60">
+        The map stays in your history either way, marked unfinished.
+      </p>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
 function ThreadBlock({
   gameId,
   thread,
@@ -635,6 +675,11 @@ export function LiveBoard({ gameId, board, me }: LiveBoardProps): ReactElement {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Topic</h2>
         <TopicRevisionForm gameId={gameId} board={board} />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Leaving</h2>
+        <LeaveButton gameId={gameId} />
       </section>
     </div>
   );
