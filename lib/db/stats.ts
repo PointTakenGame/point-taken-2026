@@ -20,7 +20,7 @@ import type { GameMode, WinCondition } from "./types";
  */
 
 /**
- * The twelve keys the function returns. Counts are always present and start at
+ * The keys the function returns. Counts are always present and start at
  * zero; the maps are always present and start empty; only the two timestamps
  * are nullable, and both are null until the player joins a first game.
  */
@@ -40,6 +40,19 @@ export interface PlayerStats {
    */
   resolutions_by_emoji: Record<string, number>;
   tiles_placed: number;
+  /** Throws this player made, in total and split by which card. */
+  cards_thrown: number;
+  cards_thrown_by_id: Record<string, number>;
+  /** Throws this player was offered and passed on. Declining is a move. */
+  card_throws_declined: number;
+  /**
+   * Cards this player's own coach raised about this player's own reasons,
+   * counted from `ai_feedback_returned.error_types`. Private by construction:
+   * the log tags a reading with the player it was for, and 0008 keeps the other
+   * side out of it. Not a fixed union, for the same reason as the emoji map:
+   * the card set lives in the rules package and is still moving.
+   */
+  coach_flags_by_id: Record<string, number>;
   /** Every act this player took, by event type. New counters read a key here. */
   events_by_type: Partial<Record<GameEventType, number>>;
   first_game_at: string | null;

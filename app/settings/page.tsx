@@ -41,6 +41,9 @@ export default async function SettingsPage() {
           Signed in as {player.display_name ?? "a player with no name yet"}.{" "}
           <Link href="/account" className="underline">
             Your games
+          </Link>{" "}
+          <Link href="/cards" className="underline">
+            Your cards
           </Link>
         </p>
       </header>

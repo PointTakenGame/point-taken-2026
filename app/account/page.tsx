@@ -130,6 +130,9 @@ export default async function AccountPage() {
             : "This account is anonymous. Attach an email to keep it."}{" "}
           <Link href="/settings" className="underline">
             Settings
+          </Link>{" "}
+          <Link href="/cards" className="underline">
+            Your cards
           </Link>
         </p>
       </header>
