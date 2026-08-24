@@ -68,6 +68,12 @@ The event vocabulary is written down twice, in `lib/events/types.ts` and in
 (`lib/events/catalogue.test.ts`, run by `.github/workflows/gate.yml`). If that test fails, the
 fix is to make them agree. Never change the test.
 
+Server actions (`app/**/actions.ts`, `app/**/setup-actions.ts`) are also outside your lane. Each
+one is a public HTTP endpoint, so each one has to work out who is asking on the server before it
+does anything, and none may take a player id from its caller.
+`lib/games/action-identity.test.ts` checks both of those structurally, against the source text,
+over every action it discovers. If you add an action, it is covered automatically.
+
 ## When your task needs a core file
 
 1. Tell Nathan what you need and why, before writing it.
