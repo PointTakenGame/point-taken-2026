@@ -19,13 +19,14 @@ import { currentPlayerId } from "@/lib/supabase/session";
  * row of ways to leave it sitting above the argument.
  */
 
-type Here = "home" | "account" | "cards" | "settings";
+type Here = "home" | "account" | "cards" | "settings" | "how";
 
 const LINKS: { here: Here; href: string; label: string }[] = [
   { here: "home", href: "/", label: "Start a room" },
   { here: "account", href: "/account", label: "Your games" },
   { here: "cards", href: "/cards", label: "Your cards" },
   { here: "settings", href: "/settings", label: "Settings" },
+  { here: "how", href: "/how-to-play", label: "How to play" },
 ];
 
 export async function SiteNav({ here }: { here: Here }) {

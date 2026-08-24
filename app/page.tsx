@@ -34,6 +34,18 @@ export default async function Home() {
           </p>
         </header>
         <RoomEntry />
+        {/*
+          The rules link is here and not only in SiteNav, which renders nothing
+          for a signed-out visitor. That visitor is exactly the person who has
+          never played.
+        */}
+        <p className="text-sm opacity-60">
+          Never played?{" "}
+          <Link href="/how-to-play" className="underline">
+            How to play
+          </Link>{" "}
+          is the whole thing in one page.
+        </p>
         {me ? null : (
           <p className="text-sm opacity-60">
             Played before and attached an email?{" "}
