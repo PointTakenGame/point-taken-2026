@@ -30,7 +30,7 @@ export interface PlayerStats {
   games_completed: number;
   games_by_mode: Partial<Record<GameMode, number>>;
   games_by_win_condition: Partial<Record<WinCondition, number>>;
-  /** Catching the snitch: the game ended on an agreed revision of the topic. */
+  /** The game ended because both sides agreed on a revised topic. */
   topic_agreed_wins: number;
   threads_resolved: number;
   /**
