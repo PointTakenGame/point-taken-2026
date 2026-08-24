@@ -128,7 +128,14 @@ export const COACH_CASES: readonly CoachCase[] = [
     input: {
       topic: HEALTH,
       threadRoot: "A mandate lowers average premiums.",
-      text: "Insurance is different because of adverse selection.",
+      // The suppressor ported from his pipeline unflags a short claim that
+      // carries one of his 18 marker words, and the earlier wording of this
+      // fixture ("Insurance is different because of adverse selection.") had
+      // "because" in it. The suppressor is right and the fixture was the weaker
+      // artifact, so the fixture moved. Same topic, same side, same root, still
+      // too vague for the other player to answer. See the PORT-NOTE on
+      // suppressFalsePositiveClarify in checks.ts.
+      text: "It comes down to adverse selection.",
     },
   },
   {

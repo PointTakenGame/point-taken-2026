@@ -11,6 +11,7 @@ import {
   evaluateTile,
   type CoachInput,
 } from "./evaluate";
+import { NU_PROMPT_VERSIONS, NU_THRESHOLD_VERSION, firstWaveCategories } from "./checks";
 
 /**
  * One reason, read by the coach, written back to the log.
@@ -43,6 +44,12 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
 
     // Silence is the normal answer. Logging every "nothing to say" would bury
     // the readings that matter under readings that say nothing.
+    //
+    // PORT-NOTE(log-everything): his pipeline logs every evaluation, silent
+    // ones included, because the study needs the denominator. Ours does not,
+    // because this log is the game's history and a player scrolling it should
+    // see the moments the coach spoke. If the corpus ever needs the silent
+    // readings, that is a second sink, not a change here.
     if (verdict.cardIds.length === 0) return;
 
     await appendGameEvent(gameId, {
@@ -56,9 +63,24 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
         feedback: verdict.feedback,
         suggestion: verdict.suggestion,
         model_name: COACH_MODEL,
-        prompt_versions: { coach: COACH_PROMPT_VERSION },
+        // Both stamps travel together: ours for the framing and the card
+        // derivation, his for the checklist inside it. A later diff against a
+        // newer Northwestern bundle needs his numbers to be here.
+        prompt_versions: { coach: COACH_PROMPT_VERSION, ...NU_PROMPT_VERSIONS },
         evaluator_schema_version: COACH_SCHEMA_VERSION,
+        threshold_version: NU_THRESHOLD_VERSION,
         latency_ms: verdict.latencyMs,
+        pipeline_mode: "analysis",
+        first_wave_categories: firstWaveCategories(verdict.findings),
+        // The raw nine, not the five that surface. This is the whole reason the
+        // research-only checks are still detected.
+        check_violations: verdict.findings.violations,
+        structure_relation: verdict.findings.relation,
+        clarification_needed: verdict.findings.clarificationNeeded,
+        trigger_phrase: verdict.triggerPhrase,
+        suggestion_source: verdict.suggestionSource,
+        suggestion_confidence: verdict.suggestionConfidence,
+        suggestion_preserves_stance: verdict.suggestionPreservesStance,
       },
     });
 

@@ -189,9 +189,28 @@ export interface AiFeedbackReturnedPayload {
   pipeline_mode?: string | null;
   first_wave_categories?: string[];
   suggestion_source?: string;
-  suggestion_confidence?: number;
-  suggestion_preserves_stance?: boolean;
+  /**
+   * The model's own confidence in its rewrite. Typed as his three words rather
+   * than a number: he asks for a word and never computes a score, and a number
+   * here would have to be invented.
+   */
+  suggestion_confidence?: "high" | "medium" | "low" | null;
+  suggestion_preserves_stance?: boolean | null;
   latency_ms?: number;
+  /**
+   * The research corpus. Every one of the nine checks that fired, including the
+   * four that are detected and deliberately never shown to a player. Keeping
+   * them is the point of the split; see RESEARCH_ONLY_CHECK_KEYS in
+   * `lib/coach/checks.ts`.
+   */
+  check_violations?: string[];
+  /** supports / rebuts / irrelevant. Research metadata, never a card. */
+  structure_relation?: string;
+  clarification_needed?: boolean;
+  /** The words in the reason the model says triggered the first violation. */
+  trigger_phrase?: string | null;
+  /** His threshold calibration version, carried so later drift is detectable. */
+  threshold_version?: string;
 }
 
 export interface AiFeedbackShownPayload {
