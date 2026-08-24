@@ -15,7 +15,16 @@ import { COACH_CARDS, COACH_CARD_IDS } from "@/lib/coach/cards";
  * v-202608121440. Do not treat this text as the shipped prompt.
  */
 
-export const COACH_MODEL = "claude-sonnet-5";
+/**
+ * Measured, not assumed: coach-eval.test.ts runs the twelve paired fixtures
+ * against each candidate. On 2026-08-23 Haiku 4.5 spoke up on none of the four
+ * clean reasons, named the right card on 7 of 8 broken ones, kept every rewrite
+ * inside a tile, and answered in 1493 ms; Sonnet 5 got 8 of 8 cards but flagged
+ * a clean reason and wrote 3 rewrites too long to offer as a dare. Speaking up
+ * on a clean reason is the expensive failure, so the cheaper model also wins on
+ * quality here, which is what BIZ-T260823-78 asked for.
+ */
+export const COACH_MODEL = "claude-haiku-4-5-20251001";
 export const COACH_PROMPT_VERSION = "brain-2026-08-23.1";
 export const COACH_SCHEMA_VERSION = "coach-v1";
 
@@ -101,11 +110,16 @@ function userTurn(input: CoachInput): string {
  * Returns a verdict, or null when the model could not be reached. Null is not
  * an error the player ever sees: the coach simply had nothing to say.
  */
-export async function evaluateTile(input: CoachInput): Promise<CoachVerdict | null> {
+export async function evaluateTile(
+  input: CoachInput,
+  // Overridden only by the fixture run in coach-eval.test.ts, which has to ask
+  // the same question of two models to answer "cheapest that passes".
+  model: string = COACH_MODEL,
+): Promise<CoachVerdict | null> {
   const started = Date.now();
   try {
     const response = await client().messages.create({
-      model: COACH_MODEL,
+      model,
       max_tokens: 600,
       system: SYSTEM,
       tools: [TOOL],
