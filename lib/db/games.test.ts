@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ serviceClient: () => ({ rpc }) }));
 
-const { createGame, foldTopics, JOIN_CODE_ATTEMPTS } = await import("./games");
+const { createGame, foldCardThrows, foldOpponents, foldTopics, JOIN_CODE_ATTEMPTS } =
+  await import("./games");
 
 const PLAYER = "11111111-1111-4111-8111-111111111111";
 const COLLISION = { data: null, error: { code: "23505", message: "duplicate key" } };
@@ -142,5 +143,87 @@ describe("foldTopics", () => {
 
   it("leaves a game with no topic out of the map rather than inventing one", () => {
     expect(foldTopics([]).has(A)).toBe(false);
+  });
+});
+
+// The other half of a history row: who it was against, and how contested it
+// got. Both folds run over rows the account page cannot afford to project.
+describe("foldOpponents", () => {
+  const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const ME = "11111111-1111-4111-8111-111111111111";
+  const YOU = "22222222-2222-4222-8222-222222222222";
+  const THEM = "33333333-3333-4333-8333-333333333333";
+  const seat = (game_id: string, player_id: string) => ({ game_id, player_id });
+
+  it("names the seat that is not mine", () => {
+    const seats = foldOpponents([seat(A, ME), seat(A, YOU)], ME);
+    expect(seats.get(A)).toBe(YOU);
+  });
+
+  it("says nothing about a game nobody has joined yet", () => {
+    expect(foldOpponents([seat(A, ME)], ME).has(A)).toBe(false);
+  });
+
+  it("keeps each game's opponent to itself", () => {
+    const seats = foldOpponents(
+      [seat(A, ME), seat(A, YOU), seat(B, ME), seat(B, THEM)],
+      ME,
+    );
+    expect([seats.get(A), seats.get(B)]).toEqual([YOU, THEM]);
+  });
+
+  it("takes the first to sit when a seat was refilled", () => {
+    const seats = foldOpponents([seat(A, YOU), seat(A, THEM)], ME);
+    expect(seats.get(A)).toBe(YOU);
+  });
+
+  it("returns nothing for no rows", () => {
+    expect(foldOpponents([], ME).size).toBe(0);
+  });
+});
+
+describe("foldCardThrows", () => {
+  const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const thrown = (game_id: string, seq: number) => ({
+    game_id,
+    seq,
+    type: "card_thrown" as const,
+    payload: { card_id: "you_is_taboo", target_tile_id: "t", rung_id: null },
+  });
+  const declined = (game_id: string, seq: number, answering: number) => ({
+    game_id,
+    seq,
+    type: "card_throw_declined" as const,
+    payload: { in_response_to_seq: answering, reason: null },
+  });
+
+  it("counts the throws that stuck", () => {
+    expect(foldCardThrows([thrown(A, 5), thrown(A, 9)]).get(A)).toBe(2);
+  });
+
+  it("stops counting a throw the author declined", () => {
+    expect(foldCardThrows([thrown(A, 5), thrown(A, 9), declined(A, 11, 5)]).get(A)).toBe(
+      1,
+    );
+  });
+
+  it("does not double-subtract a throw declined twice", () => {
+    const rows = [thrown(A, 5), declined(A, 11, 5), declined(A, 12, 5)];
+    expect(foldCardThrows(rows).get(A)).toBe(0);
+  });
+
+  it("ignores a decline pointing at nothing", () => {
+    expect(foldCardThrows([thrown(A, 5), declined(A, 11, 99)]).get(A)).toBe(1);
+  });
+
+  it("keeps each game's count to itself", () => {
+    const counts = foldCardThrows([thrown(A, 5), thrown(B, 5), thrown(B, 7)]);
+    expect([counts.get(A), counts.get(B)]).toEqual([1, 2]);
+  });
+
+  it("returns nothing for no rows", () => {
+    expect(foldCardThrows([]).size).toBe(0);
   });
 });

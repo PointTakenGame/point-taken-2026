@@ -2,7 +2,13 @@ import Link from "next/link";
 import { currentPlayerId } from "@/lib/supabase/session";
 import { getPlayer } from "@/lib/db/players";
 import { getPlayerStats, type PlayerStats } from "@/lib/db/stats";
-import { listGamesForPlayer, readTopicsForGames, type GameTopic } from "@/lib/db/games";
+import {
+  listGamesForPlayer,
+  readCardThrowsForGames,
+  readOpponentsForGames,
+  readTopicsForGames,
+  type GameTopic,
+} from "@/lib/db/games";
 import type { GameRow } from "@/lib/db/types";
 import type { Uuid } from "@/lib/events/types";
 import { LocalDay } from "@/components/local-day";
@@ -43,6 +49,27 @@ function Counter({ label, value }: { label: string; value: number }) {
 /** How a game reads on one line when nobody has named the argument yet. */
 const UNNAMED = "Not named yet";
 
+/** The other player, when there is one and nobody has renamed them. */
+const UNNAMED_PLAYER = "an unnamed player";
+
+/**
+ * How long the argument took, once it is over.
+ *
+ * Only a finished game has both stamps, so a game still running shows nothing
+ * rather than a number that keeps growing while you look at it.
+ */
+function duration(game: GameRow): string | null {
+  if (!game.started_at || !game.ended_at) return null;
+  const ms = Date.parse(game.ended_at) - Date.parse(game.started_at);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`;
+}
+
 /**
  * The archive, newest first.
  *
@@ -51,7 +78,17 @@ const UNNAMED = "Not named yet";
  * three rows reading "Live, All threads resolved" told you nothing about which
  * of them was the one about the parking permits.
  */
-function History({ games, topics }: { games: GameRow[]; topics: Map<Uuid, GameTopic> }) {
+function History({
+  games,
+  topics,
+  opponents,
+  cardsThrown,
+}: {
+  games: GameRow[];
+  topics: Map<Uuid, GameTopic>;
+  opponents: Map<Uuid, string | null>;
+  cardsThrown: Map<Uuid, number>;
+}) {
   if (games.length === 0) {
     return <p className="opacity-70">No games yet. The first one starts the archive.</p>;
   }
@@ -60,6 +97,22 @@ function History({ games, topics }: { games: GameRow[]; topics: Map<Uuid, GameTo
     <ul className="flex flex-col divide-y divide-current/10">
       {games.map((game) => {
         const topic = topics.get(game.id);
+
+        // A game nobody has joined yet is absent from the map, which is not the
+        // same as a seat filled by somebody who has no name on record.
+        const opponent = opponents.has(game.id)
+          ? (opponents.get(game.id) ?? UNNAMED_PLAYER)
+          : null;
+
+        // Standing throws only, the ones the author did not decline. The same
+        // number is the profile's "catches", whose player-facing label is still
+        // unresolved (BIZ-T260823-04), so this row says what it counts instead.
+        const cards = cardsThrown.get(game.id) ?? 0;
+        const detail = [
+          duration(game),
+          cards > 0 ? `${cards} rule card${cards === 1 ? "" : "s"} thrown` : null,
+        ].filter(Boolean);
+
         return (
           <li key={game.id}>
             <Link
@@ -72,12 +125,16 @@ function History({ games, topics }: { games: GameRow[]; topics: Map<Uuid, GameTo
                 </span>
                 <span className="text-sm opacity-70">
                   {game.mode === "gym" ? "Gym" : "Live"}
+                  {opponent ? ` with ${opponent}` : ""}
                   {game.status === "ended"
                     ? `, ${OUTCOME[game.win_condition ?? ""] ?? "Ended"}`
                     : game.status === "active"
                       ? ", in progress"
                       : ", waiting to start"}
                 </span>
+                {detail.length > 0 ? (
+                  <span className="text-sm opacity-50">{detail.join(", ")}</span>
+                ) : null}
               </span>
               <span className="shrink-0 text-sm opacity-70">
                 <LocalDay iso={game.ended_at ?? game.started_at ?? game.created_at} />
@@ -132,9 +189,15 @@ export default async function AccountPage() {
     getPlayerStats(playerId),
     listGamesForPlayer(playerId),
   ]);
-  // Second round trip on purpose: the topics are keyed by the game ids the
-  // first query returned, so there is nothing to parallelise.
-  const topics = await readTopicsForGames(games.map((game) => game.id));
+  // A second round trip on purpose: all three of these are keyed by the game
+  // ids the first query returned, so they cannot start any earlier. They do run
+  // together, since none of them depends on the others.
+  const gameIds = games.map((game) => game.id);
+  const [topics, opponents, cardsThrown] = await Promise.all([
+    readTopicsForGames(gameIds),
+    readOpponentsForGames(gameIds, playerId),
+    readCardThrowsForGames(gameIds),
+  ]);
 
   return (
     <>
@@ -166,7 +229,12 @@ export default async function AccountPage() {
 
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Your games</h2>
-          <History games={games} topics={topics} />
+          <History
+            games={games}
+            topics={topics}
+            opponents={opponents}
+            cardsThrown={cardsThrown}
+          />
         </section>
       </main>
     </>

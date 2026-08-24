@@ -1,7 +1,7 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/server";
 import type { Uuid } from "@/lib/events/types";
-import type { GameMode, GamePlayerRow, GameRow } from "./types";
+import type { GameMode, GamePlayerRow, GameRow, PlayerRow } from "./types";
 import { REDACTED_TEXT } from "@/lib/board/project";
 import { generateJoinCode } from "@/lib/games/joinCode";
 
@@ -206,4 +206,121 @@ export async function readTopicsForGames(
 
   if (error) throw new Error(`read topics failed: ${error.message}`);
   return foldTopics((data ?? []) as unknown as TopicEventRow[]);
+}
+
+// ---------------------------------------------------------------------------
+// Who else was there, and how much of a fight it was
+// ---------------------------------------------------------------------------
+
+/**
+ * The other seat, for a list of games.
+ *
+ * A game has two seats at most, so "everyone who is not me" is one player.
+ * Rows must arrive oldest first: if a seat were ever vacated and refilled, the
+ * first person to sit is the one the game is remembered by.
+ */
+export function foldOpponents(
+  rows: readonly Pick<GamePlayerRow, "game_id" | "player_id">[],
+  viewerId: Uuid,
+): Map<Uuid, Uuid> {
+  const opponents = new Map<Uuid, Uuid>();
+  for (const row of rows) {
+    if (row.player_id === viewerId) continue;
+    if (opponents.has(row.game_id)) continue;
+    opponents.set(row.game_id, row.player_id);
+  }
+  return opponents;
+}
+
+/**
+ * Name the other player in each of these games. A game still waiting for a
+ * second person maps to nothing, which is how the caller tells "nobody yet"
+ * apart from "somebody who has not been named yet" (null).
+ */
+export async function readOpponentsForGames(
+  gameIds: readonly Uuid[],
+  viewerId: Uuid,
+): Promise<Map<Uuid, string | null>> {
+  if (gameIds.length === 0) return new Map();
+
+  const { data, error } = await serviceClient()
+    .from("game_players")
+    .select("game_id, player_id")
+    .in("game_id", gameIds as Uuid[])
+    .order("joined_at", { ascending: true });
+
+  if (error) throw new Error(`read opponents failed: ${error.message}`);
+
+  const seats = foldOpponents(
+    (data ?? []) as unknown as Pick<GamePlayerRow, "game_id" | "player_id">[],
+    viewerId,
+  );
+  const ids = [...new Set(seats.values())];
+  if (ids.length === 0) return new Map();
+
+  // A second query rather than an embed: game_players.player_id points at
+  // auth.users, not at public.players, so PostgREST has no foreign key to
+  // follow from one to the other.
+  const { data: named, error: nameError } = await serviceClient()
+    .from("players")
+    .select("id, display_name")
+    .in("id", ids);
+
+  if (nameError) throw new Error(`read opponent names failed: ${nameError.message}`);
+
+  const names = new Map(
+    ((named ?? []) as unknown as Pick<PlayerRow, "id" | "display_name">[]).map((row) => [
+      row.id,
+      row.display_name,
+    ]),
+  );
+
+  return new Map(
+    [...seats].map(([gameId, playerId]) => [gameId, names.get(playerId) ?? null]),
+  );
+}
+
+/** The columns the card-throw fold needs. */
+export interface CardThrowEventRow {
+  game_id: Uuid;
+  seq: number;
+  type: "card_thrown" | "card_throw_declined";
+  payload: Record<string, unknown>;
+}
+
+const CARD_THROW_EVENT_TYPES = ["card_thrown", "card_throw_declined"];
+
+/**
+ * How many rule cards stuck, per game.
+ *
+ * Mirrors the projection: a throw the tile's author declined did not land, so
+ * it stops counting, and declining the same throw twice changes nothing. Rows
+ * must arrive in seq order, which is also the only order in which a decline
+ * can follow the throw it answers.
+ */
+export function foldCardThrows(rows: readonly CardThrowEventRow[]): Map<Uuid, number> {
+  const standing = new Map<Uuid, Set<number>>();
+  for (const row of rows) {
+    const seqs = standing.get(row.game_id) ?? new Set<number>();
+    if (row.type === "card_thrown") seqs.add(row.seq);
+    else seqs.delete(row.payload.in_response_to_seq as number);
+    standing.set(row.game_id, seqs);
+  }
+  return new Map([...standing].map(([gameId, seqs]) => [gameId, seqs.size]));
+}
+
+export async function readCardThrowsForGames(
+  gameIds: readonly Uuid[],
+): Promise<Map<Uuid, number>> {
+  if (gameIds.length === 0) return new Map();
+
+  const { data, error } = await serviceClient()
+    .from("game_events")
+    .select("game_id, seq, type, payload")
+    .in("game_id", gameIds as Uuid[])
+    .in("type", CARD_THROW_EVENT_TYPES)
+    .order("seq", { ascending: true });
+
+  if (error) throw new Error(`read card throws failed: ${error.message}`);
+  return foldCardThrows((data ?? []) as unknown as CardThrowEventRow[]);
 }
