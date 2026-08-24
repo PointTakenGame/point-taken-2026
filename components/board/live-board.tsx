@@ -9,7 +9,7 @@ import type {
   BoardThrow,
   BoardTile,
 } from "@/lib/board/project";
-import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
+import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -1341,6 +1341,7 @@ export function LiveBoard({
   coachEnabled,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
+  const definitions = agreedDefinitions(board);
   const awaiting = proposalsAwaiting(board, me.role);
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
@@ -1393,6 +1394,22 @@ export function LiveBoard({
       </section>
 
       <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+
+      {definitions.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+            Words you have pinned down
+          </h2>
+          <dl className="flex flex-col gap-2 text-sm">
+            {definitions.map((entry) => (
+              <div key={entry.proposalId} className="flex flex-col">
+                <dt className="font-semibold">{entry.term}</dt>
+                <dd className="opacity-80">{entry.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
 
       {threads.length === 0 ? (
         <p className="opacity-70">No threads yet. Place the first tile above.</p>

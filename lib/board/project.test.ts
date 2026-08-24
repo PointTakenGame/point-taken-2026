@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { liveThreads, projectBoard, PROJECTED_VERSIONS, REDACTED_TEXT } from "./project";
+import {
+  agreedDefinitions,
+  liveThreads,
+  projectBoard,
+  PROJECTED_VERSIONS,
+  REDACTED_TEXT,
+} from "./project";
 import {
   EVENT_TYPES,
   EVENT_TYPE_NAMES,
@@ -654,5 +660,80 @@ describe("the declared contract", () => {
     expect(board.nudges).toHaveLength(1);
     expect(board.nudges[0].kind).toBe("opening");
     expect(board.nudges[0].forPlayer).toBe(ALICE);
+  });
+});
+
+/**
+ * Define That is the one mechanic whose whole point is what happens after the
+ * agreement, so these tests are about the list a player reads later, not about
+ * the exchange that produced it.
+ */
+describe("agreedDefinitions", () => {
+  const P1 = "aaaaaaaa-0000-4000-8000-000000000001";
+  const P2 = "aaaaaaaa-0000-4000-8000-000000000002";
+  const P3 = "aaaaaaaa-0000-4000-8000-000000000003";
+  const P4 = "aaaaaaaa-0000-4000-8000-000000000004";
+
+  const ask = (
+    l: ReturnType<typeof log>,
+    id: string,
+    term: string,
+    text: string,
+    actor: string,
+  ) =>
+    l.push(
+      "proposal_made",
+      {
+        proposal_id: id,
+        kind: "definition",
+        target_tile_id: null,
+        target_thread_root_id: null,
+        content: { term, text },
+      },
+      actor,
+    );
+
+  it("pins only the definitions both players agreed to", () => {
+    const l = opened();
+    ask(l, P1, "affordable", "Costing under a third of what you earn.", ALICE);
+    l.push("proposal_accepted", { proposal_id: P1 }, BOB);
+
+    // Asked and refused: not an agreement, so nothing is pinned.
+    ask(l, P2, "shortage", "Fewer homes than households.", BOB);
+    l.push("proposal_rejected", { proposal_id: P2, reason: null }, ALICE);
+
+    // Asked and still waiting: also not an agreement.
+    ask(l, P3, "speculator", "Someone who buys to resell.", ALICE);
+
+    const pinned = agreedDefinitions(projectBoard(l.events));
+    expect(pinned.map((d) => d.term)).toEqual(["affordable"]);
+    expect(pinned[0].text).toBe("Costing under a third of what you earn.");
+    expect(pinned[0].askedBy).toBe("plus");
+    expect(pinned[0].proposalId).toBe(P1);
+  });
+
+  it("lists the words alphabetically, and the later agreement on a word wins", () => {
+    const l = opened();
+    ask(l, P1, "affordable", "Costing under a third of what you earn.", ALICE);
+    l.push("proposal_accepted", { proposal_id: P1 }, BOB);
+    ask(l, P2, "zoning", "The rules about what may be built where.", BOB);
+    l.push("proposal_accepted", { proposal_id: P2 }, ALICE);
+
+    // Same word, different case, agreed again later: one entry, the newer
+    // wording, written the way whoever asked last wrote it.
+    ask(l, P3, "Affordable", "Costing under a third of the median wage.", BOB);
+    l.push("proposal_accepted", { proposal_id: P3 }, ALICE);
+
+    // A word nobody agreed on does not push the list around.
+    ask(l, P4, "market", "Whatever people will pay.", ALICE);
+
+    const pinned = agreedDefinitions(projectBoard(l.events));
+    expect(pinned.map((d) => d.term)).toEqual(["Affordable", "zoning"]);
+    expect(pinned[0].text).toBe("Costing under a third of the median wage.");
+    expect(pinned[0].askedBy).toBe("minus");
+  });
+
+  it("has nothing to show on a board where nobody defined anything", () => {
+    expect(agreedDefinitions(projectBoard(opened().events))).toEqual([]);
   });
 });

@@ -98,6 +98,57 @@ export function liveThreads(board: BoardState): BoardThread[] {
   return board.threads.filter((thread) => thread.tileCount > 0);
 }
 
+/** A word this game has agreed a meaning for, and the meaning. */
+export interface AgreedDefinition {
+  term: string;
+  text: string;
+  /** The proposal that settled it, so a reader can find the exchange. */
+  proposalId: Uuid;
+  /** Which side asked for it. */
+  askedBy: Side | null;
+  agreedAtSeq: number;
+}
+
+/**
+ * The words this game has pinned down, in alphabetical order.
+ *
+ * Define That is the one mechanic whose whole point is what happens after the
+ * agreement: "what it should mean for the rest of this game". A definition that
+ * scrolled away into the proposal history the moment it was accepted would not
+ * be pinned to anything. So every surface that shows a board asks here.
+ *
+ * Alphabetical rather than in the order agreed, because this is a list you look
+ * a word up in. Defining the same word twice is allowed and the later agreement
+ * wins: two players who find their first wording did not survive contact with
+ * the argument should be able to say so without a new mechanic for it.
+ */
+export function agreedDefinitions(board: BoardState): AgreedDefinition[] {
+  const byTerm = new Map<string, AgreedDefinition>();
+
+  for (const proposal of board.proposals) {
+    if (proposal.kind !== "definition" || proposal.status !== "accepted") continue;
+    const content = proposal.content;
+    if (!("term" in content) || !("text" in content)) continue;
+
+    const term = String(content.term).trim();
+    if (term.length === 0) continue;
+
+    // Keyed case-insensitively so "Legal" does not sit beside "legal" as two
+    // separate agreements, but displayed as whoever asked last wrote it.
+    byTerm.set(term.toLowerCase(), {
+      term,
+      text: String(content.text),
+      proposalId: proposal.id,
+      askedBy: proposal.askedBy,
+      agreedAtSeq: proposal.answeredAtSeq ?? proposal.askedAtSeq,
+    });
+  }
+
+  return [...byTerm.values()].sort((a, b) =>
+    a.term.localeCompare(b.term, undefined, { sensitivity: "base" }),
+  );
+}
+
 export interface BoardPlayer {
   id: Uuid;
   displayName: string | null;

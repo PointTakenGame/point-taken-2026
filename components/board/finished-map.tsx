@@ -1,5 +1,5 @@
 import type { BoardState, BoardThread, BoardTile } from "@/lib/board/project";
-import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
+import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { LocalDay } from "@/components/local-day";
 
 /**
@@ -109,6 +109,7 @@ export function FinishedMap({
   const revised = (board.topic?.revisions.length ?? 0) > 0;
   const live = board.tiles.filter((tile) => !tile.removed).length;
   const threads = liveThreads(board);
+  const definitions = agreedDefinitions(board);
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 print:max-w-none print:p-0">
@@ -149,6 +150,22 @@ export function FinishedMap({
         {board.generosity.plus + board.generosity.minus > 0 &&
           ` · ${board.generosity.plus + board.generosity.minus} generosity given`}
       </p>
+
+      {definitions.length > 0 && (
+        <section className="flex break-inside-avoid flex-col gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+            Words you pinned down
+          </h2>
+          <dl className="flex flex-col gap-2 text-sm">
+            {definitions.map((entry) => (
+              <div key={entry.proposalId} className="flex flex-col">
+                <dt className="font-semibold">{entry.term}</dt>
+                <dd className="opacity-80">{entry.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
 
       {threads.length === 0 ? (
         <p className="opacity-70">Nobody placed a reason, so there is no map to draw.</p>
