@@ -1,7 +1,10 @@
 import { buildStamp } from "@/lib/build-id";
 
 /**
- * The footer that names this build.
+ * The line that names this build.
+ *
+ * Rendered once, by the root layout, so it is on every page. That is deliberate:
+ * a reviewer comments on the screen in front of them, not on the account page.
  *
  * While the prototype is under review this is load-bearing rather than
  * decorative: reviewers send back long documents of comments, and a comment
