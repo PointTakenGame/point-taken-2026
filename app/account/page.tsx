@@ -21,6 +21,7 @@ import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { BuildStamp } from "@/components/build-stamp";
+import { Avatar } from "@/components/avatar";
 
 /**
  * The page a player lands on after signing in: who they are, what they have
@@ -337,19 +338,22 @@ export default async function AccountPage({
     <>
       <SiteNav here="account" />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">
-            {player?.display_name ?? "Your account"}
-          </h1>
-          <p className="text-sm opacity-70">
-            {player?.claimed_at ? (
-              <>
-                Account kept since <LocalDay iso={player.claimed_at} />.
-              </>
-            ) : (
-              "This account is anonymous. Attach an email to keep it."
-            )}
-          </p>
+        <header className="flex items-center gap-4">
+          <Avatar playerId={playerId} name={player?.display_name ?? null} size="lg" />
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-semibold">
+              {player?.display_name ?? "Your account"}
+            </h1>
+            <p className="text-sm opacity-70">
+              {player?.claimed_at ? (
+                <>
+                  Account kept since <LocalDay iso={player.claimed_at} />.
+                </>
+              ) : (
+                "This account is anonymous. Attach an email to keep it."
+              )}
+            </p>
+          </div>
         </header>
 
         <ResumeOrStart
