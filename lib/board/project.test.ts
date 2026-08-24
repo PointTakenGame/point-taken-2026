@@ -424,6 +424,68 @@ describe("the declared contract", () => {
     expect(projectBoard(l.events).tiles[0].cardsThrown).toBe(0);
   });
 
+  it("tracks each throw separately, and answers only the one a rewrite names", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Rents are too high."), ALICE);
+    const first = l.push(
+      "card_thrown",
+      { card_id: "no_exaggeration", rung_id: null, target_tile_id: "t1" },
+      BOB,
+    );
+    const second = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "t1" },
+      BOB,
+    );
+    l.push(
+      "tile_revised",
+      {
+        tile_id: "t1",
+        text: "Median rent passes a third of income.",
+        in_response_to_seq: first,
+      },
+      ALICE,
+    );
+
+    const board = projectBoard(l.events);
+    expect(board.throws.map((thrown) => thrown.seq)).toEqual([first, second]);
+    expect(board.throws[0].status).toBe("answered");
+    expect(board.throws[0].answeredAtSeq).toBe(l.events.length);
+    // The rewrite named the first throw, so the second is still standing. A
+    // reason can be argued with twice, and answering one card is not answering
+    // both.
+    expect(board.throws[1].status).toBe("standing");
+    expect(board.throws[1].answeredAtSeq).toBeNull();
+    // A rewrite does not take the count back off: the reason really was thrown
+    // at, and it changed because of it.
+    expect(board.tiles[0].cardsThrown).toBe(2);
+  });
+
+  it("records why a card was turned down, and refuses to turn it down twice", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Rents are too high."), ALICE);
+    const thrown = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "t1" },
+      BOB,
+    );
+    const declined = l.push(
+      "card_throw_declined",
+      { in_response_to_seq: thrown, reason: "I never said you." },
+      ALICE,
+    );
+    l.push("card_throw_declined", { in_response_to_seq: thrown, reason: null }, ALICE);
+
+    const board = projectBoard(l.events);
+    expect(board.throws).toHaveLength(1);
+    expect(board.throws[0].status).toBe("declined");
+    expect(board.throws[0].declineReason).toBe("I never said you.");
+    // The second decline is a no-op, so the reason is not blanked and the tile
+    // count is decremented once rather than into the negatives.
+    expect(board.throws[0].answeredAtSeq).toBe(declined);
+    expect(board.tiles[0].cardsThrown).toBe(0);
+  });
+
   it("keeps a coach nudge, and says whose it was", () => {
     const l = opened();
     l.push(

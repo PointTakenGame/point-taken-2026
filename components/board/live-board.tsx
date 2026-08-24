@@ -6,28 +6,36 @@ import type {
   BoardProposal,
   BoardState,
   BoardThread,
+  BoardThrow,
   BoardTile,
 } from "@/lib/board/project";
 import { REDACTED_TEXT } from "@/lib/board/project";
 import {
+  DECLINE_REASON_MAX_CHARS,
   OTHER_SIDE,
   RESOLUTION_TOKENS,
   TILE_MAX_CHARS,
+  canDeclineThrow,
   canEditTile,
   canPlaceResolutionToken,
   canPlaceTile,
   canProposeTopicRevision,
   canRemoveTile,
+  canReviseTile,
+  canThrowCard,
+  cardsInPlay,
   isResolved,
   proposalsAwaiting,
   proposalsFrom,
 } from "@/lib/board/rules";
+import { coachCard } from "@/lib/coach/cards";
 import { useGameFeed } from "./use-game-feed";
 import { CoachPanel } from "./coach-panel";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
   clearResolutionToken,
+  declineThrow,
   editTile,
   giveGenerosityToken,
   leaveGame,
@@ -36,6 +44,8 @@ import {
   proposeTopicRevision,
   rejectProposal,
   removeTile,
+  reviseTile,
+  throwCard,
 } from "@/app/game/[gameId]/actions";
 import type { Side } from "@/lib/events/types";
 
@@ -77,6 +87,272 @@ function TileText({ tile }: { tile: BoardTile }) {
   return <span>{tile.text}</span>;
 }
 
+/** The card's own name, or its id if a game was played with a card we no longer ship. */
+function cardLabel(cardId: string): string {
+  const card = coachCard(cardId);
+  return card ? `${card.icon} ${card.name}` : cardId;
+}
+
+/**
+ * The hand: the cards this game is being played with, offered against one of
+ * the other side's reasons.
+ *
+ * Every card is always shown, even the ones that cannot be thrown right now.
+ * A card you have already played greys out with the reason why, because a hand
+ * that silently loses cards is a hand you cannot learn.
+ */
+function CardHand({
+  gameId,
+  tile,
+  me,
+  board,
+}: {
+  gameId: string;
+  tile: BoardTile;
+  me: { playerId: string; role: Side };
+  board: BoardState;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const deck = cardsInPlay(board);
+  if (deck.length === 0) return null;
+
+  const run = (cardId: string) => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = await throwCard(gameId, {
+        tileId: tile.id,
+        cardId,
+      });
+      if (!result.ok) setError(result.error);
+      else setOpen(false);
+    });
+  };
+
+  if (!open) {
+    return (
+      <div className="ml-6">
+        <button
+          type="button"
+          className="text-xs underline opacity-70"
+          onClick={() => setOpen(true)}
+        >
+          play a card
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ml-6 flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        {deck.map((cardId) => {
+          const verdict = canThrowCard(board, tile.id, cardId, me.role, me.playerId);
+          return (
+            <button
+              key={cardId}
+              type="button"
+              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-30"
+              disabled={pending || !verdict.ok}
+              title={!verdict.ok ? verdict.error : undefined}
+              onClick={() => run(cardId)}
+            >
+              {cardLabel(cardId)}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className="text-xs underline opacity-70"
+          disabled={pending}
+          onClick={() => setOpen(false)}
+        >
+          never mind
+        </button>
+      </div>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/**
+ * A card standing against one of your own reasons, and the two ways out.
+ *
+ * Rewriting and turning the card down are deliberately side by side and equally
+ * weighted. Neither is the concession: the game does not record which of them
+ * was correct, only which one you chose.
+ */
+function StandingThrow({
+  gameId,
+  board,
+  thrown,
+  me,
+}: {
+  gameId: string;
+  board: BoardState;
+  thrown: BoardThrow;
+  me: { playerId: string; role: Side };
+}) {
+  const [mode, setMode] = useState<"idle" | "revise" | "decline">("idle");
+  const [draft, setDraft] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const reviseVerdict = canReviseTile(
+    board,
+    thrown.targetTileId,
+    thrown.seq,
+    me.playerId,
+    draft,
+  );
+  const declineVerdict = canDeclineThrow(board, thrown.seq, me.playerId, reason || null);
+
+  const runRevise = () => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = await reviseTile(gameId, {
+        tileId: thrown.targetTileId,
+        throwSeq: thrown.seq,
+        text: draft,
+      });
+      if (!result.ok) setError(result.error);
+      else setMode("idle");
+    });
+  };
+
+  const runDecline = () => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = await declineThrow(gameId, {
+        throwSeq: thrown.seq,
+        reason: reason.trim() || null,
+      });
+      if (!result.ok) setError(result.error);
+      else setMode("idle");
+    });
+  };
+
+  const card = coachCard(thrown.cardId);
+
+  return (
+    <div className="ml-6 flex flex-col gap-1 border-l-2 border-amber-500/50 pl-3">
+      <p className="text-xs">
+        <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
+        <span className="ml-2 opacity-60">played on this reason</span>
+      </p>
+      {card && <p className="text-xs opacity-60">{card.plain}</p>}
+
+      {mode === "idle" && (
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="text-xs underline opacity-80"
+            onClick={() => {
+              setDraft(
+                board.tiles.find((tile) => tile.id === thrown.targetTileId)?.text ?? "",
+              );
+              setMode("revise");
+            }}
+          >
+            rewrite it
+          </button>
+          <button
+            type="button"
+            className="text-xs underline opacity-80"
+            onClick={() => setMode("decline")}
+          >
+            the card does not fit
+          </button>
+        </div>
+      )}
+
+      {mode === "revise" && (
+        <div className="flex flex-col gap-1">
+          <textarea
+            className="w-full border border-current/30 p-1 text-sm"
+            value={draft}
+            maxLength={TILE_MAX_CHARS}
+            disabled={pending}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <span className="text-xs opacity-60">
+            {TILE_MAX_CHARS - draft.length} characters left
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              disabled={pending || !reviseVerdict.ok}
+              title={!reviseVerdict.ok ? reviseVerdict.error : undefined}
+              onClick={runRevise}
+            >
+              Save the rewrite
+            </button>
+            <button
+              type="button"
+              className="text-xs underline opacity-70"
+              disabled={pending}
+              onClick={() => setMode("idle")}
+            >
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "decline" && (
+        <div className="flex flex-col gap-1">
+          <input
+            className="w-full border border-current/30 p-1 text-sm"
+            placeholder="why it does not fit (optional)"
+            value={reason}
+            maxLength={DECLINE_REASON_MAX_CHARS}
+            disabled={pending}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              disabled={pending || !declineVerdict.ok}
+              title={!declineVerdict.ok ? declineVerdict.error : undefined}
+              onClick={runDecline}
+            >
+              Turn the card down
+            </button>
+            <button
+              type="button"
+              className="text-xs underline opacity-70"
+              disabled={pending}
+              onClick={() => setMode("idle")}
+            >
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/** Throws that are over, kept visible because the exchange is the record. */
+function SettledThrow({ thrown }: { thrown: BoardThrow }) {
+  return (
+    <p className="ml-6 text-xs opacity-50">
+      {cardLabel(thrown.cardId)}
+      {thrown.status === "answered" ? ", answered by a rewrite" : ", turned down"}
+      {thrown.status === "declined" && thrown.declineReason
+        ? `: ${thrown.declineReason}`
+        : ""}
+    </p>
+  );
+}
+
 function TileNode({
   tile,
   gameId,
@@ -96,6 +372,9 @@ function TileNode({
   const mine = tile.placedBy === me.playerId;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
+  const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
+  const standing = throwsHere.filter((thrown) => thrown.status === "standing");
+  const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
 
   const runEdit = () => {
     setError(null);
@@ -162,6 +441,7 @@ function TileNode({
           <span className="flex-1">
             <TileText tile={tile} />
             {tile.edited && <span className="ml-2 text-xs opacity-50">(edited)</span>}
+            {tile.revised && <span className="ml-2 text-xs opacity-50">(rewritten)</span>}
             {mine && (
               <span className="ml-2 inline-flex gap-2">
                 <button
@@ -188,6 +468,26 @@ function TileNode({
         )}
       </div>
       <ErrorLine error={error} />
+
+      {/* The throw, from both ends. Your own reasons show the cards standing
+          against them and the two ways to answer; the other side's reasons show
+          the hand. Settled throws stay on the board because the exchange is the
+          record, not a step on the way to one. */}
+      {mine
+        ? standing.map((thrown) => (
+            <StandingThrow
+              key={thrown.seq}
+              gameId={gameId}
+              board={board}
+              thrown={thrown}
+              me={me}
+            />
+          ))
+        : tile.side !== me.role &&
+          !tile.removed && <CardHand gameId={gameId} tile={tile} me={me} board={board} />}
+      {settled.map((thrown) => (
+        <SettledThrow key={thrown.seq} thrown={thrown} />
+      ))}
 
       {tile.children.length > 0 && (
         <ul className="ml-2 flex flex-col gap-2 border-l border-current/15 pl-4">

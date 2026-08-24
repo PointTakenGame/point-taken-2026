@@ -9,7 +9,12 @@ import {
   canPlaceTile,
   canProposeRelocation,
   canProposeTopicRevision,
+  canDeclineThrow,
   canRemoveTile,
+  canReviseTile,
+  canThrowCard,
+  cardsInPlay,
+  DECLINE_REASON_MAX_CHARS,
   isAbandoned,
   isResolved,
   MAX_THREADS,
@@ -509,5 +514,142 @@ describe("topicAgreementEndsGame", () => {
     expect(topicAgreementEndsGame(created("gym", null, "boss-the-whataboutist"))).toBe(
       true,
     );
+  });
+});
+
+describe("the throw", () => {
+  const DECK = ["you_is_taboo", "no_exaggeration"];
+
+  /** Opened with a real card set, and one reason from each side. */
+  function thrown() {
+    const l = log();
+    l.push("game_created", {
+      mode: "live",
+      level_id: null,
+      boss_id: null,
+      join_code: "PTKN22",
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "Quiet Amber Fjord" }, BOB);
+    l.push("role_selected", { role: "plus" }, ALICE);
+    l.push("role_selected", { role: "minus" }, BOB);
+    l.push("topic_set", {
+      text: "Cities should cap rents.",
+      origin: "library",
+      topic_id: "rent-cap",
+    });
+    l.push("game_started", {
+      card_set: { policy: "intersection", card_ids: DECK, raised_by: null },
+      coach: null,
+    });
+    l.push(
+      "tile_placed",
+      tile("hers", null, "hers", "You always overstate this."),
+      ALICE,
+    );
+    l.push("tile_placed", tile("his", "hers", "hers", "Caps cut supply.", "minus"), BOB);
+    return l;
+  }
+
+  it("reads the deck off the game, since the hand is shared", () => {
+    expect(cardsInPlay(projectBoard(thrown().events))).toEqual(DECK);
+    // No deck before the game starts, rather than a crash.
+    expect(cardsInPlay(projectBoard(log().events))).toEqual([]);
+  });
+
+  it("lets a player throw a card in play at the other side's reason", () => {
+    const board = projectBoard(thrown().events);
+    expect(canThrowCard(board, "hers", "you_is_taboo", "minus", BOB).ok).toBe(true);
+  });
+
+  it("refuses a card this game is not being played with", () => {
+    const board = projectBoard(thrown().events);
+    const verdict = canThrowCard(board, "hers", "stick_to_root", "minus", BOB);
+    expect(verdict).toMatchObject({ ok: false });
+  });
+
+  it("refuses a throw at your own reason", () => {
+    const board = projectBoard(thrown().events);
+    expect(canThrowCard(board, "hers", "you_is_taboo", "plus", ALICE).ok).toBe(false);
+  });
+
+  it("refuses the same card twice on the same reason", () => {
+    const l = thrown();
+    l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "hers" },
+      BOB,
+    );
+    const board = projectBoard(l.events);
+    expect(canThrowCard(board, "hers", "you_is_taboo", "minus", BOB).ok).toBe(false);
+    // A different card is still fair game.
+    expect(canThrowCard(board, "hers", "no_exaggeration", "minus", BOB).ok).toBe(true);
+  });
+
+  it("lets only the reason's author answer, either way", () => {
+    const l = thrown();
+    const seq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "hers" },
+      BOB,
+    );
+    const board = projectBoard(l.events);
+
+    expect(canDeclineThrow(board, seq, ALICE, null).ok).toBe(true);
+    expect(canDeclineThrow(board, seq, BOB, null).ok).toBe(false);
+
+    expect(
+      canReviseTile(board, "hers", seq, ALICE, "I think you overstate this.").ok,
+    ).toBe(true);
+    expect(canReviseTile(board, "hers", seq, BOB, "I think you overstate this.").ok).toBe(
+      false,
+    );
+  });
+
+  it("caps the note on a decline", () => {
+    const l = thrown();
+    const seq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "hers" },
+      BOB,
+    );
+    const board = projectBoard(l.events);
+    const long = "n".repeat(DECLINE_REASON_MAX_CHARS + 1);
+    expect(canDeclineThrow(board, seq, ALICE, long).ok).toBe(false);
+    expect(canDeclineThrow(board, seq, ALICE, long.slice(1)).ok).toBe(true);
+  });
+
+  it("closes both answers once the throw has been answered", () => {
+    const l = thrown();
+    const seq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "hers" },
+      BOB,
+    );
+    l.push("card_throw_declined", { in_response_to_seq: seq, reason: null }, ALICE);
+    const board = projectBoard(l.events);
+    expect(canDeclineThrow(board, seq, ALICE, null).ok).toBe(false);
+    expect(canReviseTile(board, "hers", seq, ALICE, "Different words entirely.").ok).toBe(
+      false,
+    );
+  });
+
+  it("refuses a rewrite that is not a rewrite, or that answers another reason's card", () => {
+    const l = thrown();
+    const seq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: "hers" },
+      BOB,
+    );
+    const board = projectBoard(l.events);
+    expect(
+      canReviseTile(board, "hers", seq, ALICE, "You always overstate this.").ok,
+    ).toBe(false);
+    expect(canReviseTile(board, "hers", seq, ALICE, "  ").ok).toBe(false);
+    expect(
+      canReviseTile(board, "hers", seq, ALICE, "x".repeat(TILE_MAX_CHARS + 1)).ok,
+    ).toBe(false);
+    // The throw landed on her reason, so it cannot be answered by rewriting his.
+    expect(canReviseTile(board, "his", seq, BOB, "Caps cut new supply.").ok).toBe(false);
   });
 });

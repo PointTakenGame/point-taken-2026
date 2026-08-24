@@ -107,11 +107,11 @@ export default async function CardsPage() {
       </ul>
 
       <section className="flex flex-col gap-2 border-t border-current/10 pt-6">
-        <h2 className="font-semibold">Throws you passed on</h2>
+        <h2 className="font-semibold">Cards you turned down</h2>
         <p className="text-sm opacity-70">
           {stats.card_throws_declined === 0
-            ? "None yet. Passing on a throw is a move, so it gets counted the same as making one."
-            : `${stats.card_throws_declined}. Passing is a move, not an absence, which is why it is here.`}
+            ? "None yet. When someone throws a card at one of your reasons you can rewrite the reason, or you can say the card does not fit. Saying it does not fit is a move, and it gets counted here."
+            : `${stats.card_throws_declined}. Each one is a card thrown at a reason of yours that you answered by disputing the card rather than by rewriting.`}
         </p>
       </section>
     </main>

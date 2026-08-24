@@ -43,7 +43,8 @@ export interface PlayerStats {
   /** Throws this player made, in total and split by which card. */
   cards_thrown: number;
   cards_thrown_by_id: Record<string, number>;
-  /** Throws this player was offered and passed on. Declining is a move. */
+  /** Throws aimed at this player's reasons that they refused rather than
+      rewriting. Refusing is a move, not an absence. */
   card_throws_declined: number;
   /**
    * Cards this player's own coach raised about this player's own reasons,

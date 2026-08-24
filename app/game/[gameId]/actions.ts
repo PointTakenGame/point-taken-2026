@@ -166,6 +166,129 @@ export async function removeTile(
 }
 
 /**
+ * Throw a card at one of the other side's reasons.
+ *
+ * What the throw *means* is settled later, not here: the log records that a
+ * card landed, and scoring reads whether the reason was rewritten or the card
+ * was turned down. Nothing in this action decides who was right.
+ */
+export async function throwCard(
+  gameId: string,
+  input: { tileId: string; cardId: string },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canThrowCard(
+    board,
+    input.tileId,
+    input.cardId,
+    membership.role,
+    membership.playerId,
+  );
+  if (!verdict.ok) return failed(verdict.error);
+
+  await appendGameEvent(gameId, {
+    type: "card_thrown",
+    ...asPlayer(membership),
+    payload: {
+      card_id: input.cardId,
+      // Gym rungs are not built, so every throw so far is a card throw.
+      rung_id: null,
+      target_tile_id: input.tileId,
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * The first of the two answers to a throw: rewrite the reason.
+ *
+ * The rewrite names the throw it answers, and the coach reads the new words,
+ * because a reason that just changed is exactly the one worth reading again.
+ */
+export async function reviseTile(
+  gameId: string,
+  input: { tileId: string; throwSeq: number; text: string },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canReviseTile(
+    board,
+    input.tileId,
+    input.throwSeq,
+    membership.playerId,
+    input.text,
+  );
+  if (!verdict.ok) return failed(verdict.error);
+
+  const text = input.text.trim();
+  await appendGameEvent(gameId, {
+    type: "tile_revised",
+    ...asPlayer(membership),
+    payload: {
+      tile_id: input.tileId,
+      text,
+      in_response_to_seq: input.throwSeq,
+    },
+  });
+
+  const tile = board.tiles.find((candidate) => candidate.id === input.tileId);
+  after(
+    runCoach(gameId, {
+      playerId: membership.playerId,
+      tileId: input.tileId,
+      input: {
+        topic: board.currentTopicText ?? "",
+        threadRoot: tile ? rootText(board, tile.threadRootId) : null,
+        text,
+      },
+    }),
+  );
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * The other answer: say the card does not fit.
+ *
+ * Only the reason's author may say it, and saying it is a move rather than an
+ * absence, which is why it is an event and gets counted.
+ */
+export async function declineThrow(
+  gameId: string,
+  input: { throwSeq: number; reason: string | null },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const reason = input.reason?.trim() ? input.reason.trim() : null;
+  const verdict = rules.canDeclineThrow(
+    board,
+    input.throwSeq,
+    membership.playerId,
+    reason,
+  );
+  if (!verdict.ok) return failed(verdict.error);
+
+  await appendGameEvent(gameId, {
+    type: "card_throw_declined",
+    ...asPlayer(membership),
+    payload: { in_response_to_seq: input.throwSeq, reason },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
  * Put a token down on a thread root. When it turns out both sides are showing
  * the same token, the server closes the thread, and if that was the last one it
  * ends the game. Those two are server-written because they are a consequence of

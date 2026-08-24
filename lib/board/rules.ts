@@ -291,3 +291,136 @@ function descendants(board: BoardState, tileId: Uuid): Set<Uuid> {
   }
   return found;
 }
+
+/**
+ * How long a "that card does not fit" note may be.
+ *
+ * Short on purpose. The decline is a move, not a rebuttal: the rebuttal is the
+ * thread. The event's payload cap is 512 bytes, so this leaves room for the
+ * seq and the envelope without a multibyte reason ever pushing past it.
+ */
+export const DECLINE_REASON_MAX_CHARS = 200;
+
+/** The cards this game is being played with, or the empty set before it starts. */
+export function cardsInPlay(board: BoardState): readonly string[] {
+  return board.settings?.cardSet.cardIds ?? [];
+}
+
+/**
+ * Throwing a card at one of the other side's reasons.
+ *
+ * The board does not decide whether the throw is *right*. That is read later
+ * from what follows it, a rewrite or a decline, which is why nothing here
+ * inspects the reason's text. What it does decide is whether the throw is a
+ * legal move at all.
+ */
+export function canThrowCard(
+  board: BoardState,
+  tileId: Uuid,
+  cardId: string,
+  side: Side,
+  playerId: Uuid,
+): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+
+  const deck = cardsInPlay(board);
+  if (!deck.includes(cardId)) return no("That card is not in play in this game.");
+
+  const tile = board.tiles.find((candidate) => candidate.id === tileId);
+  if (!tile) return no("That reason is not on this board.");
+  if (tile.removed) return no("That reason was taken off the board.");
+  if (tile.side === side)
+    return no("Cards go to the other side's reasons, not your own.");
+
+  const thread = board.threads.find(
+    (candidate) => candidate.rootId === tile.threadRootId,
+  );
+  if (thread && isResolved(thread)) return no("That thread is already resolved.");
+
+  // One card lands on one reason once. A second copy adds no information, and
+  // a declined throw stays declined rather than being re-thrown until it sticks.
+  const already = board.throws.some(
+    (thrown) =>
+      thrown.targetTileId === tileId &&
+      thrown.cardId === cardId &&
+      thrown.thrownBy === playerId,
+  );
+  if (already) return no("You already played that card on this reason.");
+
+  return ALLOWED;
+}
+
+/**
+ * Saying a card thrown at your own reason does not fit.
+ *
+ * Only the reason's author may decline, and only while the throw still stands.
+ * Declining is the alternative to rewriting, not a way out of both: it puts the
+ * disagreement about the card itself on the record.
+ */
+export function canDeclineThrow(
+  board: BoardState,
+  throwSeq: number,
+  playerId: Uuid,
+  reason: string | null,
+): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+
+  const thrown = board.throws.find((candidate) => candidate.seq === throwSeq);
+  if (!thrown) return no("That card play is not on this board.");
+  if (thrown.status === "answered") {
+    return no("You already answered that card by rewriting the reason.");
+  }
+  if (thrown.status === "declined") return no("You already turned that card down.");
+
+  const tile = board.tiles.find((candidate) => candidate.id === thrown.targetTileId);
+  if (!tile) return no("That reason is not on this board.");
+  if (tile.placedBy !== playerId) {
+    return no("Only the person who wrote the reason can turn a card down.");
+  }
+
+  if (reason !== null && reason.trim().length > DECLINE_REASON_MAX_CHARS) {
+    return no(`A note is at most ${DECLINE_REASON_MAX_CHARS} characters.`);
+  }
+  return ALLOWED;
+}
+
+/**
+ * Rewriting your own reason to answer a card thrown at it.
+ *
+ * The other answer to a throw. Distinct from an ordinary edit because it names
+ * the throw it is answering, which is what makes the exchange readable later:
+ * a card landed, and the reason changed because of it.
+ */
+export function canReviseTile(
+  board: BoardState,
+  tileId: Uuid,
+  throwSeq: number,
+  playerId: Uuid,
+  text: string,
+): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+
+  const tile = board.tiles.find((candidate) => candidate.id === tileId);
+  if (!tile) return no("That reason is not on this board.");
+  if (tile.removed) return no("That reason was taken off the board.");
+  if (tile.placedBy !== playerId) {
+    return no("Only the person who wrote the reason can rewrite it.");
+  }
+
+  const thrown = board.throws.find((candidate) => candidate.seq === throwSeq);
+  if (!thrown) return no("That card play is not on this board.");
+  if (thrown.targetTileId !== tileId)
+    return no("That card was played on another reason.");
+  if (thrown.status !== "standing") return no("That card has already been answered.");
+
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return no("A reason needs some words in it.");
+  if (trimmed.length > TILE_MAX_CHARS) {
+    return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
+  }
+  if (trimmed === tile.text) return no("That is the same words you had before.");
+  return ALLOWED;
+}

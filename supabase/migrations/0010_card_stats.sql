@@ -12,9 +12,9 @@
 --
 --   cards_thrown_by_id      you threw this card at the other player's reason.
 --                           An act, credited to the actor.
---   card_throws_declined    you were offered a throw and passed on it. Also an
---                           act, and deliberately counted rather than hidden:
---                           declining is a move in this game, not an absence.
+--   card_throws_declined    someone threw a card at one of your reasons and you
+--                           refused it rather than rewriting. Refusing is a move,
+--                           not an absence, which is why it is counted.
 --   coach_flags_by_id       your own coach raised this card about your own
 --                           reason. Private by construction: the log tags the
 --                           reading with the player it was for, and 0008 keeps

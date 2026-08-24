@@ -1,4 +1,5 @@
 import type {
+  ActorRole,
   AnyGameEvent,
   GameEventType,
   ProposalContent,
@@ -34,6 +35,32 @@ export interface BoardTile {
   redacted: boolean;
   cardsThrown: number;
   children: BoardTile[];
+}
+
+/**
+ * One card thrown at one reason, and what happened next.
+ *
+ * `status` deliberately does not say whether the throw was *right*. The event
+ * catalogue is explicit that no verdict is stored, because a stored verdict
+ * would freeze a judgement the rules package is meant to be able to retune.
+ * What is here is only the shape of the exchange: a card landed, and then the
+ * reason was rewritten, or its author said the card does not fit, or neither
+ * has happened yet.
+ */
+export interface BoardThrow {
+  seq: number;
+  cardId: string;
+  /** Set when the throw exercises a gym rung rather than a card. */
+  rungId: string | null;
+  targetTileId: Uuid;
+  /** Who threw it. Null only for a server-written throw. */
+  thrownBy: Uuid | null;
+  thrownByRole: ActorRole;
+  status: "standing" | "answered" | "declined";
+  /** Why the card was said not to fit. Null unless declined, and optional then. */
+  declineReason: string | null;
+  /** The seq of the revision or the decline. Null while the throw still stands. */
+  answeredAtSeq: number | null;
 }
 
 export interface BoardThread {
@@ -222,6 +249,8 @@ export interface BoardState {
   tiles: BoardTile[];
   /** Every proposal ever made, in the order asked. */
   proposals: BoardProposal[];
+  /** Every card ever thrown, in the order thrown, answered or not. */
+  throws: BoardThrow[];
   /** Every coach reading, both sides'. Filter by `forPlayer` before rendering. */
   coachReadings: CoachReading[];
   /** Every unprompted coach nudge, both sides'. Filter by `forPlayer` too. */
@@ -258,9 +287,9 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   const proposals = new Map<Uuid, BoardProposal>();
   const readings = new Map<number, CoachReading>();
   const nudges: BoardNudge[] = [];
-  // Which tile a throw landed on, by the throw's own seq, so a later decline
-  // can take it back off that tile.
-  const throwTargets = new Map<number, Uuid>();
+  // Throws by their own seq, because that is how a decline names the one it is
+  // answering. Keyed rather than listed so the lookup stays O(1) in a long game.
+  const throwsBySeq = new Map<number, BoardThrow>();
 
   const state: BoardState = {
     mode: null,
@@ -274,6 +303,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     threads: [],
     tiles: [],
     proposals: [],
+    throws: [],
     coachReadings: [],
     nudges: [],
     skipped: [],
@@ -450,6 +480,20 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
         tile.redacted = isRedacted(event.seq);
         tile.text = tile.redacted ? REDACTED_TEXT : event.payload.text;
         tile.revised = true;
+        // The payload names the throw this rewrite answers, so only that one is
+        // answered, even if others are still standing against the same reason.
+        // Note what is *not* happening: the throw keeps counting on the tile,
+        // because a reason that had to be rewritten was in fact thrown at. Only
+        // a decline takes the count back off.
+        const answered = throwsBySeq.get(event.payload.in_response_to_seq);
+        if (
+          answered &&
+          answered.status === "standing" &&
+          answered.targetTileId === tile.id
+        ) {
+          answered.status = "answered";
+          answered.answeredAtSeq = event.seq;
+        }
         break;
       }
 
@@ -531,18 +575,34 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
         const tile = tiles.get(event.payload.target_tile_id);
         if (!tile) break;
         tile.cardsThrown += 1;
-        throwTargets.set(event.seq, tile.id);
+        throwsBySeq.set(event.seq, {
+          seq: event.seq,
+          cardId: event.payload.card_id,
+          rungId: event.payload.rung_id,
+          targetTileId: tile.id,
+          thrownBy: event.actor_id,
+          thrownByRole: event.actor_role,
+          status: "standing",
+          declineReason: null,
+          answeredAtSeq: null,
+        });
         break;
       }
 
       case "card_throw_declined": {
-        // A declined throw did not land, so the tile it aimed at should not go
-        // on carrying it. Corrective, in the log's sense: the throw stays in
-        // the history and stops counting on the board.
-        const tileId = throwTargets.get(event.payload.in_response_to_seq);
-        if (!tileId) break;
-        throwTargets.delete(event.payload.in_response_to_seq);
-        const tile = tiles.get(tileId);
+        // The tile's author saying the card does not fit. A declined throw did
+        // not land, so the tile should not go on carrying it. Corrective, in
+        // the log's sense: the throw stays in the history and stops counting on
+        // the board. Only a standing throw can be declined, so a second decline
+        // of the same throw changes nothing rather than double-decrementing.
+        const thrown = throwsBySeq.get(event.payload.in_response_to_seq);
+        if (!thrown || thrown.status !== "standing") break;
+        thrown.status = "declined";
+        thrown.declineReason = isRedacted(event.seq, "reason")
+          ? REDACTED_TEXT
+          : event.payload.reason;
+        thrown.answeredAtSeq = event.seq;
+        const tile = tiles.get(thrown.targetTileId);
         if (tile && tile.cardsThrown > 0) tile.cardsThrown -= 1;
         break;
       }
@@ -609,6 +669,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
   state.players = [...players.values()];
   state.proposals = [...proposals.values()].sort((a, b) => a.askedAtSeq - b.askedAtSeq);
+  state.throws = [...throwsBySeq.values()].sort((a, b) => a.seq - b.seq);
   state.coachReadings = [...readings.values()].sort((a, b) => a.seq - b.seq);
   state.nudges = nudges;
   state.threads = [...threads.values()];
