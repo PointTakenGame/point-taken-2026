@@ -11,6 +11,31 @@ Supabase project `point-taken-2026`, ref `tvtmltchotkzviqaywdy`, us-east-1. Cred
 `../../../point-taken-biz/api-keys/supabase-point-taken-2026.env`, which is gitignored and outside
 this tree. Nothing in here holds a secret.
 
+## What the game is
+
+Code questions are answered here. Design questions are answered in
+`../../../point-taken-biz/docs/reference/`, and where anything else disagrees with those files,
+they win:
+
+- **Levels 1 to 4, the game itself** (beats, bosses, cards, badges, points):
+  `2026-08-22_gym-levels-1-4-implementation-guide.md`. This is the source of record.
+- **What skill each level teaches, and why in that order:**
+  `2026-08-22_skill-ladder-levels-1-4.md`.
+- **Account screens and the entities behind them:**
+  `2026-08-23_account-pages-entity-list.md`.
+- **Build order:**
+  `../../docs/reference/materials/roadmap-consolidation/2026-08-16_dev-roadmap.md`.
+
+Levels 5 to 8 are not designed. The surviving half of
+`../../docs/reference/materials/roadmap-consolidation/2026-08-04_level-build-table.md` is the only
+material on them, and it is provisional. Everything else in that folder is superseded and says so
+at the top.
+
+The Gym (the scripted practice ladder those documents describe) is **not** what this codebase
+builds today. Steve's 2026-08-17 scope ruling took the scripted opponent off the critical path,
+because the prototype is live play against a human. The design documents above are what the account
+and the coach have to be compatible with, not a description of what currently runs.
+
 ## Layout
 
 ```
