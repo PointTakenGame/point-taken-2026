@@ -10,6 +10,7 @@ import type {
   BoardTile,
 } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
+import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -703,8 +704,8 @@ function ResolutionRow({
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="opacity-60">You: {myToken ?? "no token"}</span>
-        <span className="opacity-60">Them: {otherToken ?? "no token"}</span>
+        <Placed who="You" token={myToken} />
+        <Placed who="Them" token={otherToken} />
         {myToken ? (
           <button
             type="button"
@@ -721,12 +722,13 @@ function ResolutionRow({
               <button
                 key={token}
                 type="button"
-                className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+                className="flex items-center gap-1.5 border border-current/30 px-2 py-1 text-xs disabled:opacity-40"
                 disabled={pending || !verdict.ok}
                 title={!verdict.ok ? verdict.error : undefined}
                 onClick={() => place(token)}
               >
-                {token}
+                <TokenGlyph token={token} size={22} />
+                <span>{tokenLabel(token)}</span>
               </button>
             );
           })
@@ -734,6 +736,25 @@ function ResolutionRow({
       </div>
       <ErrorLine error={error} />
     </div>
+  );
+}
+
+/**
+ * One side's token on a thread, or the fact that they have not placed one.
+ *
+ * The token reads as art plus its meaning in words, because a drawing of a pair
+ * of eyes does not say "agree to disagree" to anyone who has not been told.
+ */
+function Placed({ who, token }: { who: string; token: string | null | undefined }) {
+  if (!token) {
+    return <span className="opacity-60">{who}: no token</span>;
+  }
+  return (
+    <span className="flex items-center gap-1.5 opacity-80">
+      <span className="opacity-60">{who}:</span>
+      <TokenGlyph token={token} size={20} />
+      <span>{tokenLabel(token)}</span>
+    </span>
   );
 }
 

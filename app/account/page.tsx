@@ -7,6 +7,7 @@ import type { GameRow } from "@/lib/db/types";
 import { LocalDay } from "@/components/local-day";
 import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
+import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 
 /**
  * The page a player lands on after signing in: who they are, what they have
@@ -80,8 +81,11 @@ function Signature({ stats }: { stats: PlayerStats }) {
       <h2 className="text-lg font-semibold">How your threads end</h2>
       <ul className="flex flex-wrap gap-4">
         {emoji.map(([mark, count]) => (
-          <li key={mark} className="tabular-nums">
-            <span className="text-xl">{mark}</span> {count}
+          <li key={mark} className="flex items-center gap-2 tabular-nums">
+            <TokenGlyph token={mark} size={24} />
+            <span>
+              {tokenLabel(mark)}: {count}
+            </span>
           </li>
         ))}
       </ul>

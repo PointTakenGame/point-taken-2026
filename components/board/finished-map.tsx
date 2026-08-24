@@ -1,6 +1,7 @@
 import type { BoardState, BoardThread, BoardTile } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { LocalDay } from "@/components/local-day";
+import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 
 /**
  * A finished game, drawn as the argument it was.
@@ -64,8 +65,9 @@ function Thread({ thread, index }: { thread: BoardThread; index: number }) {
           Thread {index + 1}
         </h3>
         {thread.resolution ? (
-          <p className="text-right text-sm">
-            <span className="mr-1 text-lg align-middle">{thread.resolution.emoji}</span>
+          <p className="flex items-center justify-end gap-1.5 text-right text-sm">
+            <TokenGlyph token={thread.resolution.emoji} size={20} />
+            <span>{tokenLabel(thread.resolution.emoji)}</span>
             {thread.resolution.note && (
               <span className="opacity-70">{thread.resolution.note}</span>
             )}
