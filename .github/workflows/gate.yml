@@ -1,0 +1,53 @@
+# The same five commands the README calls the local gate, run on every push.
+#
+# They are listed here in build-first order, which is the one difference from
+# the README: `next build` writes the typed-route globals (`PageProps`,
+# `LayoutProps`) into `.next/types`, so on a fresh checkout `tsc` fails on names
+# that do not exist until a build has run once.
+#
+# No secrets. Every page is `force-dynamic` and nothing is fetched at build
+# time, so placeholder values satisfy the env reads and the real keys stay out
+# of CI entirely. The coach bake-off skips itself unless COACH_EVAL is set,
+# which is why no Anthropic key appears here.
+
+name: gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SECRET_KEY: placeholder
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+
+      - run: npm ci
+
+      # First, because tsc reads what it generates.
+      - name: build
+        run: npm run build:local
+
+      - name: typecheck
+        run: npx tsc --noEmit
+
+      - name: lint
+        run: npx eslint app lib components proxy.ts
+
+      - name: format
+        run: npx prettier --check .
+
+      - name: test
+        run: npx vitest run

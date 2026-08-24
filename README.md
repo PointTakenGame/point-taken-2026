@@ -128,9 +128,28 @@ the same bundler Vercel will use. It carried `--webpack` until 2026-08-24 as a s
 the socket panic; setting `TMPDIR` turned out to be enough on its own, and a gate that builds with
 a bundler production never sees is a gate that can pass while the deploy fails.
 
-`npm test` runs the vitest suites under `lib/` (the name generator and the naming race). They are
-pure unit tests: nothing in them touches Supabase, so they need no credentials and no network.
+`npm test` runs the vitest suites under `lib/` and `components/`. They are pure unit tests:
+nothing in them touches Supabase, so they need no credentials and no network. The one exception
+skips itself, the coach bake-off in `lib/coach/coach-eval.test.ts`, which runs only when
+`COACH_EVAL=1` is set and a real Anthropic key is loaded.
 
 `npx tsc --noEmit` needs one `next build` first: Next 16 generates the typed-routes globals
 (`LayoutProps`, `PageProps`) into `.next/types` at build time, so on a clean checkout tsc fails on
 names that do not exist yet.
+
+## The gate
+
+Five commands. All five have to pass before a commit is worth pushing:
+
+```
+npx tsc --noEmit
+npx eslint app lib components proxy.ts
+npx prettier --check .
+npx vitest run
+npm run build:local
+```
+
+`.github/workflows/gate.yml` runs the same five on every push and pull request, in build-first
+order for the tsc reason above. It needs no secrets: every page is `force-dynamic` and nothing is
+fetched at build time, so placeholder Supabase values are enough to compile, and the only test that
+wants a real key skips itself. If you add a step to the gate, add it in both places.
