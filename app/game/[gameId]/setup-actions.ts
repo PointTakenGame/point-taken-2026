@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as setup from "@/lib/board/setup";
+import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, readGameEvents } from "@/lib/events/append";
 import type { ActorRole, Side, Uuid } from "@/lib/events/types";
 import { endIfAbandoned } from "@/lib/games/abandon";
@@ -29,6 +30,8 @@ const DENIALS = {
   not_found: "That game is not open to you.",
 } as const;
 
+const LEFT = "You left this room. Rejoin if you want to take part.";
+
 interface Lobby {
   seat: Seat;
   board: BoardState;
@@ -41,6 +44,14 @@ async function lobby(gameId: string): Promise<Lobby | ActionResult> {
   if (!found.ok) return failed(DENIALS[found.denial]);
 
   const board = projectBoard(await readGameEvents(gameId));
+
+  // The one place a departure is enforced. Leaving does not release the seat,
+  // so `readSeat` still says yes and every setup write would otherwise still
+  // land: a player who had walked out could pick a side, change the topic, or
+  // sign, and the roster would say "left" beside all of it. Rejoining is the
+  // way back, and it is the one action below that does not come through here.
+  if (setup.hasLeft(board, found.seat.playerId)) return failed(LEFT);
+
   return { seat: found.seat, board };
 }
 
@@ -177,6 +188,39 @@ export async function leaveLobby(gameId: string): Promise<ActionResult> {
     payload: { reason: "quit" },
   });
   await endIfAbandoned(gameId);
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * Walking back into a room you left.
+ *
+ * The seat was never given away, so this is an ordinary `player_joined` against
+ * the same row: the trigger in 0004 clears `left_at` on conflict, and the
+ * projection clears the departure the same way. It reads the seat directly
+ * rather than through `lobby`, because `lobby` is what refuses a leaver.
+ */
+export async function rejoinLobby(gameId: string): Promise<ActionResult> {
+  if (!UUID.test(gameId)) return failed("That game id is not a game id.");
+
+  const found = await readSeat(gameId);
+  if (!found.ok) return failed(DENIALS[found.denial]);
+
+  const board = projectBoard(await readGameEvents(gameId));
+  if (!setup.hasLeft(board, found.seat.playerId)) return { ok: true };
+
+  const verdict = setup.canJoin(board, found.seat.playerId);
+  if (!verdict.ok) return failed(verdict.error);
+
+  const player = await ensureDisplayName(found.seat.playerId);
+  await appendGameEvent(gameId, {
+    type: "player_joined",
+    actorRole: "server",
+    source: "human",
+    actorId: found.seat.playerId,
+    payload: { display_name: player.display_name ?? "Player" },
+  });
 
   refresh(gameId);
   return { ok: true };

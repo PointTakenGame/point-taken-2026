@@ -49,7 +49,7 @@ import {
   reviseTile,
   throwCard,
 } from "@/app/game/[gameId]/actions";
-import type { Side, Uuid } from "@/lib/events/types";
+import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
 
 /**
  * The live board: everything a player can see and do while a game is in
@@ -727,6 +727,27 @@ function ResolutionRow({
   );
 }
 
+/**
+ * What each proposal kind is called out loud.
+ *
+ * The log's own names are snake_case identifiers and were leaking straight onto
+ * the board, so a player was being asked to accept or reject a "topic_revision".
+ * An unknown kind falls back to the identifier with its underscores opened up,
+ * which is ugly but readable, and never blank.
+ */
+const PROPOSAL_KIND_LABEL: Record<ProposalKind, string> = {
+  topic_revision: "A new wording for the topic",
+  tile_relocation: "Move a reason",
+  reading_handback: "Hand the reading back",
+  steelman_reading: "Say their side for them",
+  steelman_tile: "A reason for their side",
+  definition: "Pin down a word",
+};
+
+function proposalKindLabel(kind: string): string {
+  return PROPOSAL_KIND_LABEL[kind as ProposalKind] ?? kind.replaceAll("_", " ");
+}
+
 function proposalSummary(proposal: BoardProposal, board: BoardState): string {
   const content = proposal.content;
   if (proposal.kind === "topic_revision" && "text" in content) {
@@ -745,12 +766,12 @@ function proposalSummary(proposal: BoardProposal, board: BoardState): string {
     (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
     "text" in content
   ) {
-    return `${proposal.kind.replace("_", " ")}: "${content.text}"`;
+    return `"${content.text}"`;
   }
   if (proposal.kind === "definition" && "term" in content) {
     return `Define "${content.term}": ${content.text}`;
   }
-  return proposal.kind;
+  return proposalKindLabel(proposal.kind);
 }
 
 function ProposalRow({
@@ -789,7 +810,7 @@ function ProposalRow({
 
   return (
     <li className="flex flex-col gap-1 border border-current/15 p-2 text-sm">
-      <span className="opacity-60">{proposal.kind}</span>
+      <span className="opacity-60">{proposalKindLabel(proposal.kind)}</span>
       <span>{proposalSummary(proposal, board)}</span>
       {awaitingMe ? (
         <span className="flex flex-wrap items-center gap-2">

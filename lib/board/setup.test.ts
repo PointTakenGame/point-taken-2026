@@ -12,6 +12,7 @@ import {
   canSetTopic,
   canSign,
   canStartGame,
+  hasLeft,
   startingCardSet,
 } from "./setup";
 import type { AnyGameEvent, EventPayloads, GameEventType } from "@/lib/events/types";
@@ -145,10 +146,46 @@ describe("canJoin", () => {
     expect(canJoin(projectBoard(l.events), ALICE).ok).toBe(true);
   });
 
-  it("frees the seat of a player who quit", () => {
+  // The database decides this one. The trigger in 0004 counts every
+  // game_players row, departed or not, and raises on a third, so a seat that
+  // reads as free here would be a promise the insert refuses.
+  it("keeps the seat of a player who quit", () => {
     const l = nearlyReady();
     l.push("player_left", { reason: "quit" }, BOB, "minus");
-    expect(canJoin(projectBoard(l.events), CAROL).ok).toBe(true);
+    expect(canJoin(projectBoard(l.events), CAROL)).toMatchObject({
+      ok: false,
+      error: "That room is full.",
+    });
+  });
+
+  it("lets the player who quit walk back in", () => {
+    const l = nearlyReady();
+    l.push("player_left", { reason: "quit" }, BOB, "minus");
+    expect(canJoin(projectBoard(l.events), BOB).ok).toBe(true);
+  });
+});
+
+describe("hasLeft", () => {
+  it("is false for somebody still in the room", () => {
+    expect(hasLeft(projectBoard(nearlyReady().events), BOB)).toBe(false);
+  });
+
+  it("is false for somebody who was never in it", () => {
+    expect(hasLeft(projectBoard(nearlyReady().events), CAROL)).toBe(false);
+  });
+
+  it("is true once they quit", () => {
+    const l = nearlyReady();
+    l.push("player_left", { reason: "quit" }, BOB, "minus");
+    expect(hasLeft(projectBoard(l.events), BOB)).toBe(true);
+  });
+
+  // Matches isAbandoned and canStartGame, which both count a dropped
+  // connection as still present.
+  it("is false for a dropped connection", () => {
+    const l = nearlyReady();
+    l.push("player_left", { reason: "disconnect" }, BOB, "minus");
+    expect(hasLeft(projectBoard(l.events), BOB)).toBe(false);
   });
 });
 

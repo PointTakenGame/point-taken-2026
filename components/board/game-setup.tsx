@@ -12,12 +12,14 @@ import {
   canSetTopic,
   canSign,
   canStartGame,
+  hasLeft,
 } from "@/lib/board/setup";
 import { useGameFeed } from "./use-game-feed";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   chooseSide,
   leaveLobby,
+  rejoinLobby,
   setTopic,
   signAgreement,
   startGame,
@@ -110,6 +112,36 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   };
 
   const customVerdict = canSetTopic(board, custom);
+
+  // Leaving does not navigate anywhere, so this is the screen the leaver is
+  // looking at. Showing them the room's controls with "left" beside their own
+  // name was the bug: the server now refuses those writes, and there is no
+  // reason to draw a button whose only outcome is a refusal.
+  if (hasLeft(board, me.playerId)) {
+    return (
+      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
+        <h1 className="text-xl font-semibold">You left this room</h1>
+        <p className="text-sm opacity-70">
+          Your seat is still here and nobody else can take it. Walk back in whenever you
+          want.
+        </p>
+        <ErrorLine error={error} />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="w-fit border border-current/30 px-2 py-1 disabled:opacity-30"
+            disabled={pending}
+            onClick={() => run(() => rejoinLobby(gameId))}
+          >
+            {pending ? "..." : "Rejoin"}
+          </button>
+          <a className="text-sm underline opacity-60" href="/account">
+            Back to your account
+          </a>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">

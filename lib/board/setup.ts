@@ -188,6 +188,18 @@ function seat(board: BoardState, playerId: Uuid): BoardPlayer | undefined {
   return board.players.find((player) => player.id === playerId);
 }
 
+/**
+ * Somebody who walked out and has not walked back in.
+ *
+ * Not the same as having no seat. The seat is kept, so a leaver may rejoin;
+ * until they do, they are a spectator and may not act. A `disconnect` is not a
+ * departure, matching `isAbandoned` and `canStartGame`, which both count a
+ * dropped connection as still present.
+ */
+export function hasLeft(board: BoardState, playerId: Uuid): boolean {
+  return seat(board, playerId)?.left === "quit";
+}
+
 export function boardIsLobby(board: BoardState): Verdict {
   if (board.status === "ended") return no("That game is over.");
   if (board.status === "active") return no("That game has already started.");
@@ -198,8 +210,12 @@ export function canJoin(board: BoardState, playerId: Uuid): Verdict {
   const open = boardIsLobby(board);
   if (!open.ok) return open;
   if (seat(board, playerId)) return ALLOWED;
-  const seated = board.players.filter((player) => player.left !== "quit");
-  if (seated.length >= MAX_PLAYERS) return no("That room is full.");
+  // Every seat counts, quit or not. The database says so first: the trigger in
+  // 0004 counts every game_players row and raises on a third, so treating a
+  // departure as a free seat here would promise a place the insert then
+  // refuses. The consequence is that a leaver can always walk back in, and
+  // that a two-seat room never opens up for anyone else (BRAIN-T260823-38).
+  if (board.players.length >= MAX_PLAYERS) return no("That room is full.");
   return ALLOWED;
 }
 
