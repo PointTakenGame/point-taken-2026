@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { RoomEntry } from "@/components/rooms/room-entry";
 import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
@@ -18,6 +20,7 @@ export default async function Home() {
   // on the board so that "back to my own login" is always one click away: a
   // hot seat you cannot get out of is worse than no hot seat.
   const dev = hotseatAllowed();
+  const me = await currentPlayerId();
 
   return (
     <>
@@ -31,8 +34,18 @@ export default async function Home() {
           </p>
         </header>
         <RoomEntry />
+        {me ? null : (
+          <p className="text-sm opacity-60">
+            Played before and attached an email?{" "}
+            <Link href="/signin" className="underline">
+              Sign in
+            </Link>{" "}
+            to get back to those games. Otherwise just start a room: an account comes with
+            it.
+          </p>
+        )}
       </main>
-      {dev ? <HotseatBar me={await currentPlayerId()} /> : null}
+      {dev ? <HotseatBar me={me} /> : null}
     </>
   );
 }

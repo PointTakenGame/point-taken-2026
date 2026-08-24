@@ -65,7 +65,11 @@ function autologinAllowed(request: NextRequest): boolean {
   if (process.env.NODE_ENV === "production") return false;
   if (process.env.PT_DEV_AUTOLOGIN !== "1") return false;
   // The naming call below routes back through here. Do not recurse into it.
-  return !request.nextUrl.pathname.startsWith("/api/auth/");
+  // `/auth/` is excluded for a different reason: a mailed sign-in link would
+  // otherwise be handed a fresh anonymous session on the way to the callback
+  // that replaces it, leaving an abandoned player row behind every time.
+  const { pathname } = request.nextUrl;
+  return !pathname.startsWith("/api/auth/") && !pathname.startsWith("/auth/");
 }
 
 /**

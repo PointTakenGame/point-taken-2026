@@ -126,6 +126,44 @@ not a bug. And there is no host role in setup: either seated player can set the 
 a pure function of the events. If it shows the wrong thing, either the wrong event was written
 or the right one was not.
 
+## Accounts: how somebody gets in, and back in
+
+There is no sign-up form and no password anywhere in this codebase. Starting a room mints an
+anonymous Supabase user, and that is the account: a cookie in one browser, with a name it was
+given. `/settings` offers to attach an email to it, which sends a confirmation link. Confirming
+that link is what claims the account, and `players.claimed_at` is stamped by a database trigger
+on `auth.users.email_confirmed_at` (migration `0009`) rather than by any page, so a link that is
+confirmed but never followed back into the app still counts.
+
+Once an account is claimed, `/signin` is the way back to it from a new browser or a cleared
+cache. It mails a one-time link, good for an hour, and that is the whole credential: the address
+is the login and the mailbox is the second factor.
+
+Three things about that path are deliberate and easy to "fix" into bugs:
+
+- **`shouldCreateUser: false`, and the resulting error is swallowed.** An account here is made by
+  playing, not by signing up, so this endpoint may not mint one at a stranger's address. Supabase
+  answers an unknown address with an error, and passing that on would turn the form into a way to
+  ask whether a given person has an account. Everyone gets the same neutral answer instead. If
+  you make the failure case honest, you have built a membership oracle.
+- **The link only opens in the browser that asked for it.** `@supabase/ssr` uses PKCE, so half
+  the key is a cookie written when the link is requested. A link forwarded to a phone genuinely
+  cannot work, and `/auth/callback` says so in words rather than bouncing to a signed-out page.
+- **Signing in replaces whatever session is already here.** If the visitor is an unclaimed guest,
+  the games on that guest account become unreachable. `/signin` warns about it before the fact.
+
+**Sign-in and sign-out are route handlers, not server actions**, and that is not a style choice.
+Every server action has to establish who is asking as its first awaited call, and
+`lib/games/action-identity.test.ts` enforces it structurally. Signing in is the one operation
+where nobody is anybody yet, so it lives at `/api/auth/signin` beside `/api/auth/anonymous`,
+which is a route handler for exactly the same reason. Do not move it to satisfy the test, and do
+not weaken the test to allow the move.
+
+Sign-out lives on `/settings` and is offered even for an account with no email attached, where
+it is one way. It has to be: on the live site there is no hot seat, so ending the session is how
+one person becomes the second player. For an unclaimed account the button arms first and says
+plainly what the second click ends.
+
 ## The gate
 
 Five commands. All five have to pass before you push:

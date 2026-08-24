@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getPlayer } from "@/lib/db/players";
 import { currentPlayerId } from "@/lib/supabase/session";
 import { SiteNav } from "@/components/site-nav";
@@ -28,6 +30,13 @@ export default async function SettingsPage() {
           email and no password.
         </p>
         <StartPlaying />
+        <p className="text-sm opacity-60">
+          Or, if you attached an email to an account before,{" "}
+          <Link href="/signin" className="underline">
+            sign in
+          </Link>{" "}
+          and it comes back with its games.
+        </p>
       </main>
     );
   }

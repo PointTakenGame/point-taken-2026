@@ -170,6 +170,72 @@ function ClaimAccount() {
   );
 }
 
+/**
+ * Letting go of this browser's session.
+ *
+ * Offered even when the account has no email, because on the live site this is
+ * the only way for one person to become a second player, and refusing would
+ * leave testers clearing cookies by hand. But for an unclaimed account it is
+ * one way, so it asks twice and says plainly what the second click ends.
+ *
+ * Leaving is a push followed by a refresh. The response to the sign-out has
+ * already cleared the cookies, but the router still holds server-rendered
+ * output from when they existed, so without the refresh the front door would
+ * come back still greeting you by name.
+ */
+function SignOut({ claimed }: { claimed: boolean }) {
+  const router = useRouter();
+  const [armed, setArmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const needsConfirming = !claimed && !armed;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={pending}
+          onClick={() => {
+            if (needsConfirming) {
+              setArmed(true);
+              return;
+            }
+            start(async () => {
+              setError(null);
+              try {
+                const response = await fetch("/api/auth/signout", { method: "POST" });
+                if (!response.ok) {
+                  setError("That did not go through. Try again in a moment.");
+                  return;
+                }
+                router.replace("/");
+                router.refresh();
+              } catch {
+                setError("That did not go through. Check your connection and try again.");
+              }
+            });
+          }}
+        >
+          {pending ? "Signing out..." : armed ? "Yes, end this account" : "Sign out"}
+        </button>
+        {armed ? (
+          <button
+            type="button"
+            className="text-sm underline opacity-70"
+            onClick={() => setArmed(false)}
+          >
+            Keep me signed in
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
 export function SettingsForm({
   displayName,
   coachEnabled,
@@ -204,6 +270,17 @@ export function SettingsForm({
         }
       >
         <ClaimAccount />
+      </Section>
+
+      <Section
+        title="This browser"
+        hint={
+          claimed
+            ? "Signing out ends the session here. Your account keeps everything, and a mailed link brings you back to it."
+            : "This account has no email, so it exists only as a cookie in this browser. Signing out ends it: the games on it stay in the database but nothing can reach them again. Attach an email above first if you want it back."
+        }
+      >
+        <SignOut claimed={claimed} />
       </Section>
     </div>
   );
