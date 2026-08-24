@@ -4,6 +4,7 @@ import { getPlayer } from "@/lib/db/players";
 import { getPlayerStats, type PlayerStats } from "@/lib/db/stats";
 import { listGamesForPlayer } from "@/lib/db/games";
 import type { GameRow } from "@/lib/db/types";
+import { LocalDay } from "@/components/local-day";
 import { StartPlaying } from "./start-playing";
 
 /**
@@ -18,15 +19,6 @@ import { StartPlaying } from "./start-playing";
  */
 
 export const dynamic = "force-dynamic";
-
-const DAY = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-
-const day = (iso: string | null) => (iso ? DAY.format(new Date(iso)) : "");
 
 /** What a game ended as, in the words a player would use. */
 const OUTCOME: Record<string, string> = {
@@ -69,7 +61,7 @@ function History({ games }: { games: GameRow[] }) {
               </span>
             </span>
             <span className="shrink-0 text-sm opacity-70">
-              {day(game.ended_at ?? game.started_at ?? game.created_at)}
+              <LocalDay iso={game.ended_at ?? game.started_at ?? game.created_at} />
             </span>
           </Link>
         </li>
@@ -125,9 +117,13 @@ export default async function AccountPage() {
           {player?.display_name ?? "Your account"}
         </h1>
         <p className="text-sm opacity-70">
-          {player?.claimed_at
-            ? `Account kept since ${day(player.claimed_at)}.`
-            : "This account is anonymous. Attach an email to keep it."}{" "}
+          {player?.claimed_at ? (
+            <>
+              Account kept since <LocalDay iso={player.claimed_at} />.
+            </>
+          ) : (
+            "This account is anonymous. Attach an email to keep it."
+          )}{" "}
           <Link href="/settings" className="underline">
             Settings
           </Link>{" "}

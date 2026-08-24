@@ -1,5 +1,6 @@
 import type { BoardState, BoardThread, BoardTile } from "@/lib/board/project";
 import { REDACTED_TEXT } from "@/lib/board/project";
+import { LocalDay } from "@/components/local-day";
 
 /**
  * A finished game, drawn as the argument it was.
@@ -18,13 +19,6 @@ const OUTCOME: Record<string, string> = {
 };
 
 const SIDE_MARK = { plus: "+", minus: "−" } as const;
-
-const DAY = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "long",
-  day: "numeric",
-  timeZone: "UTC",
-});
 
 function Text({ tile }: { tile: BoardTile }) {
   if (tile.redacted) {
@@ -120,7 +114,12 @@ export function FinishedMap({
       <header className="flex flex-col gap-2">
         <p className="text-sm uppercase tracking-wide opacity-60">
           {board.mode === "gym" ? "Gym run" : "Point Taken"}
-          {endedAt && ` · ${DAY.format(new Date(endedAt))}`}
+          {endedAt && (
+            <>
+              {" · "}
+              <LocalDay iso={endedAt} month="long" />
+            </>
+          )}
         </p>
         <h1 className="text-2xl font-semibold text-balance">
           {board.currentTopicText ?? "No topic was set."}
