@@ -37,9 +37,7 @@ export async function GET(request: Request) {
       body.missing_in_code = [...live].filter(
         (t) => !EVENT_TYPE_NAMES.includes(t as never),
       );
-      body.retired = (data ?? [])
-        .filter((r) => r.retired)
-        .map((r) => r.type as string);
+      body.retired = (data ?? []).filter((r) => r.retired).map((r) => r.type as string);
 
       // Migrations applied, not just credentials valid: a project missing 0004
       // answers the catalogue query fine and then fails at the first game.

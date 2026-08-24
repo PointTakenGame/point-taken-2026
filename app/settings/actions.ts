@@ -57,9 +57,7 @@ export async function setCoach(enabled: boolean): Promise<SettingsResult> {
   revalidatePath("/settings");
   return {
     ok: true,
-    message: enabled
-      ? "The coach will read your reasons."
-      : "The coach will stay quiet.",
+    message: enabled ? "The coach will read your reasons." : "The coach will stay quiet.",
   };
 }
 

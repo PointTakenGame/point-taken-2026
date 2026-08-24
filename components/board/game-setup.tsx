@@ -182,7 +182,9 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
                       aria-pressed={picked === topic.id}
                       onClick={() => {
                         setPicked(topic.id);
-                        run(() => setTopic(gameId, { text: topic.text, topicId: topic.id }));
+                        run(() =>
+                          setTopic(gameId, { text: topic.text, topicId: topic.id }),
+                        );
                       }}
                     >
                       {topic.text}

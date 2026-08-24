@@ -51,9 +51,11 @@ function isDenial(value: Session | ActionResult): value is ActionResult {
 }
 
 /** What a player's own events look like. Server-written events differ. */
-function asPlayer(
-  membership: Membership,
-): { actorRole: Side; source: "human"; actorId: Uuid } {
+function asPlayer(membership: Membership): {
+  actorRole: Side;
+  source: "human";
+  actorId: Uuid;
+} {
   return { actorRole: membership.role, source: "human", actorId: membership.playerId };
 }
 
@@ -348,20 +350,24 @@ export async function acceptProposal(
   ];
 
   if (proposal.kind === "topic_revision" && "text" in proposal.content) {
-    batch.push(newEvent({
-      type: "topic_revised",
-      ...me,
-      payload: { text: proposal.content.text, via_proposal_id: proposal.id },
-    }));
+    batch.push(
+      newEvent({
+        type: "topic_revised",
+        ...me,
+        payload: { text: proposal.content.text, via_proposal_id: proposal.id },
+      }),
+    );
     // Both sides now stand behind one statement, which is the second win,
     // everywhere except free gym practice. See rules.topicAgreementEndsGame.
     if (rules.topicAgreementEndsGame(board)) {
-      batch.push(newEvent({
-        type: "game_ended",
-        actorRole: "server",
-        source: "system",
-        payload: { win_condition: "topic_agreed" },
-      }));
+      batch.push(
+        newEvent({
+          type: "game_ended",
+          actorRole: "server",
+          source: "system",
+          payload: { win_condition: "topic_agreed" },
+        }),
+      );
     }
   }
 
@@ -370,17 +376,19 @@ export async function acceptProposal(
     proposal.targetTileId &&
     "new_thread_root_id" in proposal.content
   ) {
-    batch.push(newEvent({
-      type: "tile_relocated",
-      ...me,
-      payload: {
-        tile_id: proposal.targetTileId,
-        new_parent_tile_id: proposal.content.new_parent_tile_id,
-        new_thread_root_id: proposal.content.new_thread_root_id,
-        new_side: proposal.content.new_side,
-        via_proposal_id: proposal.id,
-      },
-    }));
+    batch.push(
+      newEvent({
+        type: "tile_relocated",
+        ...me,
+        payload: {
+          tile_id: proposal.targetTileId,
+          new_parent_tile_id: proposal.content.new_parent_tile_id,
+          new_thread_root_id: proposal.content.new_thread_root_id,
+          new_side: proposal.content.new_side,
+          via_proposal_id: proposal.id,
+        },
+      }),
+    );
   }
 
   if (
@@ -393,18 +401,20 @@ export async function acceptProposal(
     const parent = parentTileId
       ? board.tiles.find((tile) => tile.id === parentTileId)
       : null;
-    batch.push(newEvent({
-      type: "tile_placed",
-      ...me,
-      payload: {
-        tile_id: tileId,
-        parent_tile_id: parentTileId,
-        thread_root_id: parent ? parent.threadRootId : tileId,
-        side: proposal.content.side,
-        text: proposal.content.text,
-        via_proposal_id: proposal.id,
-      },
-    }));
+    batch.push(
+      newEvent({
+        type: "tile_placed",
+        ...me,
+        payload: {
+          tile_id: tileId,
+          parent_tile_id: parentTileId,
+          thread_root_id: parent ? parent.threadRootId : tileId,
+          side: proposal.content.side,
+          text: proposal.content.text,
+          via_proposal_id: proposal.id,
+        },
+      }),
+    );
   }
 
   await appendGameEvents(gameId, batch);
@@ -495,10 +505,7 @@ export async function leaveGame(
  * Turn the coach on or off. A preference, not a move, so it never reaches the
  * log; what does reach the log is anything the coach actually says.
  */
-export async function setCoach(
-  gameId: string,
-  enabled: boolean,
-): Promise<ActionResult> {
+export async function setCoach(gameId: string, enabled: boolean): Promise<ActionResult> {
   const loaded = await session(gameId);
   if (isDenial(loaded)) return loaded;
 

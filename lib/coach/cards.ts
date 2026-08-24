@@ -66,7 +66,9 @@ export function coachCard(id: string): CoachCard | undefined {
 /** Fails loudly if the two lists drift apart, which is the bug that would make
     the coach cite a card nobody is holding. */
 export function coachCardsMatchDeck(): boolean {
-  const deck = FIRST_RELEASE_CARDS.map((card) => card.id).slice().sort();
+  const deck = FIRST_RELEASE_CARDS.map((card) => card.id)
+    .slice()
+    .sort();
   const coach = COACH_CARD_IDS.slice().sort();
   return deck.length === coach.length && deck.every((id, i) => id === coach[i]);
 }

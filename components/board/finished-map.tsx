@@ -132,7 +132,10 @@ export function FinishedMap({
         )}
         <p className="text-sm opacity-70">
           {board.players
-            .map((p) => `${p.role ? SIDE_MARK[p.role] + " " : ""}${p.displayName ?? "Someone"}`)
+            .map(
+              (p) =>
+                `${p.role ? SIDE_MARK[p.role] + " " : ""}${p.displayName ?? "Someone"}`,
+            )
             .join("  vs  ")}
         </p>
       </header>

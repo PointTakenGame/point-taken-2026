@@ -30,8 +30,7 @@ export type MembershipDenial =
   | "no_side";
 
 export type MembershipResult =
-  | { ok: true; membership: Membership }
-  | { ok: false; denial: MembershipDenial };
+  { ok: true; membership: Membership } | { ok: false; denial: MembershipDenial };
 
 /** A seat before a side has been picked. What the lobby works with. */
 export interface Seat {
@@ -42,8 +41,7 @@ export interface Seat {
 }
 
 export type SeatResult =
-  | { ok: true; seat: Seat }
-  | { ok: false; denial: "anonymous" | "not_found" };
+  { ok: true; seat: Seat } | { ok: false; denial: "anonymous" | "not_found" };
 
 /**
  * The same trust check as readMembership, minus the demand for a side. The

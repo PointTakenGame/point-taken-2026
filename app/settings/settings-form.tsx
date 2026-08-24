@@ -18,10 +18,8 @@ import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./act
  * page you press twice.
  */
 
-const BUTTON =
-  "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
-const FIELD =
-  "rounded-md border border-current/25 bg-transparent px-3 py-2";
+const BUTTON = "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
+const FIELD = "rounded-md border border-current/25 bg-transparent px-3 py-2";
 
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;

@@ -104,8 +104,8 @@ export default async function AccountPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <h1 className="text-2xl font-semibold">Your account</h1>
         <p className="opacity-70">
-          You are not signed in. Starting a game gives you a name and an account,
-          with no email and no password. You can attach an email later to keep it.
+          You are not signed in. Starting a game gives you a name and an account, with no
+          email and no password. You can attach an email later to keep it.
         </p>
         <StartPlaying />
       </main>

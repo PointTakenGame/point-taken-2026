@@ -17,11 +17,7 @@ export type GameMode = "gym" | "live";
 
 export type GameStatus = "lobby" | "active" | "ended";
 
-export type WinCondition =
-  | "threads_resolved"
-  | "topic_agreed"
-  | "abandoned"
-  | "timeout";
+export type WinCondition = "threads_resolved" | "topic_agreed" | "abandoned" | "timeout";
 
 /**
  * One row per authenticated human, created by a trigger on auth.users so the

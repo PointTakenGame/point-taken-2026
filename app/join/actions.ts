@@ -20,8 +20,7 @@ import { currentPlayerId } from "@/lib/supabase/session";
  */
 
 export type RoomResult =
-  | { ok: true; gameId: string }
-  | { ok: false; error: string; signIn?: true };
+  { ok: true; gameId: string } | { ok: false; error: string; signIn?: true };
 
 const NEEDS_NAME: RoomResult = {
   ok: false,

@@ -65,10 +65,7 @@ function refresh(gameId: string): void {
   revalidatePath(`/game/${gameId}`);
 }
 
-export async function chooseSide(
-  gameId: string,
-  side: Side,
-): Promise<ActionResult> {
+export async function chooseSide(gameId: string, side: Side): Promise<ActionResult> {
   const loaded = await lobby(gameId);
   if (isDenial(loaded)) return loaded;
   const { seat, board } = loaded;

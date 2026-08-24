@@ -56,9 +56,7 @@ export async function createGame(input: CreateGameInput): Promise<GameRow> {
     throw new Error(`create_game failed: ${error.message}`);
   }
 
-  throw new Error(
-    `could not find a free join code in ${JOIN_CODE_ATTEMPTS} tries`,
-  );
+  throw new Error(`could not find a free join code in ${JOIN_CODE_ATTEMPTS} tries`);
 }
 
 export async function getGame(gameId: Uuid): Promise<GameRow | null> {
@@ -76,9 +74,7 @@ export async function getGame(gameId: Uuid): Promise<GameRow | null> {
  * Look up an open lobby by its code. Join codes are unique only among games
  * that have not ended, so this must not be used to find historical games.
  */
-export async function findOpenGameByJoinCode(
-  joinCode: string,
-): Promise<GameRow | null> {
+export async function findOpenGameByJoinCode(joinCode: string): Promise<GameRow | null> {
   const { data, error } = await serviceClient()
     .from("games")
     .select("*")
@@ -104,10 +100,7 @@ export async function getGamePlayers(gameId: Uuid): Promise<GamePlayerRow[]> {
 // Player reads and the display-name write live in ./players.ts.
 
 /** A player's own games, newest first. The history a dashboard reads. */
-export async function listGamesForPlayer(
-  playerId: Uuid,
-  limit = 50,
-): Promise<GameRow[]> {
+export async function listGamesForPlayer(playerId: Uuid, limit = 50): Promise<GameRow[]> {
   const { data, error } = await serviceClient()
     .from("game_players")
     .select("games(*)")

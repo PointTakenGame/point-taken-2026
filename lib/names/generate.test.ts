@@ -66,9 +66,9 @@ describe("generateNameParts", () => {
 
 describe("formatting", () => {
   it("title-cases three words", () => {
-    expect(
-      formatDisplayName({ first: "brisk", second: "copper", noun: "otter" }),
-    ).toBe("Brisk Copper Otter");
+    expect(formatDisplayName({ first: "brisk", second: "copper", noun: "otter" })).toBe(
+      "Brisk Copper Otter",
+    );
   });
 
   it("produces a name the database check constraint accepts", () => {
@@ -77,9 +77,7 @@ describe("formatting", () => {
 
   it("slugs to url-safe text, tail and all", () => {
     expect(displayNameSlug("Brisk Copper Otter")).toBe("brisk-copper-otter");
-    expect(displayNameSlug("Brisk Copper Otter 412")).toBe(
-      "brisk-copper-otter-412",
-    );
+    expect(displayNameSlug("Brisk Copper Otter 412")).toBe("brisk-copper-otter-412");
   });
 
   it("gives a three-digit tail", () => {

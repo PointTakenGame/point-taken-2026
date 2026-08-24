@@ -50,8 +50,7 @@ function useRoom() {
   return { pending, error, enter };
 }
 
-const BUTTON =
-  "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
+const BUTTON = "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
 
 export function RoomEntry() {
   const { pending, error, enter } = useRoom();

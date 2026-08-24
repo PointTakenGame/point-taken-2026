@@ -29,9 +29,7 @@ describe("validateDisplayName", () => {
     const emoji = "🦦".repeat(MAX_NAME_LENGTH);
     expect(emoji.length).toBe(MAX_NAME_LENGTH * 2);
     expect(validateDisplayName(emoji).ok).toBe(true);
-    expect(validateDisplayName("🦦".repeat(MAX_NAME_LENGTH + 1)).ok).toBe(
-      false,
-    );
+    expect(validateDisplayName("🦦".repeat(MAX_NAME_LENGTH + 1)).ok).toBe(false);
   });
 
   it("refuses characters that would misrepresent the interface", () => {
@@ -41,9 +39,7 @@ describe("validateDisplayName", () => {
       "bell, a C0 control": 0x0007,
     };
     for (const [label, code] of Object.entries(cases)) {
-      expect(validateDisplayName(`Alice${point(code)}Bob`).ok, label).toBe(
-        false,
-      );
+      expect(validateDisplayName(`Alice${point(code)}Bob`).ok, label).toBe(false);
     }
   });
 

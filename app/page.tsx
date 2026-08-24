@@ -24,8 +24,8 @@ export default async function Home() {
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">Point Taken</h1>
           <p className="opacity-70">
-            A writing game for two people who disagree. You trade reasons, link
-            them, and find out exactly where you part ways.
+            A writing game for two people who disagree. You trade reasons, link them, and
+            find out exactly where you part ways.
           </p>
         </header>
         <RoomEntry />

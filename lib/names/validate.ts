@@ -41,9 +41,7 @@ function deceptive(name: string): boolean {
   return false;
 }
 
-export type NameVerdict =
-  | { ok: true; name: string }
-  | { ok: false; error: string };
+export type NameVerdict = { ok: true; name: string } | { ok: false; error: string };
 
 /**
  * Trims, collapses runs of whitespace, and rules on the result. Returns the

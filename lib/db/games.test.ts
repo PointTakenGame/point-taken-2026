@@ -7,7 +7,10 @@ const { createGame, JOIN_CODE_ATTEMPTS } = await import("./games");
 
 const PLAYER = "11111111-1111-4111-8111-111111111111";
 const COLLISION = { data: null, error: { code: "23505", message: "duplicate key" } };
-const game = (join_code: string | null) => ({ data: { id: "g", join_code }, error: null });
+const game = (join_code: string | null) => ({
+  data: { id: "g", join_code },
+  error: null,
+});
 
 const codes = () => rpc.mock.calls.map((c) => c[1].p_join_code);
 

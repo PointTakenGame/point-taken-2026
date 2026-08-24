@@ -90,9 +90,7 @@ export function isResolved(thread: BoardThread): boolean {
  */
 export function threadsWinReached(board: BoardState): boolean {
   const real = board.threads.filter((thread) => thread.tileCount > 0);
-  return (
-    real.length >= MIN_THREADS_TO_END && real.every((thread) => isResolved(thread))
-  );
+  return real.length >= MIN_THREADS_TO_END && real.every((thread) => isResolved(thread));
 }
 
 /**
@@ -182,7 +180,8 @@ export function canEditTile(
   const tile = board.tiles.find((candidate) => candidate.id === tileId);
   if (!tile) return no("That reason is not on this board.");
   if (tile.removed) return no("That reason was taken off the board.");
-  if (tile.placedBy !== playerId) return no("Only the person who wrote it can change it.");
+  if (tile.placedBy !== playerId)
+    return no("Only the person who wrote it can change it.");
 
   const trimmed = text.trim();
   if (trimmed.length === 0) return no("A reason needs some words in it.");
@@ -192,18 +191,15 @@ export function canEditTile(
   return ALLOWED;
 }
 
-export function canRemoveTile(
-  board: BoardState,
-  tileId: Uuid,
-  playerId: Uuid,
-): Verdict {
+export function canRemoveTile(board: BoardState, tileId: Uuid, playerId: Uuid): Verdict {
   const open = boardIsOpen(board);
   if (!open.ok) return open;
 
   const tile = board.tiles.find((candidate) => candidate.id === tileId);
   if (!tile) return no("That reason is not on this board.");
   if (tile.removed) return no("That reason is already off the board.");
-  if (tile.placedBy !== playerId) return no("Only the person who wrote it can remove it.");
+  if (tile.placedBy !== playerId)
+    return no("Only the person who wrote it can remove it.");
   return ALLOWED;
 }
 
@@ -246,7 +242,8 @@ export function canProposeTopicRevision(board: BoardState, text: string): Verdic
   const trimmed = text.trim();
   if (trimmed.length === 0) return no("A revised topic needs some words in it.");
   if (trimmed.length > 300) return no("A revised topic is at most 300 characters.");
-  if (trimmed === board.currentTopicText) return no("That is the topic you already have.");
+  if (trimmed === board.currentTopicText)
+    return no("That is the topic you already have.");
   return ALLOWED;
 }
 

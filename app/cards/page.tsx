@@ -47,8 +47,8 @@ export default async function CardsPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <h1 className="text-2xl font-semibold">Your cards</h1>
         <p className="opacity-70">
-          You are not signed in. Starting a game gives you a name, an account,
-          and the same four cards everyone gets.
+          You are not signed in. Starting a game gives you a name, an account, and the
+          same four cards everyone gets.
         </p>
         <StartPlaying />
       </main>
@@ -67,10 +67,9 @@ export default async function CardsPage() {
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Your cards</h1>
         <p className="opacity-70">
-          Everyone holds these four. Throwing one says a reason broke that rule;
-          the other player answers it, or rewrites. Your coach reads from the
-          same four, so there is never a rule raised at you that you do not
-          already hold.{" "}
+          Everyone holds these four. Throwing one says a reason broke that rule; the other
+          player answers it, or rewrites. Your coach reads from the same four, so there is
+          never a rule raised at you that you do not already hold.{" "}
           <Link href="/account" className="underline">
             Your games
           </Link>
@@ -79,8 +78,8 @@ export default async function CardsPage() {
 
       {decksAgree ? null : (
         <p className="rounded-md border border-red-600/40 p-3 text-sm text-red-600">
-          The coach and the deck have drifted apart. Someone edited one list and
-          not the other: see lib/coach/cards.ts and lib/board/setup.ts.
+          The coach and the deck have drifted apart. Someone edited one list and not the
+          other: see lib/coach/cards.ts and lib/board/setup.ts.
         </p>
       )}
 
@@ -100,14 +99,8 @@ export default async function CardsPage() {
               <p className="text-sm opacity-70">{card.plain}</p>
             </div>
             <div className="flex gap-8">
-              <Count
-                label="thrown"
-                value={stats.cards_thrown_by_id[card.id] ?? 0}
-              />
-              <Count
-                label="coached"
-                value={stats.coach_flags_by_id[card.id] ?? 0}
-              />
+              <Count label="thrown" value={stats.cards_thrown_by_id[card.id] ?? 0} />
+              <Count label="coached" value={stats.coach_flags_by_id[card.id] ?? 0} />
             </div>
           </li>
         ))}

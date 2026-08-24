@@ -608,9 +608,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
   }
 
   state.players = [...players.values()];
-  state.proposals = [...proposals.values()].sort(
-    (a, b) => a.askedAtSeq - b.askedAtSeq,
-  );
+  state.proposals = [...proposals.values()].sort((a, b) => a.askedAtSeq - b.askedAtSeq);
   state.coachReadings = [...readings.values()].sort((a, b) => a.seq - b.seq);
   state.nudges = nudges;
   state.threads = [...threads.values()];

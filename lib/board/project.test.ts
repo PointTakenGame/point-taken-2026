@@ -94,10 +94,18 @@ describe("projectBoard", () => {
 
   it("builds the thread tree from parent links", () => {
     const l = opened();
-    l.push("tile_placed", { ...tile("t1", null, "t1", "Rents are unaffordable."), is_opening_reason: true }, ALICE);
+    l.push(
+      "tile_placed",
+      { ...tile("t1", null, "t1", "Rents are unaffordable."), is_opening_reason: true },
+      ALICE,
+    );
     l.push("tile_placed", tile("t2", "t1", "t1", "Caps cut supply.", "minus"), BOB);
     l.push("tile_placed", tile("t3", "t2", "t1", "Only in the long run.", "plus"), ALICE);
-    l.push("tile_placed", tile("t4", null, "t4", "Landlords need certainty.", "minus"), BOB);
+    l.push(
+      "tile_placed",
+      tile("t4", null, "t4", "Landlords need certainty.", "minus"),
+      BOB,
+    );
 
     const board = projectBoard(l.events);
     expect(board.threads.map((t) => t.rootId)).toEqual(["t1", "t4"]);
@@ -114,7 +122,11 @@ describe("projectBoard", () => {
 
   it("keeps the original topic and tracks every revision", () => {
     const l = opened();
-    l.push("topic_revised", { text: "Cities should cap rent increases.", via_proposal_id: "p1" }, BOB);
+    l.push(
+      "topic_revised",
+      { text: "Cities should cap rent increases.", via_proposal_id: "p1" },
+      BOB,
+    );
     const board = projectBoard(l.events);
     expect(board.topic?.text).toBe("Cities should cap rents.");
     expect(board.currentTopicText).toBe("Cities should cap rent increases.");
@@ -125,8 +137,20 @@ describe("projectBoard", () => {
     const l = opened();
     l.push("tile_placed", tile("t1", null, "t1", "Rents are to high."), ALICE);
     l.push("tile_edited", { tile_id: "t1", text: "Rents are too high." }, ALICE);
-    const thrown = l.push("card_thrown", { card_id: "vague", rung_id: null, target_tile_id: "t1" }, BOB);
-    l.push("tile_revised", { tile_id: "t1", text: "Median rent exceeds a third of income.", in_response_to_seq: thrown }, ALICE);
+    const thrown = l.push(
+      "card_thrown",
+      { card_id: "vague", rung_id: null, target_tile_id: "t1" },
+      BOB,
+    );
+    l.push(
+      "tile_revised",
+      {
+        tile_id: "t1",
+        text: "Median rent exceeds a third of income.",
+        in_response_to_seq: thrown,
+      },
+      ALICE,
+    );
 
     const [t1] = projectBoard(l.events).tiles;
     expect(t1.text).toBe("Median rent exceeds a third of income.");
@@ -156,7 +180,16 @@ describe("projectBoard", () => {
     l.push("tile_placed", tile("t1", null, "t1", "Root one."), ALICE);
     l.push("tile_placed", tile("t2", null, "t2", "Root two.", "minus"), BOB);
     l.push("tile_placed", tile("t3", "t1", "t1", "Moves."), ALICE);
-    l.push("tile_relocated", { tile_id: "t3", new_parent_tile_id: "t2", new_thread_root_id: "t2", new_side: "minus" }, BOB);
+    l.push(
+      "tile_relocated",
+      {
+        tile_id: "t3",
+        new_parent_tile_id: "t2",
+        new_thread_root_id: "t2",
+        new_side: "minus",
+      },
+      BOB,
+    );
 
     const board = projectBoard(l.events);
     expect(board.threads[0].tileCount).toBe(1);
@@ -170,7 +203,11 @@ describe("projectBoard", () => {
     l.push("resolution_emoji_placed", { thread_root_id: "t1", emoji: "🧭" }, ALICE);
     l.push("resolution_emoji_removed", { thread_root_id: "t1" }, ALICE);
     l.push("resolution_emoji_placed", { thread_root_id: "t1", emoji: "⚖️" }, BOB);
-    l.push("thread_resolved", { thread_root_id: "t1", emoji: "⚖️", note: "We weigh it differently." }, BOB);
+    l.push(
+      "thread_resolved",
+      { thread_root_id: "t1", emoji: "⚖️", note: "We weigh it differently." },
+      BOB,
+    );
 
     const thread = projectBoard(l.events).threads[0];
     expect(thread.pending).toEqual({ plus: null, minus: null });
@@ -198,7 +235,11 @@ describe("projectBoard", () => {
 
   it("replaces redacted text and never leaks the original", () => {
     const l = opened();
-    const placed = l.push("tile_placed", tile("t1", null, "t1", "Something regrettable."), ALICE);
+    const placed = l.push(
+      "tile_placed",
+      tile("t1", null, "t1", "Something regrettable."),
+      ALICE,
+    );
     l.push("content_redacted", {
       target_seq: placed,
       target_path: "text",
@@ -215,8 +256,17 @@ describe("projectBoard", () => {
   it("redacts a resolution note without touching its emoji", () => {
     const l = opened();
     l.push("tile_placed", tile("t1", null, "t1", "Root."), ALICE);
-    const resolved = l.push("thread_resolved", { thread_root_id: "t1", emoji: "⚖️", note: "Regrettable aside." }, BOB);
-    l.push("content_redacted", { target_seq: resolved, target_path: "note", reason: "moderation", requested_by: null });
+    const resolved = l.push(
+      "thread_resolved",
+      { thread_root_id: "t1", emoji: "⚖️", note: "Regrettable aside." },
+      BOB,
+    );
+    l.push("content_redacted", {
+      target_seq: resolved,
+      target_path: "note",
+      reason: "moderation",
+      requested_by: null,
+    });
 
     const thread = projectBoard(l.events).threads[0];
     expect(thread.resolution?.emoji).toBe("⚖️");
@@ -258,9 +308,7 @@ describe("the declared contract", () => {
     for (const name of EVENT_TYPE_NAMES) {
       expect(PROJECTED_VERSIONS).toHaveProperty(name);
     }
-    expect(Object.keys(PROJECTED_VERSIONS).sort()).toEqual(
-      [...EVENT_TYPE_NAMES].sort(),
-    );
+    expect(Object.keys(PROJECTED_VERSIONS).sort()).toEqual([...EVENT_TYPE_NAMES].sort());
   });
 
   it("understands the version each type is currently written at", () => {

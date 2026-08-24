@@ -58,7 +58,10 @@ export default async function JoinPage({
   // Already seated: no reason to ask them to join their own room again.
   const playerId = await currentPlayerId();
   const seated = await getGamePlayers(game.id);
-  if (playerId && seated.some((row) => row.player_id === playerId && row.left_at === null)) {
+  if (
+    playerId &&
+    seated.some((row) => row.player_id === playerId && row.left_at === null)
+  ) {
     redirect(`/game/${game.id}`);
   }
 

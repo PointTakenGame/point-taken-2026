@@ -2,7 +2,12 @@
 
 import { useMemo, useState, useTransition, type ReactElement } from "react";
 
-import type { BoardProposal, BoardState, BoardThread, BoardTile } from "@/lib/board/project";
+import type {
+  BoardProposal,
+  BoardState,
+  BoardThread,
+  BoardTile,
+} from "@/lib/board/project";
 import { REDACTED_TEXT } from "@/lib/board/project";
 import {
   OTHER_SIDE,
@@ -95,7 +100,10 @@ function TileNode({
   const runEdit = () => {
     setError(null);
     startTransition(async () => {
-      const result: ActionResult = await editTile(gameId, { tileId: tile.id, text: draft });
+      const result: ActionResult = await editTile(gameId, {
+        tileId: tile.id,
+        text: draft,
+      });
       if (!result.ok) setError(result.error);
       else setEditing(false);
     });
@@ -210,7 +218,9 @@ function ResolutionRow({
     return (
       <p className="text-sm">
         <span className="mr-1 text-lg align-middle">{thread.resolution!.emoji}</span>
-        {thread.resolution!.note && <span className="opacity-70">{thread.resolution!.note}</span>}
+        {thread.resolution!.note && (
+          <span className="opacity-70">{thread.resolution!.note}</span>
+        )}
       </p>
     );
   }
@@ -221,7 +231,10 @@ function ResolutionRow({
   const place = (emoji: string) => {
     setError(null);
     startTransition(async () => {
-      const result = await placeResolutionToken(gameId, { threadRootId: thread.rootId, emoji });
+      const result = await placeResolutionToken(gameId, {
+        threadRootId: thread.rootId,
+        emoji,
+      });
       if (!result.ok) setError(result.error);
     });
   };
@@ -279,7 +292,10 @@ function proposalSummary(proposal: BoardProposal): string {
   if (proposal.kind === "tile_relocation" && "new_thread_root_id" in content) {
     return `Move a reason to thread ${content.new_thread_root_id.slice(0, 8)}`;
   }
-  if ((proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") && "text" in content) {
+  if (
+    (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
+    "text" in content
+  ) {
     return `${proposal.kind.replace("_", " ")}: "${content.text}"`;
   }
   if (proposal.kind === "definition" && "term" in content) {
@@ -358,13 +374,7 @@ function ProposalRow({
   );
 }
 
-function Composer({
-  gameId,
-  board,
-}: {
-  gameId: string;
-  board: BoardState;
-}) {
+function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
   const [text, setText] = useState("");
   const [target, setTarget] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -396,7 +406,8 @@ function Composer({
           <option value="">Start a new thread</option>
           {targets.map((tile) => (
             <option key={tile.id} value={tile.id}>
-              {SIDE_MARK[tile.side]} {tile.redacted ? REDACTED_TEXT : tile.text.slice(0, 40)}
+              {SIDE_MARK[tile.side]}{" "}
+              {tile.redacted ? REDACTED_TEXT : tile.text.slice(0, 40)}
             </option>
           ))}
         </select>
@@ -409,7 +420,9 @@ function Composer({
         placeholder="A reason for your side."
         onChange={(event) => setText(event.target.value)}
       />
-      <span className="text-xs opacity-60">{TILE_MAX_CHARS - text.length} characters left</span>
+      <span className="text-xs opacity-60">
+        {TILE_MAX_CHARS - text.length} characters left
+      </span>
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -603,11 +616,14 @@ export function LiveBoard({
       </header>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Players</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Players
+        </h2>
         <ul className="flex flex-col gap-1 text-sm">
           {board.players.map((player) => (
             <li key={player.id}>
-              {player.role ? SIDE_MARK[player.role] : "?"} {player.displayName ?? "Someone"}
+              {player.role ? SIDE_MARK[player.role] : "?"}{" "}
+              {player.displayName ?? "Someone"}
               {player.signed && player.signed.length > 0 ? " (signed)" : " (not signed)"}
               {player.left && ` (left: ${player.left})`}
             </li>
@@ -616,15 +632,20 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Generosity</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Generosity
+        </h2>
         <p className="text-sm">
-          {SIDE_MARK.plus} {board.generosity.plus} · {SIDE_MARK.minus} {board.generosity.minus}
+          {SIDE_MARK.plus} {board.generosity.plus} · {SIDE_MARK.minus}{" "}
+          {board.generosity.minus}
         </p>
         <GenerosityButton gameId={gameId} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Place a tile</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Place a tile
+        </h2>
         <Composer gameId={gameId} board={board} />
       </section>
 
@@ -656,7 +677,12 @@ export function LiveBoard({
         ) : (
           <ul className="flex flex-col gap-2">
             {awaiting.map((proposal) => (
-              <ProposalRow key={proposal.id} gameId={gameId} proposal={proposal} awaitingMe />
+              <ProposalRow
+                key={proposal.id}
+                gameId={gameId}
+                proposal={proposal}
+                awaitingMe
+              />
             ))}
           </ul>
         )}
@@ -683,12 +709,16 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Topic</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Topic
+        </h2>
         <TopicRevisionForm gameId={gameId} board={board} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Leaving</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Leaving
+        </h2>
         <LeaveButton gameId={gameId} />
       </section>
     </div>

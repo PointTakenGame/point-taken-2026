@@ -105,7 +105,11 @@ function boardForPlacement() {
     tile("resolvedRoot", null, "resolvedRoot", "Other root.", "minus"),
     BOB,
   );
-  l.push("thread_resolved", { thread_root_id: "resolvedRoot", emoji: "👍", note: null }, ALICE);
+  l.push(
+    "thread_resolved",
+    { thread_root_id: "resolvedRoot", emoji: "👍", note: null },
+    ALICE,
+  );
   return projectBoard(l.events);
 }
 
@@ -288,8 +292,12 @@ describe("canEditTile", () => {
   it("applies the same length rules as placement", () => {
     const board = boardForPlacement();
     expect(canEditTile(board, "root", ALICE, "   ").ok).toBe(false);
-    expect(canEditTile(board, "root", ALICE, "a".repeat(TILE_MAX_CHARS))).toEqual({ ok: true });
-    expect(canEditTile(board, "root", ALICE, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(false);
+    expect(canEditTile(board, "root", ALICE, "a".repeat(TILE_MAX_CHARS))).toEqual({
+      ok: true,
+    });
+    expect(canEditTile(board, "root", ALICE, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -463,7 +471,9 @@ describe("the six-thread ceiling", () => {
     l.push("tile_removed", { tile_id: "t1" }, ALICE);
     // An emptied thread is not an argument anybody is having, so it does not
     // hold a slot. Same rule threadsWinReached uses at the other end.
-    expect(canPlaceTile(projectBoard(l.events), "New thread.", null)).toEqual({ ok: true });
+    expect(canPlaceTile(projectBoard(l.events), "New thread.", null)).toEqual({
+      ok: true,
+    });
   });
 });
 
@@ -496,6 +506,8 @@ describe("topicAgreementEndsGame", () => {
   });
 
   it("ends a gym game running a boss", () => {
-    expect(topicAgreementEndsGame(created("gym", null, "boss-the-whataboutist"))).toBe(true);
+    expect(topicAgreementEndsGame(created("gym", null, "boss-the-whataboutist"))).toBe(
+      true,
+    );
   });
 });
