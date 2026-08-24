@@ -80,6 +80,24 @@ export interface BoardThread {
   resolution: { emoji: string; note: string | null; seq: number } | null;
 }
 
+/**
+ * The threads that are actually on the board.
+ *
+ * `BoardState.threads` reports what the log says, which includes a thread every
+ * one of whose tiles was later removed or moved somewhere else. That entry is a
+ * true fact about the history and the projection is right to keep it, but it is
+ * not a thread anyone is arguing in: nothing can be placed in it, and the rules
+ * already refuse to count it toward the win or the six-thread cap.
+ *
+ * So every place that asks "which threads are there" asks through here. Note
+ * this is a different case from a thread whose root tile was removed while its
+ * children live on: that one still has tiles, still renders, and still says
+ * "The reason this thread started from is gone."
+ */
+export function liveThreads(board: BoardState): BoardThread[] {
+  return board.threads.filter((thread) => thread.tileCount > 0);
+}
+
 export interface BoardPlayer {
   id: Uuid;
   displayName: string | null;

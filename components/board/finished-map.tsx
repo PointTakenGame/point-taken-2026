@@ -1,5 +1,5 @@
 import type { BoardState, BoardThread, BoardTile } from "@/lib/board/project";
-import { REDACTED_TEXT } from "@/lib/board/project";
+import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
 import { LocalDay } from "@/components/local-day";
 
 /**
@@ -108,6 +108,7 @@ export function FinishedMap({
 }) {
   const revised = (board.topic?.revisions.length ?? 0) > 0;
   const live = board.tiles.filter((tile) => !tile.removed).length;
+  const threads = liveThreads(board);
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 print:max-w-none print:p-0">
@@ -143,16 +144,16 @@ export function FinishedMap({
         {board.status === "ended"
           ? (OUTCOME[board.winCondition ?? ""] ?? "Ended")
           : "Still in play, so this map is not final."}
-        {` · ${board.threads.length} ${board.threads.length === 1 ? "thread" : "threads"}`}
+        {` · ${threads.length} ${threads.length === 1 ? "thread" : "threads"}`}
         {` · ${live} ${live === 1 ? "reason" : "reasons"}`}
         {board.generosity.plus + board.generosity.minus > 0 &&
           ` · ${board.generosity.plus + board.generosity.minus} generosity given`}
       </p>
 
-      {board.threads.length === 0 ? (
+      {threads.length === 0 ? (
         <p className="opacity-70">Nobody placed a reason, so there is no map to draw.</p>
       ) : (
-        board.threads.map((thread, index) => (
+        threads.map((thread, index) => (
           <Thread key={thread.rootId} thread={thread} index={index} />
         ))
       )}

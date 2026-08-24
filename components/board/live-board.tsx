@@ -9,7 +9,7 @@ import type {
   BoardThrow,
   BoardTile,
 } from "@/lib/board/project";
-import { REDACTED_TEXT } from "@/lib/board/project";
+import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
 import {
   DECLINE_REASON_MAX_CHARS,
   OTHER_SIDE,
@@ -72,7 +72,7 @@ function flatten(tile: BoardTile): BoardTile[] {
 }
 
 function allTargets(board: BoardState): BoardTile[] {
-  const fromThreads = board.threads.flatMap((thread) => [
+  const fromThreads = liveThreads(board).flatMap((thread) => [
     ...(thread.root ? flatten(thread.root) : []),
     ...thread.orphans.flatMap(flatten),
   ]);
@@ -1070,6 +1070,7 @@ export function LiveBoard({
   me,
   coachEnabled,
 }: LiveBoardProps): ReactElement {
+  const threads = liveThreads(board);
   const awaiting = proposalsAwaiting(board, me.role);
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
@@ -1123,11 +1124,11 @@ export function LiveBoard({
 
       <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
 
-      {board.threads.length === 0 ? (
+      {threads.length === 0 ? (
         <p className="opacity-70">No threads yet. Place the first tile above.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {board.threads.map((thread, index) => (
+          {threads.map((thread, index) => (
             <ThreadBlock
               key={thread.rootId}
               gameId={gameId}

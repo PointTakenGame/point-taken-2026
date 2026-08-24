@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectBoard, PROJECTED_VERSIONS, REDACTED_TEXT } from "./project";
+import { liveThreads, projectBoard, PROJECTED_VERSIONS, REDACTED_TEXT } from "./project";
 import {
   EVENT_TYPES,
   EVENT_TYPE_NAMES,
@@ -208,6 +208,41 @@ describe("projectBoard", () => {
     expect(board.threads[0].tileCount).toBe(1);
     expect(board.threads[1].root?.children.map((t) => t.id)).toEqual(["t3"]);
     expect(board.tiles[2].side).toBe("minus");
+  });
+
+  it("keeps a thread whose every tile moved away, and liveThreads drops it", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Root one."), ALICE);
+    l.push("tile_placed", tile("t2", null, "t2", "Root two.", "minus"), BOB);
+    l.push(
+      "tile_relocated",
+      {
+        tile_id: "t1",
+        new_parent_tile_id: "t2",
+        new_thread_root_id: "t2",
+        new_side: "minus",
+      },
+      BOB,
+    );
+
+    const board = projectBoard(l.events);
+    // The projection reports the history: thread t1 existed, and is now empty.
+    expect(board.threads.map((thread) => thread.rootId)).toEqual(["t1", "t2"]);
+    expect(board.threads[0].tileCount).toBe(0);
+    // What anyone renders or counts is the other list.
+    expect(liveThreads(board).map((thread) => thread.rootId)).toEqual(["t2"]);
+  });
+
+  it("keeps a thread whose root was removed but whose children live on", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Root."), ALICE);
+    l.push("tile_placed", tile("t2", "t1", "t1", "Child."), BOB);
+    l.push("tile_removed", { tile_id: "t1" }, ALICE);
+
+    const board = projectBoard(l.events);
+    expect(liveThreads(board).map((thread) => thread.rootId)).toEqual(["t1"]);
+    expect(liveThreads(board)[0].root).toBeNull();
+    expect(liveThreads(board)[0].orphans.map((t) => t.id)).toEqual(["t2"]);
   });
 
   it("commits a resolution and clears the emoji that preceded it", () => {

@@ -1,4 +1,5 @@
 import type { BoardProposal, BoardState, BoardThread } from "./project";
+import { liveThreads } from "./project";
 import type { Side, Uuid } from "@/lib/events/types";
 
 /**
@@ -89,7 +90,7 @@ export function isResolved(thread: BoardThread): boolean {
  * an argument anybody resolved.
  */
 export function threadsWinReached(board: BoardState): boolean {
-  const real = board.threads.filter((thread) => thread.tileCount > 0);
+  const real = liveThreads(board);
   return real.length >= MIN_THREADS_TO_END && real.every((thread) => isResolved(thread));
 }
 
@@ -152,7 +153,7 @@ export function canPlaceTile(
 
   if (parentTileId === null) {
     // A tile with no parent opens a new thread, and six is all a game gets.
-    const live = board.threads.filter((thread) => thread.tileCount > 0).length;
+    const live = liveThreads(board).length;
     if (live >= MAX_THREADS) {
       return no(
         `A game holds at most ${MAX_THREADS} threads. Add this to one of them instead.`,
