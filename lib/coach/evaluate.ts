@@ -17,15 +17,19 @@ import { COACH_CARDS, COACH_CARD_IDS } from "@/lib/coach/cards";
 
 /**
  * Measured, not assumed: coach-eval.test.ts runs the twelve paired fixtures
- * against each candidate. On 2026-08-23 Haiku 4.5 spoke up on none of the four
+ * against each candidate. Re-measured on 2026-08-23 after the No Exaggeration
+ * card started naming the shared absolutes list (BRAIN-T260823-42), which is
+ * why the prompt version below reads .2. Haiku 4.5 spoke up on none of the four
  * clean reasons, named the right card on 7 of 8 broken ones, kept every rewrite
- * inside a tile, and answered in 1493 ms; Sonnet 5 got 8 of 8 cards but flagged
- * a clean reason and wrote 3 rewrites too long to offer as a dare. Speaking up
- * on a clean reason is the expensive failure, so the cheaper model also wins on
- * quality here, which is what BIZ-T260823-78 asked for.
+ * inside a tile, and answered in 1378 ms; Sonnet 5 got 8 of 8 and is now also
+ * clean on false alarms and rewrite length, at more than twice the latency and
+ * many times the price. Speaking up on a clean reason is the expensive failure
+ * and neither model does it, so the budget decides, which is what
+ * BIZ-T260823-78 asked for. Naming the word list did not cost Haiku a false
+ * alarm and fixed the three over-long rewrites Sonnet wrote under .1.
  */
 export const COACH_MODEL = "claude-haiku-4-5-20251001";
-export const COACH_PROMPT_VERSION = "brain-2026-08-23.1";
+export const COACH_PROMPT_VERSION = "brain-2026-08-23.2";
 export const COACH_SCHEMA_VERSION = "coach-v1";
 
 /** Past this the coach gives up and says nothing. A player waiting on advice

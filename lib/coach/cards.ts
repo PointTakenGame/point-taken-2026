@@ -1,3 +1,4 @@
+import { absolutesSentence, type AbsoluteGroup } from "@/lib/board/language";
 import { FIRST_RELEASE_CARDS } from "@/lib/board/setup";
 
 /**
@@ -22,6 +23,19 @@ export interface CoachCard {
   plain: string;
 }
 
+/**
+ * The half of No Exaggeration a word list can actually carry, so the coach and
+ * the no-model practice check (BRAIN-T260823-42) name the same words rather
+ * than each keeping a private notion of what counts as overstating.
+ *
+ * Certainty markers ("obviously", "undeniably") are on the shared list and are
+ * deliberately not named here. Saying a thing is obvious is a different fault
+ * from claiming it holds in every case, and handing the model a list of common
+ * adverbs is the cheapest way to teach it to speak up about nothing. The whole
+ * sentence is in front of it either way.
+ */
+const NAMED_TO_THE_COACH: readonly AbsoluteGroup[] = ["quantifier", "extent"];
+
 export const COACH_CARDS: readonly CoachCard[] = [
   {
     id: "you_is_taboo",
@@ -43,8 +57,7 @@ export const COACH_CARDS: readonly CoachCard[] = [
     id: "no_exaggeration",
     icon: "\u{1F4CF}",
     name: "No Exaggeration",
-    breaks:
-      'The reason overstates: an absolute where the evidence supports a tendency ("always", "never", "everyone"), a worst case presented as the expected case, or a number with no source behind it.',
+    breaks: `The reason overstates: an absolute where the evidence supports a tendency, a worst case presented as the expected case, or a number with no source behind it. The game watches these words in particular: ${absolutesSentence(NAMED_TO_THE_COACH)}. Those are where to look, not a verdict. A sentence containing one can be exactly right, and a sentence with none of them can overstate badly, so read the claim rather than counting words.`,
     plain: "This claims more than it can carry.",
   },
   {
