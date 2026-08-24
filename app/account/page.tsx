@@ -14,6 +14,7 @@ import type { GameRow } from "@/lib/db/types";
 import type { Uuid } from "@/lib/events/types";
 import { Counter } from "@/components/counter";
 import { LocalDay } from "@/components/local-day";
+import { ResumeOrStart } from "@/components/resume-or-start";
 import { StreakCounters } from "@/components/streak-counters";
 import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
@@ -194,6 +195,15 @@ export default async function AccountPage() {
     readCardThrowsForGames(gameIds),
   ]);
 
+  // The game to offer going back to. `games` is already newest first, so the
+  // first hit is the most recent one. A game underway beats a room still
+  // waiting for its second player, because the argument you left in the middle
+  // is more urgent than the invitation nobody accepted.
+  const inFlight =
+    games.find((game) => game.status === "active") ??
+    games.find((game) => game.status === "lobby") ??
+    null;
+
   return (
     <>
       <SiteNav here="account" />
@@ -212,6 +222,12 @@ export default async function AccountPage() {
             )}
           </p>
         </header>
+
+        <ResumeOrStart
+          gameId={inFlight?.id ?? null}
+          waiting={inFlight?.status === "lobby"}
+          topic={inFlight ? (topics.get(inFlight.id)?.text ?? null) : null}
+        />
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Counter label="Games played" value={stats.games_played} />
