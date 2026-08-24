@@ -178,22 +178,27 @@ function CardHand({
 }
 
 /**
- * A card standing against one of your own reasons, and the two ways out.
+ * A card that has landed and is still waiting for an answer.
  *
- * Rewriting and turning the card down are deliberately side by side and equally
- * weighted. Neither is the concession: the game does not record which of them
- * was correct, only which one you chose.
+ * Both players see it. Only the person who wrote the reason gets the two ways
+ * out, and they are deliberately side by side and equally weighted: neither is
+ * the concession, because the game does not record which of them was correct,
+ * only which one you chose. The thrower sees the same card with no buttons, so
+ * a throw is never a move that vanishes the moment you make it.
  */
 function StandingThrow({
   gameId,
   board,
   thrown,
   me,
+  answerable,
 }: {
   gameId: string;
   board: BoardState;
   thrown: BoardThrow;
   me: { playerId: string; role: Side };
+  /** True when this is your own reason, so you are the one who must answer. */
+  answerable: boolean;
 }) {
   const [mode, setMode] = useState<"idle" | "revise" | "decline">("idle");
   const [draft, setDraft] = useState("");
@@ -241,11 +246,13 @@ function StandingThrow({
     <div className="ml-6 flex flex-col gap-1 border-l-2 border-amber-500/50 pl-3">
       <p className="text-xs">
         <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
-        <span className="ml-2 opacity-60">played on this reason</span>
+        <span className="ml-2 opacity-60">
+          {answerable ? "played on this reason" : "waiting on them"}
+        </span>
       </p>
       {card && <p className="text-xs opacity-60">{card.plain}</p>}
 
-      {mode === "idle" && (
+      {answerable && mode === "idle" && (
         <div className="flex gap-3">
           <button
             type="button"
@@ -269,7 +276,7 @@ function StandingThrow({
         </div>
       )}
 
-      {mode === "revise" && (
+      {answerable && mode === "revise" && (
         <div className="flex flex-col gap-1">
           <textarea
             className="w-full border border-current/30 p-1 text-sm"
@@ -303,7 +310,7 @@ function StandingThrow({
         </div>
       )}
 
-      {mode === "decline" && (
+      {answerable && mode === "decline" && (
         <div className="flex flex-col gap-1">
           <input
             className="w-full border border-current/30 p-1 text-sm"
@@ -469,22 +476,23 @@ function TileNode({
       </div>
       <ErrorLine error={error} />
 
-      {/* The throw, from both ends. Your own reasons show the cards standing
-          against them and the two ways to answer; the other side's reasons show
-          the hand. Settled throws stay on the board because the exchange is the
-          record, not a step on the way to one. */}
-      {mine
-        ? standing.map((thrown) => (
-            <StandingThrow
-              key={thrown.seq}
-              gameId={gameId}
-              board={board}
-              thrown={thrown}
-              me={me}
-            />
-          ))
-        : tile.side !== me.role &&
-          !tile.removed && <CardHand gameId={gameId} tile={tile} me={me} board={board} />}
+      {/* The throw, from both ends. Standing cards show to both players, but
+          only the reason's author gets the two ways to answer; the other side's
+          reasons also show the hand. Settled throws stay on the board because
+          the exchange is the record, not a step on the way to one. */}
+      {standing.map((thrown) => (
+        <StandingThrow
+          key={thrown.seq}
+          gameId={gameId}
+          board={board}
+          thrown={thrown}
+          me={me}
+          answerable={mine}
+        />
+      ))}
+      {!mine && tile.side !== me.role && !tile.removed && (
+        <CardHand gameId={gameId} tile={tile} me={me} board={board} />
+      )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
       ))}
