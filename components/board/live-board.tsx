@@ -19,6 +19,7 @@ import {
   canEditTile,
   canPlaceResolutionToken,
   canPlaceTile,
+  canProposeRelocation,
   canProposeTopicRevision,
   canRemoveTile,
   canReviseTile,
@@ -41,13 +42,14 @@ import {
   leaveGame,
   placeResolutionToken,
   placeTile,
+  proposeRelocation,
   proposeTopicRevision,
   rejectProposal,
   removeTile,
   reviseTile,
   throwCard,
 } from "@/app/game/[gameId]/actions";
-import type { Side } from "@/lib/events/types";
+import type { Side, Uuid } from "@/lib/events/types";
 
 /**
  * The live board: everything a player can see and do while a game is in
@@ -360,6 +362,113 @@ function SettledThrow({ thrown }: { thrown: BoardThrow }) {
   );
 }
 
+/** A tile's text, short enough for a menu or a one-line summary. */
+function shortText(board: BoardState, tileId: Uuid | null): string {
+  if (!tileId) return "a reason";
+  const tile = board.tiles.find((candidate) => candidate.id === tileId);
+  if (!tile) return "a reason";
+  if (tile.redacted) return REDACTED_TEXT;
+  return tile.text.length > 40 ? `${tile.text.slice(0, 40)}...` : tile.text;
+}
+
+/**
+ * Ask the other side to move a reason somewhere else on the board.
+ *
+ * Moving is a proposal rather than an edit because where a reason hangs is
+ * itself a claim about what answers what. One player quietly rearranging the
+ * shape of the argument is the move the game exists to prevent, so either
+ * player may ask about either player's reason and the other side answers.
+ */
+function MoveForm({
+  gameId,
+  tile,
+  board,
+  onDone,
+}: {
+  gameId: string;
+  tile: BoardTile;
+  board: BoardState;
+  onDone: () => void;
+}) {
+  const [target, setTarget] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // The same rule builds the menu and gates the button, so a destination is
+  // never offered and then refused.
+  const destinations = useMemo(
+    () =>
+      allTargets(board).filter(
+        (candidate) =>
+          canProposeRelocation(board, tile.id, candidate.id, candidate.threadRootId).ok,
+      ),
+    [board, tile.id],
+  );
+
+  const parentTileId = target.length > 0 ? target : null;
+  const parent = destinations.find((candidate) => candidate.id === parentTileId) ?? null;
+  // With no parent the reason heads its own thread; under one it joins whatever
+  // thread that parent already belongs to.
+  const threadRootId = parent ? parent.threadRootId : tile.id;
+  const verdict = canProposeRelocation(board, tile.id, parentTileId, threadRootId);
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = await proposeRelocation(gameId, {
+        tileId: tile.id,
+        newParentTileId: parentTileId,
+        newThreadRootId: threadRootId,
+        // A move changes where a reason sits, not whose reason it is.
+        newSide: tile.side,
+      });
+      if (!result.ok) setError(result.error);
+      else onDone();
+    });
+  };
+
+  return (
+    <div className="ml-6 flex flex-col gap-1 border border-current/20 p-2">
+      <label className="flex flex-col gap-1 text-xs">
+        Move it under
+        <select
+          className="border border-current/30 p-1 text-sm"
+          value={target}
+          disabled={pending}
+          onChange={(event) => setTarget(event.target.value)}
+        >
+          <option value="">Nothing: start its own thread</option>
+          {destinations.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Ask to move it
+        </button>
+        <button
+          type="button"
+          className="border border-current/30 px-2 py-0.5 text-xs"
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
 function TileNode({
   tile,
   gameId,
@@ -372,6 +481,7 @@ function TileNode({
   board: BoardState;
 }) {
   const [editing, setEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [draft, setDraft] = useState(tile.text);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -379,6 +489,12 @@ function TileNode({
   const mine = tile.placedBy === me.playerId;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
+  const moveVerdict = canProposeRelocation(
+    board,
+    tile.id,
+    tile.parentId,
+    tile.threadRootId,
+  );
   const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
   const standing = throwsHere.filter((thrown) => thrown.status === "standing");
   const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
@@ -470,11 +586,30 @@ function TileNode({
                 </button>
               </span>
             )}
+            {/* Anyone may ask to move any reason: the other side answers. */}
+            <button
+              type="button"
+              className="ml-2 text-xs underline opacity-70 disabled:opacity-30"
+              disabled={pending || moving || !moveVerdict.ok}
+              title={!moveVerdict.ok ? moveVerdict.error : undefined}
+              onClick={() => setMoving(true)}
+            >
+              move
+            </button>
             {mine && <span className="ml-2 text-xs opacity-50">(yours)</span>}
           </span>
         )}
       </div>
       <ErrorLine error={error} />
+
+      {moving && (
+        <MoveForm
+          gameId={gameId}
+          tile={tile}
+          board={board}
+          onDone={() => setMoving(false)}
+        />
+      )}
 
       {/* The throw, from both ends. Standing cards show to both players, but
           only the reason's author gets the two ways to answer; the other side's
@@ -592,13 +727,19 @@ function ResolutionRow({
   );
 }
 
-function proposalSummary(proposal: BoardProposal): string {
+function proposalSummary(proposal: BoardProposal, board: BoardState): string {
   const content = proposal.content;
   if (proposal.kind === "topic_revision" && "text" in content) {
     return `New topic: "${content.text}"`;
   }
   if (proposal.kind === "tile_relocation" && "new_thread_root_id" in content) {
-    return `Move a reason to thread ${content.new_thread_root_id.slice(0, 8)}`;
+    // Named in words, not in ids: the player answering this has to be able to
+    // picture the move without looking anything up.
+    const moved = shortText(board, proposal.targetTileId);
+    const under = content.new_parent_tile_id
+      ? `under "${shortText(board, content.new_parent_tile_id)}"`
+      : "into a thread of its own";
+    return `Move "${moved}" ${under}`;
   }
   if (
     (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
@@ -615,10 +756,12 @@ function proposalSummary(proposal: BoardProposal): string {
 function ProposalRow({
   gameId,
   proposal,
+  board,
   awaitingMe,
 }: {
   gameId: string;
   proposal: BoardProposal;
+  board: BoardState;
   awaitingMe: boolean;
 }) {
   const [reason, setReason] = useState("");
@@ -647,7 +790,7 @@ function ProposalRow({
   return (
     <li className="flex flex-col gap-1 border border-current/15 p-2 text-sm">
       <span className="opacity-60">{proposal.kind}</span>
-      <span>{proposalSummary(proposal)}</span>
+      <span>{proposalSummary(proposal, board)}</span>
       {awaitingMe ? (
         <span className="flex flex-wrap items-center gap-2">
           <button
@@ -989,6 +1132,7 @@ export function LiveBoard({
                 key={proposal.id}
                 gameId={gameId}
                 proposal={proposal}
+                board={board}
                 awaitingMe
               />
             ))}
@@ -1009,6 +1153,7 @@ export function LiveBoard({
                 key={proposal.id}
                 gameId={gameId}
                 proposal={proposal}
+                board={board}
                 awaitingMe={false}
               />
             ))}
