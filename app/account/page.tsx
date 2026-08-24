@@ -6,12 +6,15 @@ import {
   listGamesForPlayer,
   readCardThrowsForGames,
   readOpponentsForGames,
+  readPlayDaysForPlayer,
   readTopicsForGames,
   type GameTopic,
 } from "@/lib/db/games";
 import type { GameRow } from "@/lib/db/types";
 import type { Uuid } from "@/lib/events/types";
+import { Counter } from "@/components/counter";
 import { LocalDay } from "@/components/local-day";
+import { StreakCounters } from "@/components/streak-counters";
 import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
@@ -36,15 +39,6 @@ const OUTCOME: Record<string, string> = {
   abandoned: "Abandoned",
   timeout: "Ran out of time",
 };
-
-function Counter({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-current/15 p-4">
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
-      <div className="text-sm opacity-70">{label}</div>
-    </div>
-  );
-}
 
 /** How a game reads on one line when nobody has named the argument yet. */
 const UNNAMED = "Not named yet";
@@ -184,10 +178,11 @@ export default async function AccountPage() {
     );
   }
 
-  const [player, stats, games] = await Promise.all([
+  const [player, stats, games, playedAt] = await Promise.all([
     getPlayer(playerId),
     getPlayerStats(playerId),
     listGamesForPlayer(playerId),
+    readPlayDaysForPlayer(playerId),
   ]);
   // A second round trip on purpose: all three of these are keyed by the game
   // ids the first query returned, so they cannot start any earlier. They do run
@@ -223,6 +218,11 @@ export default async function AccountPage() {
           <Counter label="Games finished" value={stats.games_completed} />
           <Counter label="Threads resolved" value={stats.threads_resolved} />
           <Counter label="Tiles placed" value={stats.tiles_placed} />
+          {/*
+            Two more cards, or none: the streak is worked out in the browser,
+            because only the browser knows which day it is where the reader is.
+          */}
+          <StreakCounters playedAt={playedAt} />
         </section>
 
         <Signature stats={stats} />

@@ -324,3 +324,27 @@ export async function readCardThrowsForGames(
   if (error) throw new Error(`read card throws failed: ${error.message}`);
   return foldCardThrows((data ?? []) as unknown as CardThrowEventRow[]);
 }
+
+/**
+ * Every moment this player sat down in a game, oldest first.
+ *
+ * Timestamps rather than days on purpose: which calendar day an instant falls
+ * on depends on where the reader is standing, and the server does not know.
+ * `lib/games/streak.ts` explains the split; the browser resolves these into
+ * local days and folds them there.
+ *
+ * `joined_at` and not `games.started_at`, because the streak is about turning
+ * up. Somebody who joins a room whose second player never arrives still spent
+ * that evening trying, and a habit counter that only rewards completed games
+ * would quietly punish them for somebody else's no-show.
+ */
+export async function readPlayDaysForPlayer(playerId: Uuid): Promise<string[]> {
+  const { data, error } = await serviceClient()
+    .from("game_players")
+    .select("joined_at")
+    .eq("player_id", playerId)
+    .order("joined_at", { ascending: true });
+
+  if (error) throw new Error(`readPlayDaysForPlayer failed: ${error.message}`);
+  return (data ?? []).map((row) => (row as { joined_at: string }).joined_at);
+}
