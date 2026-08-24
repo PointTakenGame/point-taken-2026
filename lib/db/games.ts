@@ -348,3 +348,47 @@ export async function readPlayDaysForPlayer(playerId: Uuid): Promise<string[]> {
   if (error) throw new Error(`readPlayDaysForPlayer failed: ${error.message}`);
   return (data ?? []).map((row) => (row as { joined_at: string }).joined_at);
 }
+
+export interface ThreadResolvedEventRow {
+  game_id: Uuid;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * Which tokens ended the threads in each game.
+ *
+ * Counted straight, with no corrective pass, because resolving a thread is
+ * final: `resolution_emoji_removed` takes back a token somebody placed while
+ * the two of them were still deciding, and once they agree the thread is done.
+ * That is the same reading `player_stats` takes, so a game's tokens here always
+ * add up to the profile's totals.
+ */
+export function foldResolutions(
+  rows: readonly ThreadResolvedEventRow[],
+): Map<Uuid, Map<string, number>> {
+  const byGame = new Map<Uuid, Map<string, number>>();
+  for (const row of rows) {
+    const token = row.payload.emoji;
+    if (typeof token !== "string" || token === "") continue;
+    const counts = byGame.get(row.game_id) ?? new Map<string, number>();
+    counts.set(token, (counts.get(token) ?? 0) + 1);
+    byGame.set(row.game_id, counts);
+  }
+  return byGame;
+}
+
+export async function readResolutionsForGames(
+  gameIds: readonly Uuid[],
+): Promise<Map<Uuid, Map<string, number>>> {
+  if (gameIds.length === 0) return new Map();
+
+  const { data, error } = await serviceClient()
+    .from("game_events")
+    .select("game_id, payload")
+    .in("game_id", gameIds as Uuid[])
+    .eq("type", "thread_resolved")
+    .order("seq", { ascending: true });
+
+  if (error) throw new Error(`read resolutions failed: ${error.message}`);
+  return foldResolutions((data ?? []) as unknown as ThreadResolvedEventRow[]);
+}

@@ -3,8 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ serviceClient: () => ({ rpc }) }));
 
-const { createGame, foldCardThrows, foldOpponents, foldTopics, JOIN_CODE_ATTEMPTS } =
-  await import("./games");
+const {
+  createGame,
+  foldCardThrows,
+  foldOpponents,
+  foldResolutions,
+  foldTopics,
+  JOIN_CODE_ATTEMPTS,
+} = await import("./games");
 
 const PLAYER = "11111111-1111-4111-8111-111111111111";
 const COLLISION = { data: null, error: { code: "23505", message: "duplicate key" } };
@@ -225,5 +231,41 @@ describe("foldCardThrows", () => {
 
   it("returns nothing for no rows", () => {
     expect(foldCardThrows([]).size).toBe(0);
+  });
+});
+
+describe("foldResolutions", () => {
+  const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const resolved = (game_id: string, emoji: unknown) => ({
+    game_id,
+    payload: { thread_root_id: "t", emoji, note: null },
+  });
+
+  it("counts each token", () => {
+    const counts = foldResolutions([
+      resolved(A, "\u{1F44D}"),
+      resolved(A, "\u{1F44D}"),
+      resolved(A, "\u{1F440}"),
+    ]);
+    expect([...(counts.get(A) ?? [])]).toEqual([
+      ["\u{1F44D}", 2],
+      ["\u{1F440}", 1],
+    ]);
+  });
+
+  it("keeps each game's tokens to itself", () => {
+    const counts = foldResolutions([resolved(A, "\u{1F44D}"), resolved(B, "\u{1F440}")]);
+    expect([counts.get(A)?.size, counts.get(B)?.size]).toEqual([1, 1]);
+  });
+
+  it("skips a row whose token is missing or not a string", () => {
+    expect(
+      foldResolutions([resolved(A, undefined), resolved(A, 7), resolved(A, "")]).size,
+    ).toBe(0);
+  });
+
+  it("returns nothing for no rows", () => {
+    expect(foldResolutions([]).size).toBe(0);
   });
 });

@@ -7,10 +7,11 @@ import {
   readCardThrowsForGames,
   readOpponentsForGames,
   readPlayDaysForPlayer,
+  readResolutionsForGames,
   readTopicsForGames,
   type GameTopic,
 } from "@/lib/db/games";
-import type { GameRow } from "@/lib/db/types";
+import type { GameMode, GameRow } from "@/lib/db/types";
 import type { Uuid } from "@/lib/events/types";
 import { Counter } from "@/components/counter";
 import { LocalDay } from "@/components/local-day";
@@ -98,6 +99,52 @@ function countTopics(topics: Map<Uuid, GameTopic>): number {
   return seen.size;
 }
 
+/** The two kinds of game, in the words the history uses. */
+const MODE_LABEL: Record<GameMode, string> = { gym: "Gym", live: "Live" };
+
+/** Only a real mode narrows the list. Anything else in the URL is ignored. */
+function readMode(raw: string | undefined): GameMode | null {
+  return raw === "gym" || raw === "live" ? raw : null;
+}
+
+/**
+ * Narrow the history to one kind of game.
+ *
+ * Links rather than tabs, so the choice is in the URL: it survives a reload,
+ * it can be sent to somebody, and it works before any JavaScript arrives. The
+ * caller renders this only when the player actually has both kinds, because a
+ * filter with one populated side is a control that does nothing.
+ */
+function ModeFilter({ modes, active }: { modes: GameMode[]; active: GameMode | null }) {
+  const options: { value: GameMode | null; label: string; href: string }[] = [
+    { value: null, label: "All", href: "/account" },
+    ...modes.map((mode) => ({
+      value: mode,
+      label: MODE_LABEL[mode],
+      href: `/account?mode=${mode}`,
+    })),
+  ];
+
+  return (
+    <nav aria-label="Filter games" className="flex gap-3 text-sm">
+      {options.map((option) => (
+        <Link
+          key={option.label}
+          href={option.href}
+          aria-current={option.value === active ? "true" : undefined}
+          className={
+            option.value === active
+              ? "font-semibold underline"
+              : "opacity-70 hover:underline"
+          }
+        >
+          {option.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 /**
  * The archive, newest first.
  *
@@ -111,14 +158,25 @@ function History({
   topics,
   opponents,
   cardsThrown,
+  resolutions,
+  filtered,
 }: {
   games: GameRow[];
   topics: Map<Uuid, GameTopic>;
   opponents: Map<Uuid, string | null>;
   cardsThrown: Map<Uuid, number>;
+  resolutions: Map<Uuid, Map<string, number>>;
+  /** True when a filter is on, so an empty list means filtered out, not new. */
+  filtered: boolean;
 }) {
   if (games.length === 0) {
-    return <p className="opacity-70">No games yet. The first one starts the archive.</p>;
+    return (
+      <p className="opacity-70">
+        {filtered
+          ? "No games of that kind yet."
+          : "No games yet. The first one starts the archive."}
+      </p>
+    );
   }
 
   return (
@@ -141,6 +199,10 @@ function History({
           cards > 0 ? `${cards} rule card${cards === 1 ? "" : "s"} thrown` : null,
         ].filter(Boolean);
 
+        // How the threads in this game ended. The profile totals the same
+        // tokens across every game; this is that game's share of them.
+        const tokens = [...(resolutions.get(game.id) ?? [])];
+
         return (
           <li key={game.id}>
             <Link
@@ -162,6 +224,20 @@ function History({
                 </span>
                 {detail.length > 0 ? (
                   <span className="text-sm opacity-50">{detail.join(", ")}</span>
+                ) : null}
+                {tokens.length > 0 ? (
+                  <span className="flex flex-wrap items-center gap-3 pt-0.5">
+                    {tokens.map(([token, count]) => (
+                      <span
+                        key={token}
+                        title={tokenLabel(token)}
+                        className="flex items-center gap-1 text-sm tabular-nums opacity-70"
+                      >
+                        <TokenGlyph token={token} size={16} />
+                        {count}
+                      </span>
+                    ))}
+                  </span>
                 ) : null}
               </span>
               <span className="shrink-0 text-sm opacity-70">
@@ -196,7 +272,11 @@ function Signature({ stats }: { stats: PlayerStats }) {
   );
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const playerId = await currentPlayerId();
 
   if (!playerId) {
@@ -222,10 +302,11 @@ export default async function AccountPage() {
   // ids the first query returned, so they cannot start any earlier. They do run
   // together, since none of them depends on the others.
   const gameIds = games.map((game) => game.id);
-  const [topics, opponents, cardsThrown] = await Promise.all([
+  const [topics, opponents, cardsThrown, resolutions] = await Promise.all([
     readTopicsForGames(gameIds),
     readOpponentsForGames(gameIds, playerId),
     readCardThrowsForGames(gameIds),
+    readResolutionsForGames(gameIds),
   ]);
 
   // The game to offer going back to. `games` is already newest first, so the
@@ -236,6 +317,12 @@ export default async function AccountPage() {
     games.find((game) => game.status === "active") ??
     games.find((game) => game.status === "lobby") ??
     null;
+
+  // The filter narrows the list below and nothing else. Every counter on this
+  // page is a lifetime number, and a filtered lifetime is not a thing.
+  const mode = readMode((await searchParams).mode);
+  const modes = [...new Set(games.map((game) => game.mode))];
+  const shown = mode ? games.filter((game) => game.mode === mode) : games;
 
   const thisWeek = joinedThisWeek(playedAt);
   // Nobody wants to read "0 per game" on a profile with no games in it.
@@ -293,12 +380,17 @@ export default async function AccountPage() {
         <Signature stats={stats} />
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Your games</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-lg font-semibold">Your games</h2>
+            {modes.length > 1 ? <ModeFilter modes={modes} active={mode} /> : null}
+          </div>
           <History
-            games={games}
+            games={shown}
             topics={topics}
             opponents={opponents}
             cardsThrown={cardsThrown}
+            resolutions={resolutions}
+            filtered={mode !== null}
           />
         </section>
       </main>
