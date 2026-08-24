@@ -20,6 +20,7 @@ import { StreakCounters } from "@/components/streak-counters";
 import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
+import { BuildStamp } from "@/components/build-stamp";
 
 /**
  * The page a player lands on after signing in: who they are, what they have
@@ -288,6 +289,7 @@ export default async function AccountPage({
           email and no password. You can attach an email later to keep it.
         </p>
         <StartPlaying />
+        <BuildStamp />
       </main>
     );
   }
@@ -393,6 +395,8 @@ export default async function AccountPage({
             filtered={mode !== null}
           />
         </section>
+
+        <BuildStamp />
       </main>
     </>
   );
