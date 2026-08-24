@@ -168,18 +168,29 @@ Point Taken is a game about disagreement and it cannot be seen to take a side. E
 politically perceptible example needs an equally vivid counterpart from the opposite
 direction, or an explicit note that the set is unbalanced and why.
 
-Two corrections to what you may have been told about how this is enforced here, because the
-mechanism does not exist yet in this repo:
+**There is a topic shelf, and it is content you do not own.** `TOPIC_LIBRARY` in
+`lib/board/setup.ts` holds seventeen topics across three tiers, the setup screen offers them
+above the box where a player can type their own instead, and several of them are plainly
+political. Its balance obligation is **aggregate**: the shelf as a whole stays roughly even and
+is reviewed quarterly (`BIZ-T260426-39`). No individual topic owes a mirror image, so there is
+no counterpart id to fill in and no lean field to set.
 
-- **There are no topics in the codebase.** Players type their own, up to 300 characters. There
-  is no topic list to keep balanced and no counterpart-id mechanism.
-- **CI does not check neutrality.** No such test exists.
+Adding, removing, or rewording a shelf topic is therefore a content decision that belongs to
+the business side, not a surface change. `lib/board/topic-shelf.test.ts` pins the shelf and
+fails the gate the moment it changes, which is the prompt to go get that review. The failure is
+not a claim that your new shelf is unbalanced. It is a claim that nobody has looked yet.
 
-So the rule is currently enforced by whoever is writing, which for now means you. It applies to
-example text you add anywhere: placeholder copy, help text, screenshots, and in particular the
-coach's test fixtures in `lib/coach/fixtures.ts`, which state the requirement at the top of the
-file. If you add a politically readable example without its counterpart, nothing will stop you.
-That is exactly why it is written down here.
+Topic ids are permanent for the usual reason: a `topic_set` payload records the id, so every
+past game names its topic through it. Rewording a topic in place rewrites history for those
+games.
+
+**CI does not judge political lean.** No test does, and none can, because the call is
+editorial. So for everything that is not the pinned shelf, the rule is enforced by whoever is
+writing, which for now means you. It applies to example text you add anywhere: placeholder
+copy, help text, screenshots, and in particular the coach's test fixtures in
+`lib/coach/fixtures.ts`, which state the requirement at the top of the file. If you add a
+politically readable example without its counterpart, nothing will stop you. That is exactly
+why it is written down here.
 
 ## Working style
 
