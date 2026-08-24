@@ -81,6 +81,38 @@ function Who({ player, me }: { player: BoardPlayer; me: string }) {
   );
 }
 
+/**
+ * The screen a person is looking at when they are the only one in the room.
+ *
+ * "Waiting for the other player" alone is a dead end: it says what is true and
+ * nothing about what to do. Two people need to be told the link is how the
+ * second one arrives. One person needs to be told they can hold both seats,
+ * which is not obvious and is how anybody reviewing this alone sees a board at
+ * all, since the hot seat exists only in local dev.
+ */
+function Waiting({ hasInvite }: { hasInvite: boolean }) {
+  if (!hasInvite) {
+    return (
+      <p className="text-sm opacity-70">
+        Waiting for the other player. They come in through this room&apos;s invite link.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1 text-sm opacity-70">
+      <p>
+        Waiting for the other player. Copy the link above and send it to them: it opens
+        this room in their browser and puts them in the seat across from you.
+      </p>
+      <p>
+        On your own? Open that same link in a private window and you can play both sides
+        yourself.
+      </p>
+    </div>
+  );
+}
+
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
   return <p className="text-sm text-red-600">{error}</p>;
@@ -162,9 +194,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
             <Who key={player.id} player={player} me={me.playerId} />
           ))}
         </ul>
-        {here.length < MAX_PLAYERS ? (
-          <p className="text-sm opacity-70">Waiting for the other player.</p>
-        ) : null}
+        {here.length < MAX_PLAYERS ? <Waiting hasInvite={Boolean(joinCode)} /> : null}
       </section>
 
       <section className="flex flex-col gap-2">
