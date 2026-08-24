@@ -423,6 +423,17 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
           revisions: [],
         };
         state.currentTopicText = state.topic.text;
+        // Changing the topic un-signs everybody. Either seated player may set
+        // the topic, and there is no rule that the topic is settled before
+        // anyone signs, so without this a player could sign, watch the other
+        // one swap the argument out, and start a game standing behind lines
+        // they agreed to about something else. Signing is about this argument.
+        //
+        // Done here rather than as a guard on canSetTopic because refusing the
+        // change instead would trap a pair who both signed and then thought
+        // better of the topic: there is no unsign event, so their only way out
+        // would be to abandon the room. Re-signing costs one click each.
+        for (const player of players.values()) player.signed = null;
         break;
       }
 

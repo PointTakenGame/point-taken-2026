@@ -262,6 +262,10 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
             </li>
           ))}
         </ul>
+        <p className="text-sm opacity-60">
+          Changing the topic clears both signatures, because this is what you are signing
+          about.
+        </p>
         <button
           type="button"
           className="self-start border border-current/40 px-3 py-1 text-sm disabled:opacity-40"

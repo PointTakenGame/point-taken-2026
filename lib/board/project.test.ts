@@ -105,6 +105,46 @@ describe("projectBoard", () => {
     ]);
   });
 
+  it("un-signs everybody when the topic changes under them", () => {
+    const l = log();
+    l.push("game_created", {
+      mode: "live",
+      level_id: null,
+      boss_id: null,
+      join_code: "PTKN23",
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "Quiet Amber Fjord" }, BOB);
+    l.push("topic_set", {
+      text: "Cities should cap rents.",
+      origin: "library",
+      topic_id: "rent-cap",
+    });
+    l.push("agreement_signed", { items: ["a", "b", "c"] }, ALICE);
+    l.push("agreement_signed", { items: ["a", "b", "c"] }, BOB);
+
+    const before = projectBoard(l.events);
+    expect(before.players.map((p) => p.signed)).toEqual([
+      ["a", "b", "c"],
+      ["a", "b", "c"],
+    ]);
+
+    // Bob swaps the argument out from under a signature Alice already gave.
+    l.push(
+      "topic_set",
+      {
+        text: "Cities should abolish parking minimums.",
+        origin: "custom",
+        topic_id: null,
+      },
+      BOB,
+    );
+
+    const after = projectBoard(l.events);
+    expect(after.currentTopicText).toBe("Cities should abolish parking minimums.");
+    expect(after.players.map((p) => p.signed)).toEqual([null, null]);
+  });
+
   it("builds the thread tree from parent links", () => {
     const l = opened();
     l.push(
