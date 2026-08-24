@@ -1,5 +1,6 @@
 import "server-only";
 
+import { TILE_MAX_CHARS } from "@/lib/board/rules";
 import { appendGameEvent } from "@/lib/events/append";
 import type { Uuid } from "@/lib/events/types";
 import { getPlayer } from "@/lib/db/players";
@@ -60,6 +61,32 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
         latency_ms: verdict.latencyMs,
       },
     });
+
+    // The dare: the same observation, offered as a rewrite the player can take
+    // with one click instead of retyping. It is a second event rather than a
+    // field on the reading because "the coach saw something" and "the coach put
+    // words in front of you" are different facts, and the gap between the dare
+    // and the tile_edited that follows it is the only way to tell later whether
+    // anyone took one.
+    //
+    // A rewrite longer than a tile cannot be offered at all, so it is dropped
+    // here rather than shown as a button that would be refused. The reading
+    // still carries it, so nothing the model said is lost.
+    const dare = verdict.suggestion?.trim() ?? "";
+    if (dare.length > 0 && dare.length <= TILE_MAX_CHARS) {
+      await appendGameEvent(gameId, {
+        type: "coach_nudge_delivered",
+        actorRole: "server",
+        source: "coach",
+        actorId: run.playerId,
+        payload: {
+          nudge_kind: "dare",
+          text: dare,
+          target_tile_id: run.tileId,
+          card_id: verdict.cardIds[0],
+        },
+      });
+    }
   } catch {
     // Deliberate. This runs detached from the request that placed the tile, so
     // throwing here would surface as an unhandled rejection in the server log

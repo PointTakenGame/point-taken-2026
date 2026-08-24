@@ -3,8 +3,8 @@
 import { useState, useTransition, type ReactElement } from "react";
 
 import type { ActionResult } from "@/app/game/[gameId]/actions";
-import { dismissCoachReading, setCoach } from "@/app/game/[gameId]/actions";
-import type { BoardState, CoachReading } from "@/lib/board/project";
+import { dismissCoachReading, editTile, setCoach } from "@/app/game/[gameId]/actions";
+import type { BoardNudge, BoardState, CoachReading } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
 
 /**
@@ -23,10 +23,12 @@ function ReadingCard({
   gameId,
   reading,
   tileText,
+  dare,
 }: {
   gameId: string;
   reading: CoachReading;
   tileText: string | null;
+  dare: BoardNudge | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -40,6 +42,26 @@ function ReadingCard({
     });
   };
 
+  // Taking the dare is an ordinary edit by the player, written under their own
+  // name. The coach offered the words; the player owns the reason, and the log
+  // should not say otherwise.
+  const takeDare = () => {
+    if (!dare?.text) return;
+    setError(null);
+    startTransition(async () => {
+      const edited: ActionResult = await editTile(gameId, {
+        tileId: reading.tileId,
+        text: dare.text ?? "",
+      });
+      if (!edited.ok) {
+        setError(edited.error);
+        return;
+      }
+      const seen: ActionResult = await dismissCoachReading(gameId, reading.seq);
+      if (!seen.ok) setError(seen.error);
+    });
+  };
+
   return (
     <li className="flex flex-col gap-1 rounded border border-current/20 p-3 text-sm">
       <p className="font-semibold">
@@ -48,7 +70,9 @@ function ReadingCard({
       {card && <p className="opacity-70">{card.plain}</p>}
       {tileText && <p className="italic opacity-60">&ldquo;{tileText}&rdquo;</p>}
       {reading.feedback && <p>{reading.feedback}</p>}
-      {reading.suggestion && (
+      {/* When a dare is on offer the rewrite appears below with a button, so
+          printing it here as well would just be the same sentence twice. */}
+      {reading.suggestion && !dare && (
         <p className="opacity-80">
           <span className="opacity-60">One way to put it: </span>
           {reading.suggestion}
@@ -57,19 +81,57 @@ function ReadingCard({
       <p className="opacity-50">
         Only you can see this. Edit your tile above if you want to, or leave it.
       </p>
+      {dare?.text && (
+        <div className="flex flex-col gap-1 border-l-2 border-current/30 pl-2">
+          <p className="opacity-60">Dare you to say it this way:</p>
+          <p>&ldquo;{dare.text}&rdquo;</p>
+        </div>
+      )}
       <div className="flex items-center gap-3">
+        {dare?.text && (
+          <button
+            type="button"
+            onClick={takeDare}
+            disabled={pending}
+            className="w-fit border border-current/30 px-2 py-1"
+          >
+            {pending ? "..." : "Take the dare"}
+          </button>
+        )}
         <button
           type="button"
           onClick={dismiss}
           disabled={pending}
           className="w-fit border border-current/30 px-2 py-1"
         >
-          {pending ? "..." : "Got it"}
+          {pending ? "..." : dare?.text ? "Keep mine" : "Got it"}
         </button>
         {error && <span className="text-red-600">{error}</span>}
       </div>
     </li>
   );
+}
+
+/**
+ * The dare that belongs to one reading.
+ *
+ * Written immediately after the reading it came from, so a later seq on the
+ * same tile is the match. Taking a dare edits the tile and a fresh reading
+ * follows, which is why the newest one wins rather than the first.
+ */
+function dareFor(
+  board: BoardState,
+  playerId: string,
+  reading: CoachReading,
+): BoardNudge | null {
+  const found = board.nudges.filter(
+    (nudge) =>
+      nudge.kind === "dare" &&
+      nudge.forPlayer === playerId &&
+      nudge.targetTileId === reading.tileId &&
+      nudge.seq > reading.seq,
+  );
+  return found.length > 0 ? found[found.length - 1] : null;
 }
 
 export function CoachPanel({
@@ -143,6 +205,7 @@ export function CoachPanel({
               tileText={
                 board.tiles.find((tile) => tile.id === reading.tileId)?.text ?? null
               }
+              dare={dareFor(board, me.playerId, reading)}
             />
           ))}
         </ul>

@@ -2,6 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import { TILE_MAX_CHARS } from "@/lib/board/rules";
 import { COACH_CARDS, COACH_CARD_IDS } from "@/lib/coach/cards";
 
 /**
@@ -49,6 +50,7 @@ Rules for you:
 - Most reasons break nothing. Silence is the normal answer. Do not reach.
 - Never invent a rule. If something is wrong with the reason and no card covers it, cite none.
 - When you suggest a rewrite, it must argue the same side just as strongly. You are fixing how it is said, never softening what is said. If you cannot keep the force of it, offer no rewrite.
+- A rewrite has to fit on a tile, so it must be at most ${TILE_MAX_CHARS} characters. A longer one cannot be offered to the player at all, so a shorter rewrite that keeps the force beats a longer one that does not fit.
 - Address the player as "you". Keep feedback to one or two sentences, plain, no jargon, no praise padding.`;
 
 const TOOL: Anthropic.Tool = {
@@ -69,8 +71,7 @@ const TOOL: Anthropic.Tool = {
       },
       suggestion: {
         type: ["string", "null"],
-        description:
-          "A rewrite of the reason that keeps the same side and the same strength. Null when none is worth offering.",
+        description: `A rewrite of the reason that keeps the same side and the same strength, at most ${TILE_MAX_CHARS} characters. Null when none is worth offering.`,
       },
     },
     required: ["card_ids", "feedback", "suggestion"],
