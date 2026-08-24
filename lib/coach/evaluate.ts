@@ -47,6 +47,11 @@ import {
  * than a wrong card. A silence is the cheap failure, which is why the pin holds,
  * but this is closer than it was. Tracked in BRAIN-T260824-01.
  *
+ * Version .5 is .4 plus one line of house style in WHAT TO WRITE, after a live
+ * reading came back with an em dash in it. The measurement above still stands:
+ * the added line says nothing about what to find or which card to name. The
+ * stamp moves anyway, because the string we sent changed.
+ *
  * Version .3 replaced the four-card question with the nine-check checklist, so
  * that measurement did not carry over, and .3 measured worse on Haiku: 4 of 8,
  * because the off_root heuristic was outranking his calibrated checks. Version
@@ -55,7 +60,7 @@ import {
  * segment later is the reading a player received, not the string we sent.
  */
 export const COACH_MODEL = "claude-haiku-4-5-20251001";
-export const COACH_PROMPT_VERSION = "brain-2026-08-24.4";
+export const COACH_PROMPT_VERSION = "brain-2026-08-24.5";
 export const COACH_SCHEMA_VERSION = "coach-v1";
 
 /** Past this the coach gives up and says nothing. A player waiting on advice
@@ -120,6 +125,8 @@ WHAT TO WRITE
 Most reasons find nothing. Silence is the normal answer. Do not reach.
 
 If anything was found, write feedback the player can act on. Address the player as "you". Keep it to one or two sentences, plain, no jargon, no praise padding. Name what the words on the page do, never what you think the player believes.
+
+House style: never use an em dash or an en dash. Use a comma, a colon, or a full stop.
 
 If you can rewrite the reason so it stops breaking anything, put it in suggestion. The rewrite must argue the same side just as strongly: you are fixing how it is said, never softening what is said. It must fit on a tile, ${TILE_MAX_CHARS} characters or fewer. If you cannot stay under that, return null instead of a shorter argument the player did not make. Say whether the rewrite preserves their stance, and how confident you are in it.
 
@@ -211,6 +218,48 @@ function text(raw: unknown): string | null {
 }
 
 /**
+ * Takes back out the dashes the model was told not to use.
+ *
+ * The house rule is no em dashes anywhere in what a player reads, and the very
+ * first live reading broke it: "is false on its face" ran straight into the
+ * next clause on a dash. The prompt asks for the same thing, but a prompt is a
+ * request and this is the guarantee, which is the half that matters.
+ *
+ * A comma is the substitution because in a sentence this short the dash is
+ * nearly always doing a comma's job. The exceptions are handled first: a dash
+ * between numbers is a range and becomes a hyphen, and a dash that already
+ * follows punctuation does not need a second mark beside it.
+ */
+export function flattenDashes(value: string): string {
+  return (
+    value
+      .replace(/(\d)\s*[\u2013\u2014]\s*(\d)/g, "$1-$2")
+      .replace(/([.!?:;,])\s*[\u2013\u2014]\s*/g, "$1 ")
+      .replace(/\s*[\u2013\u2014]\s*/g, ", ")
+      // A spaced double hyphen is the same mark typed on a keyboard that has
+      // no key for it.
+      .replace(/\s+--\s+/g, ", ")
+      .replace(/,\s*,/g, ",")
+      .replace(/^[\s,]+/, "")
+      .replace(/[\s,]+$/, "")
+  );
+}
+
+/**
+ * What the coach writes, as opposed to what it quotes.
+ *
+ * Deliberately not applied to `trigger_phrase`: that is a verbatim quote of the
+ * player's own tile, kept for the corpus, and tidying someone's punctuation
+ * inside quotation marks makes it a misquote.
+ */
+function prose(raw: unknown): string | null {
+  const value = text(raw);
+  if (value === null) return null;
+  const flattened = flattenDashes(value);
+  return flattened.length > 0 ? flattened : null;
+}
+
+/**
  * His `select_suggestion`, minus the clarify branch.
  *
  * PORT-NOTE(one-call): his ladder falls back to the first rewrite from a
@@ -232,7 +281,7 @@ function selectSuggestion(
   CoachVerdict,
   "suggestion" | "suggestionSource" | "suggestionConfidence" | "suggestionPreservesStance"
 > {
-  const fitted = withinTileLimit(text(raw), TILE_MAX_CHARS);
+  const fitted = withinTileLimit(prose(raw), TILE_MAX_CHARS);
   const stance = typeof preservesStance === "boolean" ? preservesStance : null;
   if (fitted && stance && (confidence === "high" || confidence === "medium")) {
     return {
@@ -305,7 +354,7 @@ export async function evaluateTile(
       cardIds: [card],
       // The ladder in checks.ts is the floor: a card with nothing said beside it
       // is a scold, so there is always a sentence.
-      feedback: text(raw.feedback) ?? fallbackFeedback(findings),
+      feedback: prose(raw.feedback) ?? fallbackFeedback(findings),
       latencyMs,
       findings,
       triggerPhrase,
