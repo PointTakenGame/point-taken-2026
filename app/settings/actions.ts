@@ -71,6 +71,13 @@ export async function setCoach(enabled: boolean): Promise<SettingsResult> {
  *
  * No password is set, and none is asked for. Signing back in later is a mailed
  * link, which is also why an unconfirmed address would keep nothing.
+ *
+ * This is the one setting that cannot be keyed on `currentPlayerId()`, because
+ * the address lives on the auth user and only the auth server may change it.
+ * That opens a gap the other two do not have: under the dev hot seat the id you
+ * are pretending to be and the id your session actually holds are different
+ * people, and `updateUser` would quietly attach the address to the latter. So
+ * the two are compared, and a borrowed seat is refused rather than served.
  */
 export async function claimAccount(email: string): Promise<SettingsResult> {
   const playerId = await currentPlayerId();
@@ -84,6 +91,18 @@ export async function claimAccount(email: string): Promise<SettingsResult> {
   }
 
   const supabase = await sessionClient();
+
+  const { data, error: whoError } = await supabase.auth.getUser();
+  if (whoError || !data.user) return SIGNED_OUT;
+  if (data.user.id !== playerId) {
+    // Only reachable in local dev, where the hot seat exists at all.
+    return {
+      ok: false,
+      error:
+        "This seat is borrowed, so it has no email of its own to keep. Leave the hot seat first.",
+    };
+  }
+
   const { error } = await supabase.auth.updateUser({ email: address });
   if (error) return { ok: false, error: error.message };
 
