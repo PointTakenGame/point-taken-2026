@@ -1,0 +1,26 @@
+# What not to hand Vercel when deploying from this machine.
+#
+# The CLI uploads the working directory, and without this file that meant
+# roughly 277 MB per deploy: the build cache, the installed dependencies, and
+# the git history all went over the wire to be thrown away on arrival. Vercel
+# installs and builds from source, so none of it is wanted.
+#
+# This file replaces .gitignore for upload purposes rather than adding to it,
+# so anything that must not be uploaded has to be named here even if git
+# already ignores it.
+
+.git/
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Secrets. Environment values live in the Vercel project, not in the upload.
+.env
+.env.*
+
+_local/
+.vercel/
+.DS_Store

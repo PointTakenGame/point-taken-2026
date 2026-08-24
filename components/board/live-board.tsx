@@ -871,6 +871,19 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
   const parentTileId = target.length > 0 ? target : null;
   const verdict = canPlaceTile(board, text, parentTileId);
 
+  // Why the button below is dead, in words rather than in a tooltip.
+  //
+  // The button is disabled whenever the move is illegal, and for a while its
+  // only explanation was a `title`, which is to say no explanation at all: a
+  // player who has just written six threads clicks Place tile, nothing
+  // happens, and the game looks broken. It was not broken. It was full.
+  //
+  // Computed against a placeholder instead of the real text on purpose. An
+  // empty box is the normal state of a composer and "a reason needs some
+  // words in it" is not news. What is news is a block that no amount of
+  // typing clears: the thread cap, a resolved thread, a game that has ended.
+  const blocked = canPlaceTile(board, "a reason", parentTileId);
+
   const submit = () => {
     setError(null);
     startTransition(async () => {
@@ -910,6 +923,7 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
       <span className="text-xs opacity-60">
         {TILE_MAX_CHARS - text.length} characters left
       </span>
+      {blocked.ok ? null : <p className="text-xs opacity-70">{blocked.error}</p>}
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
