@@ -7,7 +7,11 @@ import {
   canEditTile,
   canPlaceResolutionToken,
   canPlaceTile,
+  canProposeDefinition,
+  canProposeReadingHandback,
   canProposeRelocation,
+  canProposeSteelmanReading,
+  canProposeSteelmanTile,
   canProposeTopicRevision,
   canDeclineThrow,
   canRemoveTile,
@@ -15,12 +19,14 @@ import {
   canThrowCard,
   cardsInPlay,
   DECLINE_REASON_MAX_CHARS,
+  DEFINITION_TERM_MAX_CHARS,
   isAbandoned,
   isResolved,
   MAX_THREADS,
   MIN_THREADS_TO_END,
   proposalsAwaiting,
   proposalsFrom,
+  READING_MAX_CHARS,
   threadsWinReached,
   TILE_MAX_CHARS,
   topicAgreementEndsGame,
@@ -395,6 +401,136 @@ describe("canProposeTopicRevision", () => {
     const board = projectBoard(opened().events);
     expect(canProposeTopicRevision(board, "Cities should cap rent increases.")).toEqual({
       ok: true,
+    });
+  });
+});
+
+/**
+ * The four asks that are only words.
+ *
+ * Each of these can be refused for a reason of its own, and each one lands in
+ * front of a player as a different sentence, so the interesting assertions here
+ * are the refusals rather than the acceptances.
+ */
+describe("the readings", () => {
+  /** An ended board, to prove all four close with the game. */
+  function ended() {
+    const l = opened();
+    l.push("game_ended", { win_condition: "abandoned" });
+    return projectBoard(l.events);
+  }
+
+  describe("canProposeReadingHandback", () => {
+    it("allows reading one of their reasons back", () => {
+      const board = boardForRelocation();
+      expect(canProposeReadingHandback(board, "child", "plus", "You mean X.")).toEqual({
+        ok: true,
+      });
+    });
+
+    it("refuses reading your own reason back, which asks nobody anything", () => {
+      const board = boardForRelocation();
+      expect(canProposeReadingHandback(board, "root", "plus", "I mean X.").ok).toBe(
+        false,
+      );
+    });
+
+    it("refuses a reason that is not there, or was taken off the board", () => {
+      const board = boardForPlacement();
+      expect(canProposeReadingHandback(board, "nope", "plus", "You mean X.").ok).toBe(
+        false,
+      );
+      expect(canProposeReadingHandback(board, "removed", "plus", "You mean X.").ok).toBe(
+        false,
+      );
+    });
+
+    it("allows exactly READING_MAX_CHARS and refuses one over, or none", () => {
+      const board = boardForRelocation();
+      const at = "a".repeat(READING_MAX_CHARS);
+      expect(canProposeReadingHandback(board, "child", "plus", at)).toEqual({ ok: true });
+      expect(canProposeReadingHandback(board, "child", "plus", at + "a").ok).toBe(false);
+      expect(canProposeReadingHandback(board, "child", "plus", "   ").ok).toBe(false);
+    });
+
+    it("closes when the game does", () => {
+      expect(canProposeReadingHandback(ended(), "child", "plus", "You mean X.").ok).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("canProposeSteelmanReading", () => {
+    it("allows a reading that points at nothing on the board", () => {
+      expect(
+        canProposeSteelmanReading(projectBoard(opened().events), "Your side holds X."),
+      ).toEqual({ ok: true });
+    });
+
+    it("refuses empty words or more than READING_MAX_CHARS", () => {
+      const board = projectBoard(opened().events);
+      expect(canProposeSteelmanReading(board, "  ").ok).toBe(false);
+      expect(canProposeSteelmanReading(board, "a".repeat(READING_MAX_CHARS + 1)).ok).toBe(
+        false,
+      );
+    });
+
+    it("closes when the game does", () => {
+      expect(canProposeSteelmanReading(ended(), "Your side holds X.").ok).toBe(false);
+    });
+  });
+
+  describe("canProposeSteelmanTile", () => {
+    it("holds a reason offered to them to the tile rules exactly", () => {
+      const board = boardForPlacement();
+      expect(canProposeSteelmanTile(board, "root", "A reason you missed.")).toEqual(
+        canPlaceTile(board, "A reason you missed.", "root"),
+      );
+      expect(canProposeSteelmanTile(board, "nope", "A reason you missed.")).toEqual(
+        canPlaceTile(board, "A reason you missed.", "nope"),
+      );
+      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS + 1))).toEqual(
+        canPlaceTile(board, "a".repeat(TILE_MAX_CHARS + 1), null),
+      );
+    });
+
+    it("is bounded by the tile limit, not the reading limit", () => {
+      const board = boardForPlacement();
+      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS))).toEqual({
+        ok: true,
+      });
+      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("canProposeDefinition", () => {
+    it("allows a word and a meaning for it", () => {
+      expect(
+        canProposeDefinition(
+          projectBoard(opened().events),
+          "rent",
+          "What a tenant pays.",
+        ),
+      ).toEqual({ ok: true });
+    });
+
+    it("refuses a missing word, an overlong word, or a missing meaning", () => {
+      const board = projectBoard(opened().events);
+      expect(canProposeDefinition(board, "  ", "What a tenant pays.").ok).toBe(false);
+      expect(
+        canProposeDefinition(
+          board,
+          "a".repeat(DEFINITION_TERM_MAX_CHARS + 1),
+          "What a tenant pays.",
+        ).ok,
+      ).toBe(false);
+      expect(canProposeDefinition(board, "rent", "   ").ok).toBe(false);
+    });
+
+    it("closes when the game does", () => {
+      expect(canProposeDefinition(ended(), "rent", "What a tenant pays.").ok).toBe(false);
     });
   });
 });

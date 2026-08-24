@@ -14,6 +14,20 @@ import type { Side, Uuid } from "@/lib/events/types";
 export const TILE_MAX_CHARS = 100;
 
 /**
+ * How long a reading may be: their reason said back in your words, their side
+ * said for them, or the gloss on a word being pinned down.
+ *
+ * Longer than a tile because saying a 100-character reason back honestly takes
+ * more room than the original did, and shorter than a topic because it is one
+ * thought rather than a statement both sides sign. PROVISIONAL: nobody has
+ * ruled on this number, and it is the kind of bound playtesting moves.
+ */
+export const READING_MAX_CHARS = 200;
+
+/** The word being pinned down, not the gloss on it. A term, not a sentence. */
+export const DEFINITION_TERM_MAX_CHARS = 60;
+
+/**
  * The two tokens a thread resolves with. 👍 reads as settled, 👀 as "I can see
  * why we disagree here."
  *
@@ -291,6 +305,109 @@ function descendants(board: BoardState, tileId: Uuid): Set<Uuid> {
     frontier = next;
   }
   return found;
+}
+
+/**
+ * The words in a reading, checked the same way wherever a reading appears.
+ *
+ * `noun` names the thing in the refusal, because "A reading needs some words in
+ * it" and "A definition needs some words in it" are read by a player in two
+ * different moments and the wrong noun in either one is confusing.
+ */
+function readingText(text: string, noun: string): Verdict {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return no(`${noun} needs some words in it.`);
+  if (trimmed.length > READING_MAX_CHARS) {
+    return no(`${noun} is at most ${READING_MAX_CHARS} characters.`);
+  }
+  return ALLOWED;
+}
+
+/**
+ * Help Me Understand: one of their reasons, said back in your words.
+ *
+ * There is no correctness check here and there cannot be one. Whether you got
+ * it right is theirs to say, which is exactly what accepting the proposal says,
+ * so this only checks that the tile you are reading is a real live tile of
+ * theirs. Handing your own reason back to yourself asks nobody anything, which
+ * is why the side check is a refusal rather than a shrug.
+ *
+ * Accepting has no board effect. Agreeing that a reading is fair moves nothing.
+ */
+export function canProposeReadingHandback(
+  board: BoardState,
+  tileId: Uuid,
+  side: Side,
+  text: string,
+): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+
+  const tile = board.tiles.find((candidate) => candidate.id === tileId);
+  if (!tile) return no("That reason is not on this board.");
+  if (tile.removed) return no("That reason was taken off the board.");
+  if (tile.side === side) {
+    return no("Read one of their reasons back, not one of your own.");
+  }
+
+  return readingText(text, "A reading");
+}
+
+/**
+ * Their whole side, said for them, not aimed at any one reason.
+ *
+ * Same judgment as the handback and the same absence of a board effect: the
+ * only verdict that matters is theirs. It points at nothing on the board on
+ * purpose, so it can be offered before either side has placed much at all.
+ */
+export function canProposeSteelmanReading(board: BoardState, text: string): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+  return readingText(text, "A reading");
+}
+
+/**
+ * A reason offered TO the other side, which lands on their half of the board if
+ * they take it.
+ *
+ * Whose side it goes on is not a parameter worth checking, because the caller
+ * derives it rather than being asked for it. What has to hold is that the words
+ * would survive as a tile, since acceptance turns them into one: the same
+ * length limit, the same live parent, the same six-thread ceiling. So this is
+ * `canPlaceTile` and nothing more, and if that rule ever changes this follows
+ * it without anyone remembering to.
+ */
+export function canProposeSteelmanTile(
+  board: BoardState,
+  parentTileId: Uuid | null,
+  text: string,
+): Verdict {
+  return canPlaceTile(board, text, parentTileId);
+}
+
+/**
+ * Define That: a word one of you keeps using and the other keeps hearing
+ * differently, pinned to one meaning both sides will stand behind.
+ *
+ * Accepting records that they agreed to the meaning. Nothing on the board
+ * changes, because a definition is a thing the two of you now share rather than
+ * a move either of you made.
+ */
+export function canProposeDefinition(
+  board: BoardState,
+  term: string,
+  text: string,
+): Verdict {
+  const open = boardIsOpen(board);
+  if (!open.ok) return open;
+
+  const word = term.trim();
+  if (word.length === 0) return no("Name the word you want pinned down.");
+  if (word.length > DEFINITION_TERM_MAX_CHARS) {
+    return no(`A term is at most ${DEFINITION_TERM_MAX_CHARS} characters.`);
+  }
+
+  return readingText(text, "A definition");
 }
 
 /**

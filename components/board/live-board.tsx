@@ -12,14 +12,20 @@ import type {
 import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
 import {
   DECLINE_REASON_MAX_CHARS,
+  DEFINITION_TERM_MAX_CHARS,
   OTHER_SIDE,
+  READING_MAX_CHARS,
   RESOLUTION_TOKENS,
   TILE_MAX_CHARS,
   canDeclineThrow,
   canEditTile,
   canPlaceResolutionToken,
   canPlaceTile,
+  canProposeDefinition,
+  canProposeReadingHandback,
   canProposeRelocation,
+  canProposeSteelmanReading,
+  canProposeSteelmanTile,
   canProposeTopicRevision,
   canRemoveTile,
   canReviseTile,
@@ -42,7 +48,11 @@ import {
   leaveGame,
   placeResolutionToken,
   placeTile,
+  proposeDefinition,
+  proposeReadingHandback,
   proposeRelocation,
+  proposeSteelmanReading,
+  proposeSteelmanTile,
   proposeTopicRevision,
   rejectProposal,
   removeTile,
@@ -768,6 +778,11 @@ function proposalSummary(proposal: BoardProposal, board: BoardState): string {
   ) {
     return `"${content.text}"`;
   }
+  if (proposal.kind === "reading_handback" && "text" in content) {
+    // Both halves, because judging a handback means comparing the words offered
+    // against the reason they claim to say back. One of the two is not enough.
+    return `Reads "${shortText(board, proposal.targetTileId)}" as: "${content.text}"`;
+  }
   if (proposal.kind === "definition" && "term" in content) {
     return `Define "${content.term}": ${content.text}`;
   }
@@ -946,6 +961,261 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
         onClick={submit}
       >
         Propose
+      </button>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/**
+ * Reading their reason back in your own words, for them to judge.
+ *
+ * The picker only lists their reasons. Yours are not offered rather than
+ * offered and refused, because a menu that contains a move you cannot make is a
+ * menu you have to learn twice.
+ */
+function ReadingHandbackForm({
+  gameId,
+  board,
+  me,
+}: {
+  gameId: string;
+  board: BoardState;
+  me: { playerId: string; role: Side };
+}) {
+  const [tileId, setTileId] = useState("");
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const theirs = useMemo(
+    () => allTargets(board).filter((tile) => tile.side !== me.role),
+    [board, me.role],
+  );
+
+  const verdict = canProposeReadingHandback(board, tileId, me.role, text);
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await proposeReadingHandback(gameId, { tileId, text });
+      if (!result.ok) setError(result.error);
+      else setText("");
+    });
+  };
+
+  if (theirs.length === 0) {
+    return (
+      <p className="text-sm opacity-50">
+        Once they have placed a reason, you can try saying it back to them.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border border-current/20 p-3">
+      <label className="flex flex-col gap-1 text-sm">
+        Say one of their reasons back
+        <select
+          className="border border-current/30 p-1 text-sm"
+          value={tileId}
+          disabled={pending}
+          onChange={(event) => setTileId(event.target.value)}
+        >
+          <option value="">Pick one of their reasons</option>
+          {theirs.map((tile) => (
+            <option key={tile.id} value={tile.id}>
+              {SIDE_MARK[tile.side]} {shortText(board, tile.id)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <textarea
+        className="w-full border border-current/30 p-1 text-sm"
+        value={text}
+        maxLength={READING_MAX_CHARS}
+        disabled={pending}
+        placeholder="In your own words, what are they saying?"
+        onChange={(event) => setText(event.target.value)}
+      />
+      <button
+        type="button"
+        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        disabled={pending || !verdict.ok}
+        title={!verdict.ok ? verdict.error : undefined}
+        onClick={submit}
+      >
+        Ask if you have it right
+      </button>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/** Their whole side, said for them. Aimed at nothing on the board, so it can be
+    offered before either of you has placed much. */
+function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardState }) {
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const verdict = canProposeSteelmanReading(board, text);
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await proposeSteelmanReading(gameId, { text });
+      if (!result.ok) setError(result.error);
+      else setText("");
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border border-current/20 p-3">
+      <label className="flex flex-col gap-1 text-sm">
+        Say their side for them
+        <textarea
+          className="w-full border border-current/30 p-1 text-sm"
+          value={text}
+          maxLength={READING_MAX_CHARS}
+          disabled={pending}
+          placeholder="The strongest version of what they think."
+          onChange={(event) => setText(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        disabled={pending || !verdict.ok}
+        title={!verdict.ok ? verdict.error : undefined}
+        onClick={submit}
+      >
+        Ask if you have it right
+      </button>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/**
+ * A reason written for the other side, which lands on their half of the board
+ * if they take it.
+ *
+ * Which side it goes on is never sent from here. The server derives it, so this
+ * form has no field for it and no way to be wrong about it.
+ */
+function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState }) {
+  const [parent, setParent] = useState("");
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const destinations = useMemo(() => allTargets(board), [board]);
+  const parentTileId = parent.length > 0 ? parent : null;
+  const verdict = canProposeSteelmanTile(board, parentTileId, text);
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await proposeSteelmanTile(gameId, { text, parentTileId });
+      if (!result.ok) setError(result.error);
+      else setText("");
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border border-current/20 p-3">
+      <label className="flex flex-col gap-1 text-sm">
+        Offer them a reason
+        <textarea
+          className="w-full border border-current/30 p-1 text-sm"
+          value={text}
+          maxLength={TILE_MAX_CHARS}
+          disabled={pending}
+          placeholder="A reason for their side that you think they missed."
+          onChange={(event) => setText(event.target.value)}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs">
+        Hang it under
+        <select
+          className="border border-current/30 p-1 text-sm"
+          value={parent}
+          disabled={pending}
+          onChange={(event) => setParent(event.target.value)}
+        >
+          <option value="">Nothing: start its own thread</option>
+          {destinations.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        disabled={pending || !verdict.ok}
+        title={!verdict.ok ? verdict.error : undefined}
+        onClick={submit}
+      >
+        Offer it to them
+      </button>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/** A word one of you keeps using and the other keeps hearing differently. */
+function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }) {
+  const [term, setTerm] = useState("");
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const verdict = canProposeDefinition(board, term, text);
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await proposeDefinition(gameId, { term, text });
+      if (!result.ok) setError(result.error);
+      else {
+        setTerm("");
+        setText("");
+      }
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border border-current/20 p-3">
+      <label className="flex flex-col gap-1 text-sm">
+        Pin down a word
+        <input
+          className="w-full border border-current/30 p-1 text-sm"
+          value={term}
+          maxLength={DEFINITION_TERM_MAX_CHARS}
+          disabled={pending}
+          placeholder="The word"
+          onChange={(event) => setTerm(event.target.value)}
+        />
+      </label>
+      <textarea
+        className="w-full border border-current/30 p-1 text-sm"
+        value={text}
+        maxLength={READING_MAX_CHARS}
+        disabled={pending}
+        placeholder="What it should mean for the rest of this game."
+        onChange={(event) => setText(event.target.value)}
+      />
+      <button
+        type="button"
+        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        disabled={pending || !verdict.ok}
+        title={!verdict.ok ? verdict.error : undefined}
+        onClick={submit}
+      >
+        Ask them to agree
       </button>
       <ErrorLine error={error} />
     </div>
@@ -1181,6 +1451,16 @@ export function LiveBoard({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          Understanding each other
+        </h2>
+        <ReadingHandbackForm gameId={gameId} board={board} me={me} />
+        <SteelmanReadingForm gameId={gameId} board={board} />
+        <SteelmanTileForm gameId={gameId} board={board} />
+        <DefinitionForm gameId={gameId} board={board} />
       </section>
 
       <section className="flex flex-col gap-2">

@@ -449,6 +449,149 @@ export async function proposeRelocation(
 }
 
 /**
+ * Help Me Understand: their reason, in your words, handed back for them to
+ * judge.
+ *
+ * Nothing happens to the board when they accept, which is the whole mechanic.
+ * The reading is worth something because getting it right is worth something,
+ * and the log keeps both the attempt and their verdict on it.
+ */
+export async function proposeReadingHandback(
+  gameId: string,
+  input: { tileId: string; text: string },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canProposeReadingHandback(
+    board,
+    input.tileId,
+    membership.role,
+    input.text,
+  );
+  if (!verdict.ok) return failed(verdict.error);
+
+  const tile = board.tiles.find((candidate) => candidate.id === input.tileId);
+
+  await appendGameEvent(gameId, {
+    type: "proposal_made",
+    ...asPlayer(membership),
+    payload: {
+      proposal_id: crypto.randomUUID(),
+      kind: "reading_handback",
+      target_tile_id: input.tileId,
+      target_thread_root_id: tile ? tile.threadRootId : null,
+      content: { text: input.text.trim() },
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/** Their side, said for them, aimed at the whole argument rather than at one
+    reason. Accepting is them saying you have it; nothing moves. */
+export async function proposeSteelmanReading(
+  gameId: string,
+  input: { text: string },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canProposeSteelmanReading(board, input.text);
+  if (!verdict.ok) return failed(verdict.error);
+
+  await appendGameEvent(gameId, {
+    type: "proposal_made",
+    ...asPlayer(membership),
+    payload: {
+      proposal_id: crypto.randomUUID(),
+      kind: "steelman_reading",
+      target_tile_id: null,
+      target_thread_root_id: null,
+      content: { text: input.text.trim() },
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
+ * A reason written for the other side, which becomes one of their tiles if they
+ * take it.
+ *
+ * The side is derived here and never accepted from the caller. A client that
+ * could name the side could put a tile on its own half of the board through the
+ * one path that places a tile its author did not write.
+ */
+export async function proposeSteelmanTile(
+  gameId: string,
+  input: { text: string; parentTileId: string | null },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canProposeSteelmanTile(board, input.parentTileId, input.text);
+  if (!verdict.ok) return failed(verdict.error);
+
+  const parent = input.parentTileId
+    ? board.tiles.find((candidate) => candidate.id === input.parentTileId)
+    : null;
+
+  await appendGameEvent(gameId, {
+    type: "proposal_made",
+    ...asPlayer(membership),
+    payload: {
+      proposal_id: crypto.randomUUID(),
+      kind: "steelman_tile",
+      target_tile_id: input.parentTileId,
+      target_thread_root_id: parent ? parent.threadRootId : null,
+      content: {
+        text: input.text.trim(),
+        parent_tile_id: input.parentTileId,
+        side: rules.OTHER_SIDE[membership.role],
+      },
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/** Define That: one word, one meaning, agreed rather than assumed. Accepting
+    settles what the word means for the rest of the game and moves nothing. */
+export async function proposeDefinition(
+  gameId: string,
+  input: { term: string; text: string },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canProposeDefinition(board, input.term, input.text);
+  if (!verdict.ok) return failed(verdict.error);
+
+  await appendGameEvent(gameId, {
+    type: "proposal_made",
+    ...asPlayer(membership),
+    payload: {
+      proposal_id: crypto.randomUUID(),
+      kind: "definition",
+      target_tile_id: null,
+      target_thread_root_id: null,
+      content: { term: input.term.trim(), text: input.text.trim() },
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
  * Accepting is where a proposal turns into a move on the board. The acceptance
  * and its consequence go in one batch so the log can never show a proposal
  * accepted without the thing it asked for.
@@ -514,8 +657,11 @@ export async function acceptProposal(
     );
   }
 
+  // Only the tile kind lands on the board. A steelman reading, a handback, and
+  // a definition are all complete at proposal_accepted: agreeing that somebody
+  // read you right moves nothing. See the event-type catalogue spec.
   if (
-    (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
+    proposal.kind === "steelman_tile" &&
     "text" in proposal.content &&
     "side" in proposal.content
   ) {
