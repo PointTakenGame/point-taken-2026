@@ -233,6 +233,39 @@ describe("projectBoard", () => {
     expect(liveThreads(board).map((thread) => thread.rootId)).toEqual(["t2"]);
   });
 
+  it("moves a relocated tile's whole subtree into the new thread", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Root one."), ALICE);
+    l.push("tile_placed", tile("t2", "t1", "t1", "A reply."), BOB);
+    l.push("tile_placed", tile("t3", "t2", "t1", "A reply to the reply."), ALICE);
+    l.push("tile_placed", tile("t4", null, "t4", "Root two.", "minus"), BOB);
+    // Only t2 is named. t3 rides along, and the event never mentions it.
+    l.push(
+      "tile_relocated",
+      {
+        tile_id: "t2",
+        new_parent_tile_id: "t4",
+        new_thread_root_id: "t4",
+        new_side: "minus",
+      },
+      BOB,
+    );
+
+    const board = projectBoard(l.events);
+    const byId = new Map(board.tiles.map((t) => [t.id, t]));
+    // The grandchild followed its parent, so it must not still claim t1.
+    expect(byId.get("t3")?.threadRootId).toBe("t4");
+    expect(byId.get("t2")?.threadRootId).toBe("t4");
+
+    const live = liveThreads(board);
+    expect(live.map((thread) => thread.rootId)).toEqual(["t1", "t4"]);
+    // One tile left behind, three in the thread it moved to.
+    expect(live[0].tileCount).toBe(1);
+    expect(live[1].tileCount).toBe(3);
+    expect(live[0].root?.children).toEqual([]);
+    expect(live[1].root?.children.map((t) => t.id)).toEqual(["t2"]);
+  });
+
   it("keeps a thread whose root was removed but whose children live on", () => {
     const l = opened();
     l.push("tile_placed", tile("t1", null, "t1", "Root."), ALICE);

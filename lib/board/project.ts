@@ -672,6 +672,41 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     }
   }
 
+  // Which thread a tile is really in.
+  //
+  // `tile_relocated` names one tile and moves it. Its children come along,
+  // because a child is attached to its parent and the parent moved, but the
+  // event says nothing about them and their own `threadRootId` still points at
+  // the thread the subtree left. So the field cannot be trusted on its own;
+  // the parent chain is the authority, and the root of that chain is the only
+  // tile whose `threadRootId` is necessarily current.
+  //
+  // Deriving it here rather than cascading at relocation time means already
+  // recorded games come out right on the next read, with no migration and no
+  // corrective event. That is what a disposable projection is for.
+  //
+  // Walking up passes through removed parents on purpose: a removed tile is
+  // still in the map, still holds its own parent link, and its live children
+  // belong to the thread it was in, which is exactly where they surface as
+  // orphans below.
+  const effectiveRoot = (start: BoardTile): Uuid => {
+    let current = start;
+    const seen = new Set<Uuid>([start.id]);
+    while (current.parentId && !seen.has(current.parentId)) {
+      seen.add(current.parentId);
+      const parent = tiles.get(current.parentId);
+      if (!parent) break;
+      current = parent;
+    }
+    return current.threadRootId;
+  };
+
+  // Normalise before bucketing, and on every tile rather than the live ones:
+  // the composer reads `parent.threadRootId` to decide what `thread_root_id` a
+  // new reply carries, so a stale value here would write the same mistake into
+  // fresh events instead of only mis-drawing an old one.
+  for (const tile of tiles.values()) tile.threadRootId = effectiveRoot(tile);
+
   // Live tiles only. A removed tile takes its subtree out of the picture, so
   // its live descendants surface as orphans rather than disappearing.
   const live = [...tiles.values()].filter((tile) => !tile.removed);
