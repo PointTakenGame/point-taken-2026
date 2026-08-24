@@ -66,6 +66,39 @@ function duration(game: GameRow): string | null {
 }
 
 /**
+ * How many of these games were joined in the last seven days.
+ *
+ * Deliberately a rolling 168 hours rather than "since Monday" or "today minus
+ * six days". A rolling window needs no notion of where the reader is or when
+ * their week starts, so unlike the streak it is safe to work out on the server.
+ */
+function joinedThisWeek(playedAt: readonly string[], now = Date.now()): number {
+  const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  return playedAt.filter((iso) => {
+    const at = Date.parse(iso);
+    return Number.isFinite(at) && at >= cutoff && at <= now;
+  }).length;
+}
+
+/**
+ * How many different things this player has argued about.
+ *
+ * Matched on the text, case and surrounding space ignored, so arguing the same
+ * question twice counts once. A topic whose text has been redacted is left out
+ * rather than counted: the text is gone on purpose, and counting it would mean
+ * guessing whether it was a repeat.
+ */
+function countTopics(topics: Map<Uuid, GameTopic>): number {
+  const seen = new Set<string>();
+  for (const topic of topics.values()) {
+    if (topic.redacted) continue;
+    const key = topic.text.trim().toLowerCase();
+    if (key) seen.add(key);
+  }
+  return seen.size;
+}
+
+/**
  * The archive, newest first.
  *
  * The topic leads because it is the only part of a game a player will
@@ -204,6 +237,13 @@ export default async function AccountPage() {
     games.find((game) => game.status === "lobby") ??
     null;
 
+  const thisWeek = joinedThisWeek(playedAt);
+  // Nobody wants to read "0 per game" on a profile with no games in it.
+  const perGame =
+    stats.games_played > 0
+      ? (stats.tiles_placed / stats.games_played).toFixed(1).replace(/\.0$/, "")
+      : null;
+
   return (
     <>
       <SiteNav here="account" />
@@ -230,10 +270,19 @@ export default async function AccountPage() {
         />
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Counter label="Games played" value={stats.games_played} />
+          <Counter
+            label="Games played"
+            value={stats.games_played}
+            note={thisWeek > 0 ? `+${thisWeek} this week` : undefined}
+          />
           <Counter label="Games finished" value={stats.games_completed} />
+          <Counter label="Topics debated" value={countTopics(topics)} />
           <Counter label="Threads resolved" value={stats.threads_resolved} />
-          <Counter label="Tiles placed" value={stats.tiles_placed} />
+          <Counter
+            label="Tiles placed"
+            value={stats.tiles_placed}
+            note={perGame === null ? undefined : `${perGame} per game`}
+          />
           {/*
             Two more cards, or none: the streak is worked out in the browser,
             because only the browser knows which day it is where the reader is.

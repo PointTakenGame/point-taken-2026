@@ -10,11 +10,14 @@ export function Counter({
   label,
   value,
   unit,
+  note,
 }: {
   label: string;
   value: number;
   /** A word after the number, when the number is not self-describing. */
   unit?: string;
+  /** A smaller second line, for a rate or a recent change. */
+  note?: string;
 }) {
   return (
     <div className="rounded-lg border border-current/15 p-4">
@@ -25,6 +28,7 @@ export function Counter({
         ) : null}
       </div>
       <div className="text-sm opacity-70">{label}</div>
+      {note ? <div className="text-sm opacity-50">{note}</div> : null}
     </div>
   );
 }
