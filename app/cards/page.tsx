@@ -1,8 +1,7 @@
-import Link from "next/link";
-
 import { COACH_CARDS, coachCardsMatchDeck } from "@/lib/coach/cards";
 import { getPlayerStats } from "@/lib/db/stats";
 import { currentPlayerId } from "@/lib/supabase/session";
+import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "../account/start-playing";
 
 /**
@@ -63,57 +62,57 @@ export default async function CardsPage() {
   const decksAgree = coachCardsMatchDeck();
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Your cards</h1>
-        <p className="opacity-70">
-          Everyone holds these four. Throwing one says a reason broke that rule; the other
-          player answers it, or rewrites. Your coach reads from the same four, so there is
-          never a rule raised at you that you do not already hold.{" "}
-          <Link href="/account" className="underline">
-            Your games
-          </Link>
-        </p>
-      </header>
+    <>
+      <SiteNav here="cards" />
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-2xl font-semibold">Your cards</h1>
+          <p className="opacity-70">
+            Everyone holds these four. Throwing one says a reason broke that rule; the
+            other player answers it, or rewrites. Your coach reads from the same four, so
+            there is never a rule raised at you that you do not already hold.
+          </p>
+        </header>
 
-      {decksAgree ? null : (
-        <p className="rounded-md border border-red-600/40 p-3 text-sm text-red-600">
-          The coach and the deck have drifted apart. Someone edited one list and not the
-          other: see lib/coach/cards.ts and lib/board/setup.ts.
-        </p>
-      )}
+        {decksAgree ? null : (
+          <p className="rounded-md border border-red-600/40 p-3 text-sm text-red-600">
+            The coach and the deck have drifted apart. Someone edited one list and not the
+            other: see lib/coach/cards.ts and lib/board/setup.ts.
+          </p>
+        )}
 
-      <ul className="flex flex-col gap-4">
-        {COACH_CARDS.map((card) => (
-          <li
-            key={card.id}
-            className="flex flex-wrap items-start justify-between gap-6 rounded-lg border border-current/15 p-5"
-          >
-            <div className="flex min-w-56 flex-1 flex-col gap-1">
-              <h2 className="flex items-center gap-2 font-semibold">
-                <span aria-hidden className="text-xl">
-                  {card.icon}
-                </span>
-                {card.name}
-              </h2>
-              <p className="text-sm opacity-70">{card.plain}</p>
-            </div>
-            <div className="flex gap-8">
-              <Count label="thrown" value={stats.cards_thrown_by_id[card.id] ?? 0} />
-              <Count label="coached" value={stats.coach_flags_by_id[card.id] ?? 0} />
-            </div>
-          </li>
-        ))}
-      </ul>
+        <ul className="flex flex-col gap-4">
+          {COACH_CARDS.map((card) => (
+            <li
+              key={card.id}
+              className="flex flex-wrap items-start justify-between gap-6 rounded-lg border border-current/15 p-5"
+            >
+              <div className="flex min-w-56 flex-1 flex-col gap-1">
+                <h2 className="flex items-center gap-2 font-semibold">
+                  <span aria-hidden className="text-xl">
+                    {card.icon}
+                  </span>
+                  {card.name}
+                </h2>
+                <p className="text-sm opacity-70">{card.plain}</p>
+              </div>
+              <div className="flex gap-8">
+                <Count label="thrown" value={stats.cards_thrown_by_id[card.id] ?? 0} />
+                <Count label="coached" value={stats.coach_flags_by_id[card.id] ?? 0} />
+              </div>
+            </li>
+          ))}
+        </ul>
 
-      <section className="flex flex-col gap-2 border-t border-current/10 pt-6">
-        <h2 className="font-semibold">Cards you turned down</h2>
-        <p className="text-sm opacity-70">
-          {stats.card_throws_declined === 0
-            ? "None yet. When someone throws a card at one of your reasons you can rewrite the reason, or you can say the card does not fit. Saying it does not fit is a move, and it gets counted here."
-            : `${stats.card_throws_declined}. Each one is a card thrown at a reason of yours that you answered by disputing the card rather than by rewriting.`}
-        </p>
-      </section>
-    </main>
+        <section className="flex flex-col gap-2 border-t border-current/10 pt-6">
+          <h2 className="font-semibold">Cards you turned down</h2>
+          <p className="text-sm opacity-70">
+            {stats.card_throws_declined === 0
+              ? "None yet. When someone throws a card at one of your reasons you can rewrite the reason, or you can say the card does not fit. Saying it does not fit is a move, and it gets counted here."
+              : `${stats.card_throws_declined}. Each one is a card thrown at a reason of yours that you answered by disputing the card rather than by rewriting.`}
+          </p>
+        </section>
+      </main>
+    </>
   );
 }

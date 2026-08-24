@@ -1,4 +1,5 @@
 import { RoomEntry } from "@/components/rooms/room-entry";
+import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { currentPlayerId } from "@/lib/supabase/session";
@@ -20,6 +21,7 @@ export default async function Home() {
 
   return (
     <>
+      <SiteNav here="home" />
       <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">Point Taken</h1>

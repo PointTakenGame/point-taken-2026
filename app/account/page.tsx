@@ -5,6 +5,7 @@ import { getPlayerStats, type PlayerStats } from "@/lib/db/stats";
 import { listGamesForPlayer } from "@/lib/db/games";
 import type { GameRow } from "@/lib/db/types";
 import { LocalDay } from "@/components/local-day";
+import { SiteNav } from "@/components/site-nav";
 import { StartPlaying } from "./start-playing";
 
 /**
@@ -111,41 +112,38 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          {player?.display_name ?? "Your account"}
-        </h1>
-        <p className="text-sm opacity-70">
-          {player?.claimed_at ? (
-            <>
-              Account kept since <LocalDay iso={player.claimed_at} />.
-            </>
-          ) : (
-            "This account is anonymous. Attach an email to keep it."
-          )}{" "}
-          <Link href="/settings" className="underline">
-            Settings
-          </Link>{" "}
-          <Link href="/cards" className="underline">
-            Your cards
-          </Link>
-        </p>
-      </header>
+    <>
+      <SiteNav here="account" />
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">
+            {player?.display_name ?? "Your account"}
+          </h1>
+          <p className="text-sm opacity-70">
+            {player?.claimed_at ? (
+              <>
+                Account kept since <LocalDay iso={player.claimed_at} />.
+              </>
+            ) : (
+              "This account is anonymous. Attach an email to keep it."
+            )}
+          </p>
+        </header>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Counter label="Games played" value={stats.games_played} />
-        <Counter label="Games finished" value={stats.games_completed} />
-        <Counter label="Threads resolved" value={stats.threads_resolved} />
-        <Counter label="Tiles placed" value={stats.tiles_placed} />
-      </section>
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Counter label="Games played" value={stats.games_played} />
+          <Counter label="Games finished" value={stats.games_completed} />
+          <Counter label="Threads resolved" value={stats.threads_resolved} />
+          <Counter label="Tiles placed" value={stats.tiles_placed} />
+        </section>
 
-      <Signature stats={stats} />
+        <Signature stats={stats} />
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Your games</h2>
-        <History games={games} />
-      </section>
-    </main>
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">Your games</h2>
+          <History games={games} />
+        </section>
+      </main>
+    </>
   );
 }
