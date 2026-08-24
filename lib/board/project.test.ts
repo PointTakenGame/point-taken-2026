@@ -12,6 +12,17 @@ const GAME = "00000000-0000-4000-8000-000000000000";
 const ALICE = "11111111-1111-4111-8111-111111111111";
 const BOB = "22222222-2222-4222-8222-222222222222";
 
+/**
+ * Alice argues for, Bob argues against, in every log below. The helper reads
+ * `actor_role` off the actor rather than taking it as a second argument,
+ * because it was previously hardcoded to plus and the projection branches on
+ * it in four places: which side a pending resolution token belongs to, which
+ * side asked a proposal, and which side threw a card. With it pinned to plus,
+ * a token Bob placed was recorded as Alice's and the tests still passed
+ * (BRAIN-T260823-13).
+ */
+const ROLE: Record<string, "plus" | "minus"> = { [ALICE]: "plus", [BOB]: "minus" };
+
 /** Numbers seqs the way the database does, so tests never hand-count. */
 function log() {
   const events: AnyGameEvent[] = [];
@@ -26,7 +37,9 @@ function log() {
       seq: events.length + 1,
       type,
       schema_version: 1,
-      actor_role: "plus",
+      // No actor is the server acting on its own, which is what the column
+      // says for game_created, topic_set, game_started and game_ended.
+      actor_role: actorId ? (ROLE[actorId] ?? "server") : "server",
       source: "human",
       actor_id: actorId,
       payload,
@@ -223,6 +236,42 @@ describe("projectBoard", () => {
     expect(thread.pending.plus).toBe("🧭");
     expect(thread.pending.minus).toBeNull();
     expect(thread.resolution).toBeNull();
+  });
+
+  /**
+   * The three places the projection branches on which side acted, all read from
+   * the minus side. Every log above happens to be plus-initiated, which is how
+   * the hardcoded actor_role in the old helper went unnoticed for so long: a
+   * token Bob placed was recorded under plus and nothing asserted otherwise
+   * (BRAIN-T260823-13).
+   */
+  it("credits a token, a proposal, and a throw to the side that acted", () => {
+    const l = opened();
+    l.push("tile_placed", tile("t1", null, "t1", "Rents here are too high."), ALICE);
+    l.push("resolution_emoji_placed", { thread_root_id: "t1", emoji: "🧭" }, BOB);
+    l.push(
+      "proposal_made",
+      {
+        proposal_id: "aaaaaaaa-0000-4000-8000-000000000001",
+        kind: "topic_revision",
+        target_tile_id: null,
+        target_thread_root_id: null,
+        content: { text: "Cities should cap rents on older buildings." },
+      },
+      BOB,
+    );
+    l.push(
+      "card_thrown",
+      { card_id: "no_exaggeration", rung_id: null, target_tile_id: "t1" },
+      BOB,
+    );
+
+    const board = projectBoard(l.events);
+    expect(board.threads[0].pending).toEqual({ plus: null, minus: "🧭" });
+    expect(board.proposals[0].askedBy).toBe("minus");
+    expect(board.proposals[0].askedByPlayer).toBe(BOB);
+    expect(board.throws[0].thrownByRole).toBe("minus");
+    expect(board.throws[0].thrownBy).toBe(BOB);
   });
 
   it("records how the game ended", () => {
