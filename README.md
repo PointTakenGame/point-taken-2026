@@ -113,7 +113,7 @@ npm install
 TMPDIR=/tmp npm run dev
 ```
 
-`http://localhost:3000/api/health?deep=1` should report 28 catalogue types in the database, 28 in
+`http://localhost:3100/api/health?deep=1` should report 28 catalogue types in the database, 28 in
 code, empty `missing_in_db` / `missing_in_code`, and a `tables` block with a count for each of
 `players`, `games`, `game_players`, and `game_events`. That is the fastest proof the app is talking
 to the right project with every migration applied.
@@ -121,7 +121,12 @@ to the right project with every migration applied.
 **`TMPDIR=/tmp` is a local quirk, not a project setting.** Turbopack's postcss worker cannot bind
 its socket under a very long temp path, and the sandbox this repo is usually developed in hands out
 exactly that. It panics with `binding to a port: Operation not permitted`. Vercel is unaffected, so
-`npm run build` stays plain `next build`. `next build --webpack` also sidesteps it.
+`npm run build` stays plain `next build`.
+
+`build:local` is that same Turbopack build with `TMPDIR` set, so the local gate gets compiled by
+the same bundler Vercel will use. It carried `--webpack` until 2026-08-24 as a second way around
+the socket panic; setting `TMPDIR` turned out to be enough on its own, and a gate that builds with
+a bundler production never sees is a gate that can pass while the deploy fails.
 
 `npm test` runs the vitest suites under `lib/` (the name generator and the naming race). They are
 pure unit tests: nothing in them touches Supabase, so they need no credentials and no network.
