@@ -17,6 +17,10 @@ import type {
 } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
+import { TileShape, SideGlyph } from "@/components/board/tile-shape";
+import { ResolutionPicker } from "@/components/board/resolution-picker";
+import { TopicTile } from "@/components/board/topic-tile";
+import { CollapsedThread } from "@/components/board/collapsed-thread";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -629,94 +633,113 @@ function TileNode({
   };
 
   return (
-    <li className="flex flex-col gap-1">
-      <div className="flex items-baseline gap-2">
-        <span className="w-4 shrink-0 text-center font-semibold tabular-nums opacity-60">
-          {SIDE_MARK[tile.side]}
-        </span>
-        {editing ? (
-          <span className="flex flex-1 flex-col gap-1">
-            <textarea
-              className="w-full border border-current/30 p-1 text-sm"
-              value={draft}
-              maxLength={TILE_MAX_CHARS}
-              disabled={pending}
-              onChange={(event) => setDraft(event.target.value)}
-            />
-            <span className="text-xs opacity-60">
-              {TILE_MAX_CHARS - draft.length} characters left
-            </span>
-            <WhyNot verdict={editBlocked} />
-            <span className="flex gap-2">
-              <button
-                type="button"
-                className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
-                disabled={pending || !editVerdict.ok}
-                title={!editVerdict.ok ? editVerdict.error : undefined}
-                onClick={runEdit}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                className="border border-current/30 px-2 py-0.5 text-xs"
+    <li className="flex flex-col gap-2">
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <TileShape
+            side={tile.side}
+            size={11}
+            watermark={tile.removed ? undefined : "reason"}
+            className={tile.removed ? "opacity-40" : undefined}
+          >
+            {editing ? (
+              <textarea
+                className="font-tiles text-p-sm h-16 w-full resize-none bg-transparent text-center focus:outline-none"
+                value={draft}
+                maxLength={TILE_MAX_CHARS}
                 disabled={pending}
-                onClick={() => {
-                  setDraft(tile.text);
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </button>
-            </span>
-          </span>
-        ) : (
-          <span className="flex-1">
-            <TileText tile={tile} />
-            {tile.edited && <span className="ml-2 text-xs opacity-50">(edited)</span>}
-            {tile.revised && <span className="ml-2 text-xs opacity-50">(rewritten)</span>}
-            {mine && (
-              <span className="ml-2 inline-flex gap-2">
+                onChange={(event) => setDraft(event.target.value)}
+              />
+            ) : (
+              <TileText tile={tile} />
+            )}
+          </TileShape>
+          <SideGlyph
+            side={tile.side === "plus" ? "plus" : "minus"}
+            className="absolute top-0 left-0 z-20 size-5"
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1 pt-1">
+          {editing ? (
+            <>
+              <span className="text-p-sm text-gray">
+                {TILE_MAX_CHARS - draft.length} characters left
+              </span>
+              <WhyNot verdict={editBlocked} />
+              <span className="flex gap-2">
                 <button
                   type="button"
-                  className="text-xs underline opacity-70 disabled:opacity-30"
-                  disabled={pending || !editBlocked.ok}
-                  title={!editBlocked.ok ? editBlocked.error : undefined}
-                  onClick={() => setEditing(true)}
+                  className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+                  disabled={pending || !editVerdict.ok}
+                  title={!editVerdict.ok ? editVerdict.error : undefined}
+                  onClick={runEdit}
                 >
-                  edit
+                  Save
                 </button>
                 <button
                   type="button"
-                  className="text-xs underline opacity-70 disabled:opacity-30"
-                  disabled={pending || !removeVerdict.ok}
-                  title={!removeVerdict.ok ? removeVerdict.error : undefined}
-                  onClick={runRemove}
+                  className="form-base px-3 py-1 text-xs"
+                  disabled={pending}
+                  onClick={() => {
+                    setDraft(tile.text);
+                    setEditing(false);
+                  }}
                 >
-                  remove
+                  Cancel
                 </button>
               </span>
-            )}
-            {/* Anyone may ask to move any reason: the other side answers. */}
-            <button
-              type="button"
-              className="ml-2 text-xs underline opacity-70 disabled:opacity-30"
-              disabled={pending || moving || !moveVerdict.ok}
-              title={!moveVerdict.ok ? moveVerdict.error : undefined}
-              onClick={() => setMoving(true)}
-            >
-              move
-            </button>
-            {mine && <span className="ml-2 text-xs opacity-50">(yours)</span>}
-          </span>
-        )}
+            </>
+          ) : (
+            <>
+              <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
+                {tile.edited && <span>(edited)</span>}
+                {tile.revised && <span>(rewritten)</span>}
+                {mine && <span>(yours)</span>}
+              </span>
+              <span className="flex flex-wrap gap-3">
+                {mine && (
+                  <>
+                    <button
+                      type="button"
+                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      disabled={pending || !editBlocked.ok}
+                      title={!editBlocked.ok ? editBlocked.error : undefined}
+                      onClick={() => setEditing(true)}
+                    >
+                      edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      disabled={pending || !removeVerdict.ok}
+                      title={!removeVerdict.ok ? removeVerdict.error : undefined}
+                      onClick={runRemove}
+                    >
+                      remove
+                    </button>
+                  </>
+                )}
+                {/* Anyone may ask to move any reason: the other side answers. */}
+                <button
+                  type="button"
+                  className="text-p-sm underline opacity-70 disabled:opacity-30"
+                  disabled={pending || moving || !moveVerdict.ok}
+                  title={!moveVerdict.ok ? moveVerdict.error : undefined}
+                  onClick={() => setMoving(true)}
+                >
+                  move
+                </button>
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <ErrorLine error={error} />
       {/* The links above go dead together and for the same reason, so the
           reason is said once under the reason it belongs to. */}
       {editing ? null : (
         <WhyNotAll
-          className="ml-6 text-xs opacity-70"
+          className="text-p-sm text-gray ml-6"
           verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
         />
       )}
@@ -778,10 +801,11 @@ function ResolutionRow({
 
   if (isResolved(thread)) {
     return (
-      <p className="text-sm">
-        <span className="mr-1 text-lg align-middle">{thread.resolution!.emoji}</span>
+      <p className="text-p-sm flex items-center gap-2">
+        <TokenGlyph token={thread.resolution!.emoji} size={22} />
+        <span className="text-gray">{tokenLabel(thread.resolution!.emoji)}</span>
         {thread.resolution!.note && (
-          <span className="opacity-70">{thread.resolution!.note}</span>
+          <span className="text-gray italic">{thread.resolution!.note}</span>
         )}
       </p>
     );
@@ -815,39 +839,30 @@ function ResolutionRow({
     canPlaceResolutionToken(board, thread.rootId, token),
   );
 
+  const disabledTokens = RESOLUTION_TOKENS.filter((_, index) => !tokenVerdicts[index].ok);
+
   return (
-    <div className="flex flex-col gap-1 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <Placed who="You" token={myToken} />
         <Placed who="Them" token={otherToken} />
-        {myToken ? (
-          <button
-            type="button"
-            className="border border-current/30 px-2 py-0.5 text-xs"
-            disabled={pending}
-            onClick={clear}
-          >
-            take back your token
-          </button>
-        ) : (
-          RESOLUTION_TOKENS.map((token, index) => {
-            const verdict = tokenVerdicts[index];
-            return (
-              <button
-                key={token}
-                type="button"
-                className="flex items-center gap-1.5 border border-current/30 px-2 py-1 text-xs disabled:opacity-40"
-                disabled={pending || !verdict.ok}
-                title={!verdict.ok ? verdict.error : undefined}
-                onClick={() => place(token)}
-              >
-                <TokenGlyph token={token} size={22} />
-                <span>{tokenLabel(token)}</span>
-              </button>
-            );
-          })
-        )}
       </div>
+      {myToken ? (
+        <button
+          type="button"
+          className="form-base px-3 py-1 text-xs"
+          disabled={pending}
+          onClick={clear}
+        >
+          take back your token
+        </button>
+      ) : (
+        <ResolutionPicker
+          tokens={RESOLUTION_TOKENS}
+          disabledTokens={disabledTokens}
+          onPick={place}
+        />
+      )}
       {myToken ? null : <WhyNotAll verdicts={tokenVerdicts} />}
       <ErrorLine error={error} />
     </div>
@@ -1491,22 +1506,31 @@ function ThreadBlock({
   me: { playerId: string; role: Side };
   board: BoardState;
 }) {
+  const resolved = isResolved(thread);
+
   return (
-    <section className="flex flex-col gap-3 border-t border-current/15 pt-4">
-      <header className="flex items-baseline justify-between gap-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+    <section className="border-neutral-black/15 flex flex-col gap-3 border-t pt-4">
+      <header className="flex flex-wrap items-baseline justify-between gap-4">
+        <h3 className="font-primary text-p-sm text-gray tracking-wide uppercase">
           Thread {index + 1}
         </h3>
         <ResolutionRow gameId={gameId} thread={thread} me={me} board={board} />
       </header>
 
-      <ul className="flex flex-col gap-2">
-        {thread.root ? (
-          <TileNode tile={thread.root} gameId={gameId} me={me} board={board} />
-        ) : (
-          <li className="opacity-50">The reason this thread started from is gone.</li>
-        )}
-      </ul>
+      {resolved && thread.root ? (
+        // A resolved thread collapses into a fanned stack, the way the
+        // retired client's CollapsedThread.vue did, rather than staying open
+        // as a full tree once the disagreement has been named.
+        <CollapsedThread root={thread.root} />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {thread.root ? (
+            <TileNode tile={thread.root} gameId={gameId} me={me} board={board} />
+          ) : (
+            <li className="text-gray">The reason this thread started from is gone.</li>
+          )}
+        </ul>
+      )}
 
       {thread.orphans.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -1606,14 +1630,12 @@ export function LiveBoard({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <header className="flex flex-col gap-1 border-b border-current/15 pb-4">
-        <p className="text-sm opacity-60">
+      <header className="border-neutral-black/15 flex flex-col items-center gap-3 border-b pb-4">
+        <p className="text-p-sm text-gray">
           {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
           {connected ? "updating live" : "reconnecting"}
         </p>
-        <h1 className="text-xl font-semibold text-balance">
-          {board.currentTopicText ?? "No topic was set."}
-        </h1>
+        <TopicTile text={board.currentTopicText} />
       </header>
 
       <section className="flex flex-col gap-2">

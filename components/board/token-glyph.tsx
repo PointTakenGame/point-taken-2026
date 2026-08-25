@@ -19,15 +19,39 @@ import Image from "next/image";
  * lost when the old repository goes cold.
  */
 
-type TokenFace = { art: string | null; label: string };
+type TokenFace = { art: string | null; hoveredArt: string | null; label: string };
 
+// hoveredArt is the retired client's swap-on-hover drawing (`TileEmojis.vue`'s
+// `hovered` field). `eyes` never got a hovered variant drawn ("no hovered
+// variant drawn yet; reuse the base art," per that file's own comment), so it
+// falls back to the base art here too.
 const FACES: Record<string, TokenFace> = {
-  "👍": { art: "/tokens/thumbs-up.svg", label: "Agree to agree" },
-  "👀": { art: "/tokens/eyes.svg", label: "Agree to disagree" },
+  "👍": {
+    art: "/tokens/thumbs-up.svg",
+    hoveredArt: "/tokens/thumbs-up-hovered.svg",
+    label: "Agree to agree",
+  },
+  "👀": {
+    art: "/tokens/eyes.svg",
+    hoveredArt: "/tokens/eyes.svg",
+    label: "Agree to disagree",
+  },
   // Deferred behind progression, see DEFERRED_RESOLUTION_TOKENS.
-  "🔍": { art: "/tokens/mag-glass.svg", label: "Disagree on a fact" },
-  "⚖️": { art: "/tokens/scale.svg", label: "Disagree on priorities" },
-  "🍷": { art: "/tokens/wine.svg", label: "Disagree on personal taste" },
+  "🔍": {
+    art: "/tokens/mag-glass.svg",
+    hoveredArt: "/tokens/mag-glass-hovered.svg",
+    label: "Disagree on a fact",
+  },
+  "⚖️": {
+    art: "/tokens/scale.svg",
+    hoveredArt: "/tokens/scale-hovered.svg",
+    label: "Disagree on priorities",
+  },
+  "🍷": {
+    art: "/tokens/wine.svg",
+    hoveredArt: "/tokens/wine-hovered.svg",
+    label: "Disagree on personal taste",
+  },
 };
 
 /** What a token means, in the words a player sees. Falls back to the character. */
@@ -43,13 +67,17 @@ export function TokenGlyph({
   token,
   size = 24,
   className,
+  hovered = false,
 }: {
   token: string;
   size?: number;
   className?: string;
+  /** Show the hover-swap drawing instead of the resting one. */
+  hovered?: boolean;
 }) {
   const face = FACES[token];
-  if (!face?.art) {
+  const src = hovered ? (face?.hoveredArt ?? face?.art) : face?.art;
+  if (!src) {
     return (
       <span className={className} aria-hidden="true">
         {token}
@@ -58,7 +86,7 @@ export function TokenGlyph({
   }
   return (
     <Image
-      src={face.art}
+      src={src}
       alt=""
       width={size}
       height={size}
