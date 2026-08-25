@@ -1448,6 +1448,11 @@ export function LiveBoard({
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
           Generosity
         </h2>
+        <p className="text-sm opacity-70">
+          Thanks, on the record. When the other player takes a challenge well, or rewrites
+          a reason to meet you halfway, give them a token. It always goes to them, and it
+          counts toward nothing: this game is won together or not at all.
+        </p>
         <p className="text-sm">
           {SIDE_LABEL.plus} has been given {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
           has been given {board.generosity.minus}
@@ -1575,8 +1580,13 @@ export function LiveBoard({
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Topic
+          Rewriting the topic
         </h2>
+        <p className="text-sm opacity-70">
+          One of the two ways this game ends well. If the argument has taught you both
+          what the real question was, write that question down: a version of the topic you
+          would both sign. The other way out is resolving every thread.
+        </p>
         <TopicRevisionForm gameId={gameId} board={board} />
       </section>
 
