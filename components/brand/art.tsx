@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { svgBox } from "./svg-box";
 
 /**
  * The drawn brand art, and the only two ways this codebase puts it on a screen.
@@ -20,6 +21,8 @@ import Image from "next/image";
  * alike. Checked on both before it went in.
  */
 
+const LOGO_SRC = "/brand/logo.svg";
+
 /** The full lockup: bubble, wordmark, plus. viewBox is 300 by 227. */
 export function Wordmark({
   width = 240,
@@ -28,12 +31,13 @@ export function Wordmark({
   width?: number;
   className?: string;
 }) {
+  const box = svgBox(LOGO_SRC, width);
   return (
     <Image
-      src="/brand/logo.svg"
+      src={LOGO_SRC}
       alt="Point Taken"
-      width={width}
-      height={Math.round((width * 227) / 300)}
+      width={box.width}
+      height={box.height}
       className={className}
       priority
       unoptimized
@@ -42,8 +46,10 @@ export function Wordmark({
 }
 
 /**
- * One drawn glyph. `size` is in pixels because these sit inside headings and
- * buttons at a fixed size rather than reflowing with the text around them.
+ * One drawn glyph. `size` is the pixel width, and the height follows from the
+ * file's own proportions (`./svg-box.ts`) rather than being forced square:
+ * `party.svg` is 52 by 50 and squashing it both warns in development and
+ * distorts the drawing.
  *
  * Decorative by default: every call site here already says the same thing in
  * words, so the alt text is empty and the glyph is not announced twice.
@@ -57,12 +63,14 @@ export function Glyph({
   size?: number;
   className?: string;
 }) {
+  const src = `/glyphs/${name}.svg`;
+  const box = svgBox(src, size);
   return (
     <Image
-      src={`/glyphs/${name}.svg`}
+      src={src}
       alt=""
-      width={size}
-      height={size}
+      width={box.width}
+      height={box.height}
       className={className}
       unoptimized
     />

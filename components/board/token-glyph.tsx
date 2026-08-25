@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { svgBox } from "@/components/brand/svg-box";
 
 /**
  * The drawn art for a resolution token, and the words for what it means.
@@ -60,8 +61,12 @@ export function tokenLabel(token: string): string {
 }
 
 /**
- * One token, drawn. `size` is in pixels because these are fixed-size glyphs
- * sitting inside buttons, not images that reflow with the text around them.
+ * One token, drawn. `size` is the pixel width, and the height follows from the
+ * drawing's own proportions (`components/brand/svg-box.ts`) rather than being
+ * forced square. Three of these files are not square, and the resting and
+ * hovered drawings of the same token can differ: `thumbs-up.svg` is 68 by 74
+ * while `thumbs-up-hovered.svg` is 68 by 68. That is why the lookup is by
+ * resolved file path rather than by token.
  */
 export function TokenGlyph({
   token,
@@ -84,12 +89,13 @@ export function TokenGlyph({
       </span>
     );
   }
+  const box = svgBox(src, size);
   return (
     <Image
       src={src}
       alt=""
-      width={size}
-      height={size}
+      width={box.width}
+      height={box.height}
       className={className}
       unoptimized
     />
