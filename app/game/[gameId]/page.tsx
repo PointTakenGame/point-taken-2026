@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Ending } from "@/components/board/ending";
 import { FinishedMap } from "@/components/board/finished-map";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { GameSetup } from "@/components/board/game-setup";
@@ -59,6 +60,7 @@ export default async function GamePage({
   if (board.status === "ended") {
     return (
       <>
+        <Ending board={board} />
         <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
         <nav className="mx-auto flex w-full max-w-3xl gap-4 px-8 pb-8 print:hidden">
           <Link href="/account" className="underline">
