@@ -21,6 +21,7 @@ import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
   isAbandoned,
+  isQuestionShaped,
   isResolved,
   MAX_THREADS,
   MIN_THREADS_TO_END,
@@ -286,6 +287,31 @@ describe("canPlaceTile", () => {
     const board = boardForPlacement();
     expect(canPlaceTile(board, "New reason.", "root")).toEqual({ ok: true });
   });
+
+  it("refuses a tile whose trimmed text ends in a question mark", () => {
+    const board = boardForPlacement();
+    expect(canPlaceTile(board, "Isn't that unfair?", null).ok).toBe(false);
+    // Trailing whitespace does not defeat the check.
+    expect(canPlaceTile(board, "Isn't that unfair?  ", null).ok).toBe(false);
+  });
+
+  it('allows a tile ending in "?!" or with a mid-sentence question mark', () => {
+    const board = boardForPlacement();
+    expect(canPlaceTile(board, "Are you serious?!", null)).toEqual({ ok: true });
+    expect(
+      canPlaceTile(board, 'You keep asking "why?" instead of answering.', null),
+    ).toEqual({ ok: true });
+  });
+});
+
+describe("isQuestionShaped", () => {
+  it("is true only for text that trims to a trailing question mark", () => {
+    expect(isQuestionShaped("Why should that matter?")).toBe(true);
+    expect(isQuestionShaped("Why should that matter?   ")).toBe(true);
+    expect(isQuestionShaped("Why should that matter?!")).toBe(false);
+    expect(isQuestionShaped('Ask yourself "why?" and answer it.')).toBe(false);
+    expect(isQuestionShaped("Rents should be capped.")).toBe(false);
+  });
 });
 
 describe("canEditTile", () => {
@@ -502,6 +528,11 @@ describe("the readings", () => {
       expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(
         false,
       );
+    });
+
+    it("refuses a question-shaped proposal, since it passes through to canPlaceTile", () => {
+      const board = boardForPlacement();
+      expect(canProposeSteelmanTile(board, "root", "Wouldn't you say X?").ok).toBe(false);
     });
   });
 

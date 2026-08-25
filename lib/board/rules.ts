@@ -151,6 +151,18 @@ export function boardIsOpen(board: BoardState): Verdict {
   return ALLOWED;
 }
 
+/**
+ * Whether trimmed text is shaped like a question rather than a reason.
+ *
+ * PROVISIONAL, simplest version per BRAIN-T260825-01: trailing "?" only. A
+ * "?" earlier in the sentence, or a trailing "?!", does not trip this, so
+ * this under-fires on purpose rather than over-fires. Flagged for review;
+ * see docs/handoffs/2026-08-25_nathan-core-changes-wave3.md section 1.
+ */
+export function isQuestionShaped(text: string): boolean {
+  return text.trim().endsWith("?");
+}
+
 export function canPlaceTile(
   board: BoardState,
   text: string,
@@ -163,6 +175,9 @@ export function canPlaceTile(
   if (trimmed.length === 0) return no("A reason needs some words in it.");
   if (trimmed.length > TILE_MAX_CHARS) {
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
+  }
+  if (isQuestionShaped(trimmed)) {
+    return no("A reason isn't a question. Say what you think, not what you're asking.");
   }
 
   if (parentTileId === null) {
@@ -376,6 +391,12 @@ export function canProposeSteelmanReading(board: BoardState, text: string): Verd
  * length limit, the same live parent, the same six-thread ceiling. So this is
  * `canPlaceTile` and nothing more, and if that rule ever changes this follows
  * it without anyone remembering to.
+ *
+ * That includes the question-shaped refusal added for BRAIN-T260825-01: a
+ * steelman proposal ending in "?" is refused the same as a placed tile would
+ * be. This cascades on purpose for now, not by accident, but whether a
+ * steelman should be allowed to ask "wouldn't you say X?" is an open product
+ * question, flagged for review rather than decided here.
  */
 export function canProposeSteelmanTile(
   board: BoardState,
