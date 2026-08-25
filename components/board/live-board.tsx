@@ -54,6 +54,7 @@ import {
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
 import { coachCard } from "@/lib/coach/cards";
+import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
@@ -1026,6 +1027,14 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
   const parentTileId = target.length > 0 ? target : null;
   const verdict = canPlaceTile(board, text, parentTileId);
 
+  // Gym level 3 ("Claim size") teaches No Exaggeration. Two pre-written root
+  // threads about the level's tipping topic are offered as optional
+  // starting points, but only while the tile being composed is a root tile
+  // (no reply target picked): a suggestion for a brand new thread has
+  // nothing to say about a reply to something already on the board.
+  const showRootSuggestions =
+    board.mode === "gym" && board.levelId === "claim_size" && parentTileId === null;
+
   // Computed against a placeholder instead of the real text on purpose. An
   // empty box is the normal state of a composer and "a reason needs some
   // words in it" is not news. What is news is a block that no amount of
@@ -1061,6 +1070,34 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
           ))}
         </select>
       </label>
+      {showRootSuggestions && (
+        <div className="flex flex-col gap-2 border border-current/20 p-2 text-xs">
+          <p className="opacity-60">
+            Optional starting points for a new thread on this topic. Click one to load it
+            into the box below, then edit it however you like before placing it.
+          </p>
+          {CLAIM_SIZE_ROOT_SUGGESTIONS.map((pair) => (
+            <div key={pair.id} className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
+                disabled={pending}
+                onClick={() => setText(pair.baited)}
+              >
+                {pair.baited}
+              </button>
+              <button
+                type="button"
+                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
+                disabled={pending}
+                onClick={() => setText(pair.safe)}
+              >
+                {pair.safe}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <textarea
         className="w-full border border-current/30 p-1 text-sm"
         value={text}
