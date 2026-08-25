@@ -31,7 +31,7 @@ describe("createGame", () => {
   it("draws a join code for a live game", async () => {
     rpc.mockResolvedValueOnce(game("ABC234"));
     await createGame({ mode: "live", createdBy: PLAYER });
-    expect(codes()[0]).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+    expect(codes()[0]).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/);
   });
 
   it("redraws when the code it chose is taken", async () => {
@@ -56,9 +56,9 @@ describe("createGame", () => {
   it("tells a caller who named a code that it is taken, rather than swapping it", async () => {
     rpc.mockResolvedValue(COLLISION);
     await expect(
-      createGame({ mode: "live", createdBy: PLAYER, joinCode: "MINE12" }),
+      createGame({ mode: "live", createdBy: PLAYER, joinCode: "MINE1" }),
     ).rejects.toThrow(/duplicate key/);
-    expect(codes()).toEqual(["MINE12"]);
+    expect(codes()).toEqual(["MINE1"]);
   });
 
   it("draws no code for a gym run", async () => {

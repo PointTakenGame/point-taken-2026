@@ -6,12 +6,15 @@ import {
   normalizeJoinCode,
 } from "./joinCode";
 
+// Derived from the constant so shortening the code does not break the shape test.
+const CODE_SHAPE = new RegExp(`^[${JOIN_CODE_ALPHABET}]{${JOIN_CODE_LENGTH}}$`);
+
 describe("generateJoinCode", () => {
-  it("draws six characters from the unambiguous alphabet", () => {
+  it("draws the full code length from the unambiguous alphabet", () => {
     for (let i = 0; i < 200; i += 1) {
       const code = generateJoinCode();
       expect(code).toHaveLength(JOIN_CODE_LENGTH);
-      expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+      expect(code).toMatch(CODE_SHAPE);
     }
   });
 
@@ -34,24 +37,24 @@ describe("generateJoinCode", () => {
 
 describe("normalizeJoinCode", () => {
   it("accepts a code as generated", () => {
-    expect(normalizeJoinCode("PTKN23")).toBe("PTKN23");
+    expect(normalizeJoinCode("PTKN2")).toBe("PTKN2");
   });
 
   it("forgives how a person types one off a text message", () => {
-    expect(normalizeJoinCode(" ptkn23 ")).toBe("PTKN23");
-    expect(normalizeJoinCode("ptk-n23")).toBe("PTKN23");
-    expect(normalizeJoinCode("PTK N23")).toBe("PTKN23");
+    expect(normalizeJoinCode(" ptkn2 ")).toBe("PTKN2");
+    expect(normalizeJoinCode("ptk-n2")).toBe("PTKN2");
+    expect(normalizeJoinCode("PTK N2")).toBe("PTKN2");
   });
 
   it("refuses the wrong length", () => {
-    expect(normalizeJoinCode("PTKN2")).toBeNull();
-    expect(normalizeJoinCode("PTKN234")).toBeNull();
+    expect(normalizeJoinCode("PTKN")).toBeNull();
+    expect(normalizeJoinCode("PTKN23")).toBeNull();
     expect(normalizeJoinCode("")).toBeNull();
   });
 
   it("refuses glyphs the alphabet does not use", () => {
-    expect(normalizeJoinCode("PTKN2O")).toBeNull();
-    expect(normalizeJoinCode("PTKN21")).toBeNull();
-    expect(normalizeJoinCode("PTKN2!")).toBeNull();
+    expect(normalizeJoinCode("PTKNO")).toBeNull();
+    expect(normalizeJoinCode("PTKN1")).toBeNull();
+    expect(normalizeJoinCode("PTKN!")).toBeNull();
   });
 });
