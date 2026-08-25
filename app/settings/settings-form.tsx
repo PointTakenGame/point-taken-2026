@@ -18,8 +18,20 @@ import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./act
  * page you press twice.
  */
 
-const BUTTON = "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
-const FIELD = "rounded-md border border-current/25 bg-transparent px-3 py-2";
+/*
+  Chrome comes from `app/globals.css`, which ports the retired client's
+  `.form-base` / `.input-primary` / `.btn-primary` verbatim. These two names
+  used to hold a bespoke approximation of them, which is how a screen ends up
+  wearing none of the design system while all five gate commands stay green.
+
+  Only the controls change here. The page's layout and typography stay plain on
+  purpose: Rannie's settings frame carries rows for systems that are not decided
+  (BRAIN-T260817-02), so laying this out against it now would bake in a design
+  nobody has ratified. See the header comment on `./page.tsx`.
+*/
+const BUTTON =
+  "form-base btn-primary px-4 py-2 text-p-sm font-secondary disabled:cursor-not-allowed disabled:opacity-50";
+const FIELD = "form-base input-primary";
 
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;
