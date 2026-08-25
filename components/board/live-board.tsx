@@ -21,6 +21,7 @@ import { TileShape, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicTile } from "@/components/board/topic-tile";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
+import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -1627,16 +1628,35 @@ export function LiveBoard({
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
   const { connected } = useGameFeed(gameId);
+  // Matches the retired client's isTutorialOpen: true on every arrival at the
+  // board, no "seen it already" memory anywhere. See
+  // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
+  const [onboardingOpen, setOnboardingOpen] = useState(true);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <header className="border-neutral-black/15 flex flex-col items-center gap-3 border-b pb-4">
+      <header className="border-neutral-black/15 relative flex flex-col items-center gap-3 border-b pb-4">
+        <button
+          type="button"
+          title="Instructions"
+          aria-label="Instructions"
+          onClick={() => setOnboardingOpen(true)}
+          className="btn-icon absolute right-0 top-0 h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-base font-bold text-neutral-black shadow-md"
+        >
+          ?
+        </button>
         <p className="text-p-sm text-gray">
           {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
           {connected ? "updating live" : "reconnecting"}
         </p>
         <TopicTile text={board.currentTopicText} />
       </header>
+
+      <OnboardingOverlay
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        myRole={me.role}
+      />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
