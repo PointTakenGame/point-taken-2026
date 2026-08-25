@@ -1,31 +1,152 @@
 @import "tailwindcss";
 
-/* No web font yet. Rannie's type scale is in the design-system Figma file
-   (key 8qXHz76zvQVr6KyoHBA9Qy) and lands with the first real screen. */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  The Point Taken design system, ported verbatim from the retired Nuxt client
+  (point-taken-frontend, app/assets/main.css) on 2026-08-25. Every colour, type
+  and shadow value below is the one the live game at play.pointtaken.social is
+  using today, so a screen built against these tokens matches production
+  without anybody re-deriving the palette from a screenshot.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
+  Two deliberate departures from the source file:
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  1. No dark mode. The retired client has none, the whole look is ink on cream,
+     and a dark variant is a design decision nobody has made. The stock Next.js
+     prefers-color-scheme block that used to live here was scaffold, not intent.
+
+  2. The three typefaces load through next/font in app/layout.tsx rather than
+     the source file's Google Fonts @import, which is render-blocking. The font
+     families below read the CSS variables that layout.tsx defines.
+*/
+
+@theme {
+  /* Primary. Green is the plus side, orange is the minus side, everywhere. */
+  --color-green: #49ca81;
+  --color-orange: #ffb42f;
+
+  /* Secondary */
+  --color-mint: #9df4c5;
+  --color-peach: #ffe083;
+
+  /* Neutral. neutral-white and offwhite are the same cream on purpose; both
+     names are used in the retired components and both are kept so ported
+     markup does not have to be edited on the way in. */
+  --color-neutral-black: #1e1e1e;
+  --color-neutral-white: #fffcf5;
+  --color-gray: #747474;
+  --color-offwhite: #fffcf5;
+
+  /* Warm accents, used by buttons on hover and by the tile chrome. */
+  --color-sand: #ffd979;
+  --color-gold: #efae45;
+  --color-brown: #73674e;
+
+  /* Typefaces. font-tiles is the handwritten face the reason tiles are set in
+     and is the single most recognisable thing about the game's look. */
+  --font-primary: var(--font-anton), sans-serif;
+  --font-secondary: var(--font-noto-sans), sans-serif;
+  --font-tiles: var(--font-coming-soon), cursive;
+
+  --text-p-lg: 20px;
+  --text-p-md: 16px;
+  --text-p-sm: 13px;
+
+  --shadow-lg: 0px 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+  background-color: var(--color-offwhite);
+  color: var(--color-neutral-black);
+  font-family: var(--font-secondary);
+  font-size: var(--text-p-md);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-primary);
+  font-weight: normal;
+}
+
+h1 {
+  font-size: 56px;
+}
+
+h2 {
+  font-size: 48px;
+}
+
+h3 {
+  font-size: 24px;
+}
+
+h4,
+h5,
+h6,
+p {
+  font-family: var(--font-secondary);
+}
+
+/*
+  Form chrome, ported as written. The retired client applies .form-base to both
+  buttons and text inputs and then narrows with .btn-primary, .btn-icon or
+  .input-primary, which is why the hover and active rules are scoped to button
+  and guarded on :not(:disabled).
+*/
+.form-base {
+  padding: 12px;
+  border: 2px solid var(--color-gray);
+  border-radius: 6px;
+  background-color: var(--color-neutral-white);
+  color: var(--color-gray);
+  font-weight: 600;
+  font-size: 16px;
+  text-align: center;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+button.form-base:not(:disabled):hover {
+  background-color: var(--color-sand);
+  border-color: var(--color-gold);
+}
+
+button.form-base:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:not(:disabled):hover {
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:not(:disabled):active {
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-icon {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-primary {
+  flex: 1;
+  text-align: left;
+}
+
+.input-primary::placeholder {
+  color: var(--color-gray);
 }
