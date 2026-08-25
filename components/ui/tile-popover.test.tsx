@@ -247,6 +247,101 @@ describe("TilePopover: pick-one path", () => {
   });
 });
 
+describe("TilePopover: composite path", () => {
+  it("lets a chip be selected then deselected by clicking it again, without gating confirm", async () => {
+    const user = userEvent.setup();
+    function Composite() {
+      const [chipValue, setChipValue] = useState<string | null>(null);
+      const [value, setValue] = useState<Record<string, string>>({
+        note: "already has text",
+      });
+      return (
+        <TriggerAndPopover
+          onConfirm={() => {}}
+          body={{
+            kind: "composite",
+            chips: [
+              { id: "bug", label: "Bug" },
+              { id: "ai", label: "AI issue" },
+            ],
+            chipValue,
+            onChipChange: setChipValue,
+            fields: [{ id: "note", placeholder: "Tell us more" }],
+            value,
+            onChange: setValue,
+          }}
+        />
+      );
+    }
+    render(<Composite />);
+
+    const bugChip = screen.getByRole("button", { name: "Bug" });
+    expect(bugChip.getAttribute("aria-pressed")).toBe("false");
+    expect(isDisabled(screen.getByRole("button", { name: "DONE" }))).toBe(false);
+
+    await user.click(bugChip);
+    expect(bugChip.getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(bugChip);
+    expect(bugChip.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("keeps confirm disabled until the text field has content, independent of chip selection", async () => {
+    const user = userEvent.setup();
+    function Composite() {
+      const [chipValue, setChipValue] = useState<string | null>("bug");
+      const [value, setValue] = useState<Record<string, string>>({});
+      return (
+        <TriggerAndPopover
+          onConfirm={() => {}}
+          body={{
+            kind: "composite",
+            chips: [{ id: "bug", label: "Bug" }],
+            chipValue,
+            onChipChange: setChipValue,
+            fields: [{ id: "note", placeholder: "Tell us more" }],
+            value,
+            onChange: setValue,
+          }}
+        />
+      );
+    }
+    render(<Composite />);
+
+    expect(isDisabled(screen.getByRole("button", { name: "DONE" }))).toBe(true);
+    await user.type(screen.getByPlaceholderText("Tell us more"), "the board froze");
+    expect(isDisabled(screen.getByRole("button", { name: "DONE" }))).toBe(false);
+  });
+
+  it("reports the trimmed text field value on confirm, independent of the chip", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    function Composite() {
+      const [chipValue, setChipValue] = useState<string | null>(null);
+      const [value, setValue] = useState<Record<string, string>>({});
+      return (
+        <TriggerAndPopover
+          onConfirm={onConfirm}
+          body={{
+            kind: "composite",
+            chips: [{ id: "bug", label: "Bug" }],
+            chipValue,
+            onChipChange: setChipValue,
+            fields: [{ id: "note", placeholder: "Tell us more" }],
+            value,
+            onChange: setValue,
+          }}
+        />
+      );
+    }
+    render(<Composite />);
+
+    await user.type(screen.getByPlaceholderText("Tell us more"), "  the board froze  ");
+    await user.click(screen.getByRole("button", { name: "DONE" }));
+    expect(onConfirm).toHaveBeenCalledWith("the board froze");
+  });
+});
+
 describe("TilePopover: asymmetric two-player case", () => {
   it("opener view: shows the interactive body and no peer-review controls before submitting", () => {
     render(

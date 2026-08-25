@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Anton, Coming_Soon, Noto_Sans } from "next/font/google";
 
 import { BuildStamp } from "@/components/build-stamp";
+import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import "./globals.css";
 
 /*
@@ -45,6 +46,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/*
+          Every page. This is the floating entry point into the shared
+          feedback pop-up; the inline "Report a bug" variant lives inside
+          the game board's own utility row instead.
+        */}
+        <FeedbackPopover variant="floating" />
         {/*
           Every page, not just the account page. Reviewers comment on the
           screen in front of them, and a comment is only attributable if the

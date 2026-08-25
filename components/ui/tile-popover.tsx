@@ -13,10 +13,11 @@
  * renders and reports back through callbacks. It never decides game rules
  * (validity beyond "is there text/a selection" is the caller's problem).
  *
- * Body content is one of four shapes (`TilePopoverBody`): free text (one or
- * more fields), a small pick-one choice set, a pick-one-from-a-list, or no
- * body at all for a pure confirm/cancel ask. The two-player asymmetric case
- * (one side composes, the other side waits then reviews) is modeled
+ * Body content is one of five shapes (`TilePopoverBody`): free text (one or
+ * more fields), a small pick-one choice set, a pick-one-from-a-list, a
+ * composite of a deselectable pick-one chip row above one or more text
+ * fields, or no body at all for a pure confirm/cancel ask. The two-player
+ * asymmetric case (one side composes, the other side waits then reviews) is modeled
  * explicitly via the `asymmetric` prop rather than left for each caller to
  * reinvent with ad hoc booleans, mirroring the pattern behind the retired
  * FactCheckModal/PersonalTasteModal/PrioritiesModal/ResolveAgreementModal.
@@ -50,6 +51,10 @@ export type TilePopoverTextField = {
   ariaLabel?: string;
   /** Minimum trimmed length to count as filled in. Defaults to 1. */
   minLength?: number;
+  /** Hard character cap, wired straight to the textarea's own `maxLength`. */
+  maxLength?: number;
+  /** Visible row count, wired straight to the textarea's own `rows`. */
+  rows?: number;
   autoFocus?: boolean;
 };
 
@@ -86,8 +91,30 @@ export type TilePopoverListBody = {
 
 export type TilePopoverNoneBody = { kind: "none" };
 
+export type TilePopoverCompositeChip = { id: string; label: string };
+
+export type TilePopoverCompositeBody = {
+  kind: "composite";
+  /** A pick-one row above the text fields. Unlike `choice`, clicking the
+   * already-selected chip deselects it: the row is an optional tag, not a
+   * required answer, so the confirm gate below never depends on it. */
+  chips: TilePopoverCompositeChip[];
+  chipValue: string | null;
+  onChipChange: (id: string | null) => void;
+  /** Same shape and behavior as `TilePopoverTextBody.fields`. Filling every
+   * field in is what the confirm gate actually checks; the chip row is
+   * always optional. */
+  fields: TilePopoverTextField[];
+  value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+};
+
 export type TilePopoverBody =
-  TilePopoverTextBody | TilePopoverChoiceBody | TilePopoverListBody | TilePopoverNoneBody;
+  | TilePopoverTextBody
+  | TilePopoverChoiceBody
+  | TilePopoverListBody
+  | TilePopoverNoneBody
+  | TilePopoverCompositeBody;
 
 /**
  * The asymmetric two-player case. One viewer ("opener": whoever triggered
@@ -142,6 +169,11 @@ export interface TilePopoverProps {
   closeLabel?: string;
   waitingCopy?: string;
   typingCopy?: string;
+  /** Small extra content rendered below the body and above the footer
+   * buttons: a read-only hint, a link out, or anything else that is not
+   * part of the answer itself. Generic on purpose, so any caller can use it
+   * for its own non-editable context, not just a stage/category hint. */
+  footnote?: ReactNode;
   /** DOM id prefix for internal ids (heading, subtitle, fields). Generated
    * automatically when omitted; only pass this for stable ids in tests. */
   id?: string;
@@ -165,6 +197,7 @@ function getPhase(asymmetric: TilePopoverAsymmetric | undefined): Phase {
 function isBodyFilledIn(body: TilePopoverBody): boolean {
   switch (body.kind) {
     case "text":
+    case "composite":
       return body.fields.every(
         (field) => (body.value[field.id] ?? "").trim().length >= (field.minLength ?? 1),
       );
@@ -179,7 +212,7 @@ function isBodyFilledIn(body: TilePopoverBody): boolean {
 
 function getConfirmValue(body: TilePopoverBody, phase: Phase): TilePopoverConfirmValue {
   if (phase === "peer-review") return true;
-  if (body.kind === "text") {
+  if (body.kind === "text" || body.kind === "composite") {
     if (body.fields.length === 1) {
       return (body.value[body.fields[0].id] ?? "").trim();
     }
@@ -243,11 +276,13 @@ function TextBodyView({
       {body.fields.map((field) => (
         <textarea
           key={field.id}
-          className="form-base input-primary min-h-20 resize-none"
+          className={`form-base input-primary resize-none ${field.rows ? "" : "min-h-20"}`}
           placeholder={field.placeholder}
           aria-label={field.ariaLabel ?? field.placeholder}
           aria-describedby={headingId}
           autoFocus={field.autoFocus}
+          maxLength={field.maxLength}
+          rows={field.rows}
           value={body.value[field.id] ?? ""}
           onChange={(event) => {
             body.onChange({ ...body.value, [field.id]: event.target.value });
@@ -255,6 +290,59 @@ function TextBodyView({
           }}
         />
       ))}
+    </div>
+  );
+}
+
+function CompositeBodyView({
+  body,
+  headingId,
+}: {
+  body: TilePopoverCompositeBody;
+  headingId: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2" role="group">
+        {body.chips.map((chip) => {
+          const selected = body.chipValue === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              aria-pressed={selected}
+              className={`form-base rounded-full px-4 py-2 text-p-sm font-secondary transition-colors ${
+                selected
+                  ? "bg-neutral-black text-offwhite border-neutral-black"
+                  : "bg-offwhite text-neutral-black border-gray"
+              }`}
+              // Clicking the already-selected chip clears it: this row is a
+              // pick-one-or-none tag, not a required radio group.
+              onClick={() => body.onChipChange(selected ? null : chip.id)}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-col gap-2">
+        {body.fields.map((field) => (
+          <textarea
+            key={field.id}
+            className={`form-base input-primary resize-none ${field.rows ? "" : "min-h-20"}`}
+            placeholder={field.placeholder}
+            aria-label={field.ariaLabel ?? field.placeholder}
+            aria-describedby={headingId}
+            autoFocus={field.autoFocus}
+            maxLength={field.maxLength}
+            rows={field.rows}
+            value={body.value[field.id] ?? ""}
+            onChange={(event) => {
+              body.onChange({ ...body.value, [field.id]: event.target.value });
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -336,6 +424,26 @@ function ReadOnlyBodyPreview({ body }: { body: TilePopoverBody }) {
       </p>
     );
   }
+  if (body.kind === "composite") {
+    const selectedChip = body.chips.find((chip) => chip.id === body.chipValue);
+    return (
+      <div className="flex flex-col gap-2">
+        {selectedChip ? (
+          <p className="form-base input-primary bg-offwhite text-neutral-black">
+            {selectedChip.label}
+          </p>
+        ) : null}
+        {body.fields.map((field) => (
+          <p
+            key={field.id}
+            className="form-base input-primary bg-offwhite text-neutral-black"
+          >
+            {body.value[field.id] ?? ""}
+          </p>
+        ))}
+      </div>
+    );
+  }
   return null;
 }
 
@@ -371,6 +479,7 @@ export function TilePopover({
   closeLabel = "Close",
   waitingCopy = DEFAULT_WAITING_COPY,
   typingCopy = DEFAULT_TYPING_COPY,
+  footnote,
   id,
 }: TilePopoverProps) {
   const generatedId = useId();
@@ -599,6 +708,9 @@ export function TilePopover({
       ) : null}
       {showBody && body.kind === "choice" ? <ChoiceBodyView body={body} /> : null}
       {showBody && body.kind === "list" ? <ListBodyView body={body} /> : null}
+      {showBody && body.kind === "composite" ? (
+        <CompositeBodyView body={body} headingId={headingId} />
+      ) : null}
 
       {showReadback ? <ReadOnlyBodyPreview body={body} /> : null}
       {showReadback ? <WaitingDots label={waitingCopy} /> : null}
@@ -610,6 +722,8 @@ export function TilePopover({
       {showPeerPreview ? (
         <div className="flex flex-col gap-2">{asymmetric?.peerPreview}</div>
       ) : null}
+
+      {showBody && footnote ? <div>{footnote}</div> : null}
 
       {showFooter ? (
         <div className="flex justify-center gap-2">
