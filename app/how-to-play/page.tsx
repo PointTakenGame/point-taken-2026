@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SiteNav } from "@/components/site-nav";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { COACH_CARDS } from "@/lib/coach/cards";
 import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
@@ -61,6 +62,14 @@ export default function HowToPlay() {
             until they can name exactly where they part ways. Nobody wins by scoring
             points off the other one. Both ways the game can end are agreements.
           </p>
+          {/*
+            The least invasive entry point available to a presentation-layer
+            change: this page already exists to teach a player cold, and this
+            adds one button rather than touching a live board's render path.
+            See components/onboarding/onboarding-overlay.tsx for why it is
+            reachable only from here and not yet from the board itself.
+          */}
+          <OnboardingLauncher />
         </header>
 
         <Section title="Getting a second person in">
