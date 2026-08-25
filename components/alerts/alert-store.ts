@@ -49,8 +49,15 @@ export function getAlertsSnapshot(): Alert[] {
   return alerts;
 }
 
+// One shared empty array, not a fresh `[]` per call. React compares the
+// snapshot it just read against the previous one by identity, so returning a
+// new array every time reads as "changed again" forever: React says so out
+// loud with "The result of getServerSnapshot should be cached to avoid an
+// infinite loop".
+const NO_ALERTS: Alert[] = [];
+
 export function getAlertsServerSnapshot(): Alert[] {
-  return [];
+  return NO_ALERTS;
 }
 
 /**
