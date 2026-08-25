@@ -21,6 +21,7 @@ import { TileShape, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicTile } from "@/components/board/topic-tile";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
+import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import {
   DECLINE_REASON_MAX_CHARS,
@@ -53,6 +54,7 @@ import {
 } from "@/lib/board/rules";
 import { coachCard } from "@/lib/coach/cards";
 import { useGameFeed } from "./use-game-feed";
+import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
 import { SIDE_LABEL, SIDE_MARK } from "./side-label";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
@@ -1084,6 +1086,13 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
   );
 }
 
+/**
+ * The anchor the minimap's pencil scrolls to. The two ways to win are drawn
+ * at the top of the page and only one of them is actionable there, so the
+ * pencil has to be able to take you to the form rather than just naming it.
+ */
+const TOPIC_REVISION_SECTION_ID = "rewriting-the-topic";
+
 function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardState }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1628,6 +1637,26 @@ export function LiveBoard({
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
   const { connected } = useGameFeed(gameId);
+  // Toasts what the other player did between one projection and the next.
+  usePeerNotices(board, me.role);
+
+  // The minimap wants an edge per thread so a thread keeps its corner as the
+  // board grows. Nothing in the projection records where a tile sits, so
+  // there is no edge to give it and the corners fill in thread order
+  // instead: stable for a given board, because thread order is placement
+  // order. See the parentEdge note in ways-to-win-card.tsx.
+  const miniThreads = useMemo<MiniThread[]>(
+    () =>
+      threads.map((thread) => ({
+        tileId: thread.rootId,
+        side: thread.root?.side ?? thread.orphans[0]?.side ?? "plus",
+        parentEdge: null,
+        resolved: thread.resolution !== null,
+        token: thread.resolution?.emoji ?? null,
+      })),
+    [threads],
+  );
+  const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
   // Matches the retired client's isTutorialOpen: true on every arrival at the
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
@@ -1719,7 +1748,22 @@ export function LiveBoard({
         </section>
       )}
 
-      <HowThisEnds board={board} />
+      <div className="flex flex-col items-start gap-4 sm:flex-row">
+        <div className="w-full max-w-[13rem] shrink-0">
+          <WaysToWinCard
+            threads={miniThreads}
+            resolvedCount={resolvedCount}
+            onRevise={() => {
+              document
+                .getElementById(TOPIC_REVISION_SECTION_ID)
+                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+          />
+        </div>
+        <div className="w-full">
+          <HowThisEnds board={board} />
+        </div>
+      </div>
 
       {threads.length === 0 ? (
         <p className="opacity-70">Place the first tile above.</p>
@@ -1814,7 +1858,7 @@ export function LiveBoard({
         </Move>
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section id={TOPIC_REVISION_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
           Rewriting the topic
         </h2>

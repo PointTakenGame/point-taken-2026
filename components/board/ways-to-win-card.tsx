@@ -26,8 +26,12 @@ import type { Side } from "@/lib/events/types";
 export interface MiniThread {
   tileId: string;
   side: Side;
-  /** The board edge this thread's root tile sits on. */
-  parentEdge: number;
+  /**
+   * The board edge this thread's root tile sits on, or null when the caller
+   * has no edge geometry to give. The projection records no position for a
+   * tile, so the live board passes null and the corners fill in thread order.
+   */
+  parentEdge: number | null;
   resolved: boolean;
   /** The resolution token that closed this thread, or null while it is still open. */
   token: string | null;
@@ -75,12 +79,14 @@ export function WaysToWinCard({
   onRevise?: () => void;
 }) {
   const corners = useMemo(() => {
+    const cornerFor = (edge: number | null) =>
+      edge === null ? undefined : EDGE_TO_CORNER[edge];
     const free = ALL_CORNERS.filter(
-      (corner) => !threads.some((thread) => EDGE_TO_CORNER[thread.parentEdge] === corner),
+      (corner) => !threads.some((thread) => cornerFor(thread.parentEdge) === corner),
     );
     return threads.slice(0, 4).map((thread) => ({
       ...thread,
-      corner: EDGE_TO_CORNER[thread.parentEdge] ?? free.shift() ?? "tr",
+      corner: cornerFor(thread.parentEdge) ?? free.shift() ?? "tr",
     }));
   }, [threads]);
 

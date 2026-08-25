@@ -11,11 +11,11 @@
  * summary below is grouped generically by whichever token types are
  * actually present rather than hardcoded to four slots.
  *
- * Not wired into `components/board/live-board.tsx` this round: that file is
- * off limits while a parallel agent is working in it. A caller passes the
- * live `BoardState` in as `board`; mounting `<WinOverlay board={board} />`
- * somewhere reachable from the board is left for the orchestrator. See the
- * build report for `BRAIN-T260825-12`.
+ * Mounted on the ended branch of `app/game/[gameId]/page.tsx`, NOT on the
+ * live board: a game whose status is "ended" never renders
+ * `components/board/live-board.tsx` at all, so mounting it there would mean
+ * a win nobody ever sees. `board` is plain data, so a server component can
+ * pass it straight in. See the build report for `BRAIN-T260825-12`.
  *
  * Two things called out here because they are disclosed design choices, not
  * facts recovered from the retired source (the spec says both were

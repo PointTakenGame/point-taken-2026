@@ -6,6 +6,7 @@ import { FinishedMap } from "@/components/board/finished-map";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { GameSetup } from "@/components/board/game-setup";
 import { LiveBoard } from "@/components/board/live-board";
+import { WinOverlay } from "@/components/win/win-overlay";
 import { projectBoard } from "@/lib/board/project";
 import { getPlayer } from "@/lib/db/players";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
@@ -62,6 +63,13 @@ export default async function GamePage({
       <>
         <Ending board={board} />
         <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+        {/*
+          The celebration goes here rather than on the live board: a won game
+          never renders LiveBoard, it lands on this branch. Ending states the
+          win in prose below it; the overlay is the moment of it, dismissable
+          to a pill so the finished map underneath stays readable.
+        */}
+        <WinOverlay board={board} />
         <nav className="mx-auto flex w-full max-w-3xl gap-4 px-8 pb-8 print:hidden">
           <Link href="/account" className="underline">
             Your games
