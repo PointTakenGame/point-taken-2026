@@ -20,6 +20,8 @@ import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
+  MAX_THREADS,
+  MIN_THREADS_TO_END,
   OTHER_SIDE,
   READING_MAX_CHARS,
   RESOLUTION_TOKENS,
@@ -42,6 +44,7 @@ import {
   isResolved,
   proposalsAwaiting,
   proposalsFrom,
+  topicAgreementEndsGame,
 } from "@/lib/board/rules";
 import { coachCard } from "@/lib/coach/cards";
 import { useGameFeed } from "./use-game-feed";
@@ -1521,6 +1524,73 @@ function ThreadBlock({
   );
 }
 
+/**
+ * How close this game is to ending, in both of the ways it can end.
+ *
+ * Both win conditions are cooperative and both were invisible here. The topic
+ * route was described in prose at the bottom of the page; the thread route was
+ * described nowhere at all, and its two numbers were enforced silently. A
+ * player could resolve every thread on the board and have nothing happen,
+ * because the floor is four and they had three, with nothing on the screen that
+ * would ever tell them so.
+ *
+ * The counts come from the same functions the rules enforce, so this cannot
+ * describe a different game than the one being played.
+ */
+function HowThisEnds({ board }: { board: BoardState }) {
+  const threads = liveThreads(board);
+  const resolved = threads.filter(isResolved).length;
+  const unresolved = threads.length - resolved;
+  const shortBy = Math.max(0, MIN_THREADS_TO_END - threads.length);
+
+  const threadRoute =
+    shortBy > 0
+      ? unresolved === 0 && threads.length > 0
+        ? `Every thread here is resolved, and that on its own does not end it: a game needs at least ${MIN_THREADS_TO_END} threads. ${
+            shortBy === 1
+              ? "One more argument to have."
+              : `${shortBy} more arguments to have.`
+          }`
+        : `Resolving every thread ends the game, once there are at least ${MIN_THREADS_TO_END} of them.`
+      : unresolved === 0
+        ? null
+        : unresolved === 1
+          ? "Settle the last one and the game is over."
+          : "Settle them all and the game is over.";
+
+  // Quiet until the ceiling is close enough to matter. A board with two threads
+  // on it does not need to hear about the sixth.
+  const ceiling =
+    threads.length >= MAX_THREADS
+      ? `There are ${MAX_THREADS} threads here, which is the most a board holds. A new reason has to hang off one that is already here.`
+      : threads.length === MAX_THREADS - 1
+        ? "One more new thread and the board is full."
+        : null;
+
+  return (
+    <section className="flex flex-col gap-2 border border-current/15 p-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        How this game ends
+      </h2>
+      <p className="text-sm">
+        {threads.length === 0
+          ? "No threads yet."
+          : `${resolved} of ${threads.length} ${
+              threads.length === 1 ? "thread" : "threads"
+            } resolved.`}
+        {threadRoute ? ` ${threadRoute}` : null}
+      </p>
+      {ceiling ? <p className="text-sm opacity-70">{ceiling}</p> : null}
+      {topicAgreementEndsGame(board) ? (
+        <p className="text-sm opacity-70">
+          The other way out is agreeing on a rewritten topic, at the bottom of this page.
+          Either ending is a win, and it is the same win for both of you.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function LiveBoard({
   gameId,
   board,
@@ -1607,8 +1677,10 @@ export function LiveBoard({
         </section>
       )}
 
+      <HowThisEnds board={board} />
+
       {threads.length === 0 ? (
-        <p className="opacity-70">No threads yet. Place the first tile above.</p>
+        <p className="opacity-70">Place the first tile above.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {threads.map((thread, index) => (
