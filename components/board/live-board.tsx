@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactElement } from "react";
+import {
+  useMemo,
+  useState,
+  useTransition,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import type {
   BoardProposal,
@@ -1014,6 +1020,34 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
  * offered and refused, because a menu that contains a move you cannot make is a
  * menu you have to learn twice.
  */
+/**
+ * One of the cooperative moves, with a heading and a line saying what it is for.
+ *
+ * Rendered flat, the four forms below are eight controls in a row: a player
+ * cannot tell which control belongs to which move, that two of them are about
+ * saying the other side back, or that every one of them is a proposal the other
+ * player has to accept before anything happens.
+ */
+function Move({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border border-current/20 p-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="text-xs opacity-60">{hint}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function ReadingHandbackForm({
   gameId,
   board,
@@ -1053,9 +1087,9 @@ function ReadingHandbackForm({
   }
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
+    <div className="flex flex-col gap-2">
       <label className="flex flex-col gap-1 text-sm">
-        Say one of their reasons back
+        Which reason
         <select
           className="border border-current/30 p-1 text-sm"
           value={tileId}
@@ -1111,18 +1145,15 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Say their side for them
-        <textarea
-          className="w-full border border-current/30 p-1 text-sm"
-          value={text}
-          maxLength={READING_MAX_CHARS}
-          disabled={pending}
-          placeholder="The strongest version of what they think."
-          onChange={(event) => setText(event.target.value)}
-        />
-      </label>
+    <div className="flex flex-col gap-2">
+      <textarea
+        className="w-full border border-current/30 p-1 text-sm"
+        value={text}
+        maxLength={READING_MAX_CHARS}
+        disabled={pending}
+        placeholder="The strongest version of what they think."
+        onChange={(event) => setText(event.target.value)}
+      />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -1130,7 +1161,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
       >
-        Ask if you have it right
+        Ask if that is their side
       </button>
       <ErrorLine error={error} />
     </div>
@@ -1164,18 +1195,15 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Offer them a reason
-        <textarea
-          className="w-full border border-current/30 p-1 text-sm"
-          value={text}
-          maxLength={TILE_MAX_CHARS}
-          disabled={pending}
-          placeholder="A reason for their side that you think they missed."
-          onChange={(event) => setText(event.target.value)}
-        />
-      </label>
+    <div className="flex flex-col gap-2">
+      <textarea
+        className="w-full border border-current/30 p-1 text-sm"
+        value={text}
+        maxLength={TILE_MAX_CHARS}
+        disabled={pending}
+        placeholder="A reason for their side that you think they missed."
+        onChange={(event) => setText(event.target.value)}
+      />
       <label className="flex flex-col gap-1 text-xs">
         Hang it under
         <select
@@ -1228,18 +1256,15 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Pin down a word
-        <input
-          className="w-full border border-current/30 p-1 text-sm"
-          value={term}
-          maxLength={DEFINITION_TERM_MAX_CHARS}
-          disabled={pending}
-          placeholder="The word"
-          onChange={(event) => setTerm(event.target.value)}
-        />
-      </label>
+    <div className="flex flex-col gap-2">
+      <input
+        className="w-full border border-current/30 p-1 text-sm"
+        value={term}
+        maxLength={DEFINITION_TERM_MAX_CHARS}
+        disabled={pending}
+        placeholder="The word"
+        onChange={(event) => setTerm(event.target.value)}
+      />
       <textarea
         className="w-full border border-current/30 p-1 text-sm"
         value={text}
@@ -1518,10 +1543,34 @@ export function LiveBoard({
         <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
           Understanding each other
         </h2>
-        <ReadingHandbackForm gameId={gameId} board={board} me={me} />
-        <SteelmanReadingForm gameId={gameId} board={board} />
-        <SteelmanTileForm gameId={gameId} board={board} />
-        <DefinitionForm gameId={gameId} board={board} />
+        <p className="text-sm opacity-70">
+          Four moves that are not arguments. Each one is a proposal: nothing lands on the
+          board until the other player accepts it.
+        </p>
+        <Move
+          title="Say one of their reasons back"
+          hint="Put something they wrote into your own words. They tell you whether you got it."
+        >
+          <ReadingHandbackForm gameId={gameId} board={board} me={me} />
+        </Move>
+        <Move
+          title="Say their whole side for them"
+          hint="Not one reason, the whole position, put as strongly as you can. You can offer this before either of you has written much."
+        >
+          <SteelmanReadingForm gameId={gameId} board={board} />
+        </Move>
+        <Move
+          title="Offer them a reason"
+          hint="A reason for their side that you think they missed. If they take it, it lands on their half of the board."
+        >
+          <SteelmanTileForm gameId={gameId} board={board} />
+        </Move>
+        <Move
+          title="Pin down a word"
+          hint="A word the two of you keep using differently. Agree what it means for the rest of this game."
+        >
+          <DefinitionForm gameId={gameId} board={board} />
+        </Move>
       </section>
 
       <section className="flex flex-col gap-2">
