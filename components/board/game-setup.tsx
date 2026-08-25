@@ -15,6 +15,7 @@ import {
   hasLeft,
 } from "@/lib/board/setup";
 import { useGameFeed } from "./use-game-feed";
+import { SIDE_LABEL } from "./side-label";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   chooseSide,
@@ -34,7 +35,6 @@ import type { Side } from "@/lib/events/types";
  * reason in the same words.
  */
 
-const SIDE_LABEL = { plus: "Agree (+)", minus: "Disagree (-)" } as const;
 const SIDES: readonly Side[] = ["plus", "minus"];
 
 const TIERS = ["Practice", "Serious Stuff", "Tough"] as const;

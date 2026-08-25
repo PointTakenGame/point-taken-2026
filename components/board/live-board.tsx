@@ -39,6 +39,7 @@ import {
 import { coachCard } from "@/lib/coach/cards";
 import { useGameFeed } from "./use-game-feed";
 import { CoachPanel } from "./coach-panel";
+import { SIDE_LABEL, SIDE_MARK } from "./side-label";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
@@ -67,7 +68,11 @@ import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
  * progress. Ugly on purpose; every action wired, none of it polished.
  */
 
-const SIDE_MARK = { plus: "+", minus: "-" } as const;
+const STATUS_LABEL: Record<BoardState["status"], string> = {
+  lobby: "Not started",
+  active: "In progress",
+  ended: "Finished",
+};
 
 export interface LiveBoardProps {
   gameId: string;
@@ -1385,9 +1390,9 @@ export function LiveBoard({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <header className="flex flex-col gap-1 border-b border-current/15 pb-4">
-        <p className="text-sm uppercase tracking-wide opacity-60">
-          {board.status} · you are {SIDE_MARK[me.role]} ·{" "}
-          {connected ? "live" : "reconnecting"}
+        <p className="text-sm opacity-60">
+          {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
+          {connected ? "updating live" : "reconnecting"}
         </p>
         <h1 className="text-xl font-semibold text-balance">
           {board.currentTopicText ?? "No topic was set."}
@@ -1401,10 +1406,14 @@ export function LiveBoard({
         <ul className="flex flex-col gap-1 text-sm">
           {board.players.map((player) => (
             <li key={player.id}>
-              {player.role ? SIDE_MARK[player.role] : "?"}{" "}
               {player.displayName ?? "Someone"}
-              {player.signed && player.signed.length > 0 ? " (signed)" : " (not signed)"}
-              {player.left && ` (left: ${player.left})`}
+              {player.id === me.playerId ? " (you)" : ""}
+              {": "}
+              {player.role ? SIDE_LABEL[player.role] : "no side yet"}
+              {player.signed && player.signed.length > 0
+                ? ", signed"
+                : ", has not signed"}
+              {player.left && `, left: ${player.left}`}
             </li>
           ))}
         </ul>
@@ -1415,8 +1424,8 @@ export function LiveBoard({
           Generosity
         </h2>
         <p className="text-sm">
-          {SIDE_MARK.plus} {board.generosity.plus} · {SIDE_MARK.minus}{" "}
-          {board.generosity.minus}
+          {SIDE_LABEL.plus} has been given {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
+          has been given {board.generosity.minus}
         </p>
         <GenerosityButton gameId={gameId} />
       </section>
