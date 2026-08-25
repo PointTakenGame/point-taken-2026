@@ -24,6 +24,7 @@ import {
   READING_MAX_CHARS,
   RESOLUTION_TOKENS,
   TILE_MAX_CHARS,
+  type Verdict,
   canDeclineThrow,
   canEditTile,
   canPlaceResolutionToken,
@@ -106,6 +107,57 @@ function ErrorLine({ error }: { error: string | null }) {
   return <p className="text-sm text-red-600">{error}</p>;
 }
 
+/**
+ * Why the control beside this line is dead, in words rather than in a tooltip.
+ *
+ * A `title` is not an explanation. It needs a mouse, it needs a hover held long
+ * enough to trust, and on a touch screen it never appears at all. A player who
+ * clicks a greyed-out control and gets nothing concludes the game is broken,
+ * and the game is almost never broken: it is full, or that thread is already
+ * resolved, or the move belongs to the other person.
+ *
+ * Grey rather than red, because none of this is an error. Red is ErrorLine, and
+ * it means the server turned a move down after you made it.
+ *
+ * Callers pass null when there is nothing worth saying yet, which is the normal
+ * state of a form nobody has filled in.
+ */
+function WhyNot({ verdict }: { verdict: Verdict | null }) {
+  if (!verdict || verdict.ok) return null;
+  return <p className="text-xs opacity-70">{verdict.error}</p>;
+}
+
+/**
+ * The same, for a row of buttons: every distinct reason, each said once.
+ *
+ * A hand of cards or a row of resolution tokens is usually refused for one
+ * reason that covers all of them. Printed per button that is the same sentence
+ * over and over; printed nowhere it is a row of dead controls giving no account
+ * of themselves.
+ */
+function WhyNotAll({
+  verdicts,
+  className = "text-xs opacity-70",
+}: {
+  verdicts: readonly (Verdict | null)[];
+  className?: string;
+}) {
+  const reasons = Array.from(
+    new Set(
+      verdicts.flatMap((verdict) => (verdict && !verdict.ok ? [verdict.error] : [])),
+    ),
+  );
+  return (
+    <>
+      {reasons.map((reason) => (
+        <p key={reason} className={className}>
+          {reason}
+        </p>
+      ))}
+    </>
+  );
+}
+
 function TileText({ tile }: { tile: BoardTile }) {
   if (tile.redacted) return <span className="italic opacity-50">{REDACTED_TEXT}</span>;
   return <span>{tile.text}</span>;
@@ -169,11 +221,19 @@ function CardHand({
     );
   }
 
+  // This component's doc comment promises that a card says why it cannot be
+  // thrown. A tooltip does not keep that promise, and eleven copies of "cards
+  // go to the other side's reasons" would not either, so the reasons go under
+  // the row, deduped.
+  const cardVerdicts = deck.map((cardId) =>
+    canThrowCard(board, tile.id, cardId, me.role, me.playerId),
+  );
+
   return (
     <div className="ml-6 flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        {deck.map((cardId) => {
-          const verdict = canThrowCard(board, tile.id, cardId, me.role, me.playerId);
+        {deck.map((cardId, index) => {
+          const verdict = cardVerdicts[index];
           return (
             <button
               key={cardId}
@@ -196,6 +256,7 @@ function CardHand({
           never mind
         </button>
       </div>
+      <WhyNotAll verdicts={cardVerdicts} />
       <ErrorLine error={error} />
     </div>
   );
@@ -238,6 +299,20 @@ function StandingThrow({
     draft,
   );
   const declineVerdict = canDeclineThrow(board, thrown.seq, me.playerId, reason || null);
+
+  // The real verdict once there is something in the box, a stand-in before it.
+  // "A reason needs some words in it" is not news about an empty box; a thread
+  // that has already resolved is.
+  const reviseBlocked =
+    draft.trim().length > 0
+      ? reviseVerdict
+      : canReviseTile(
+          board,
+          thrown.targetTileId,
+          thrown.seq,
+          me.playerId,
+          "a rewritten reason",
+        );
 
   const runRevise = () => {
     setError(null);
@@ -312,6 +387,7 @@ function StandingThrow({
           <span className="text-xs opacity-60">
             {TILE_MAX_CHARS - draft.length} characters left
           </span>
+          <WhyNot verdict={reviseBlocked} />
           <div className="flex gap-2">
             <button
               type="button"
@@ -344,6 +420,7 @@ function StandingThrow({
             disabled={pending}
             onChange={(event) => setReason(event.target.value)}
           />
+          <WhyNot verdict={declineVerdict} />
           <div className="flex gap-2">
             <button
               type="button"
@@ -467,6 +544,7 @@ function MoveForm({
           ))}
         </select>
       </label>
+      <WhyNot verdict={verdict} />
       <span className="flex gap-2">
         <button
           type="button"
@@ -517,6 +595,12 @@ function TileNode({
     tile.parentId,
     tile.threadRootId,
   );
+  // Once the box is open the draft is what gets judged. Before that there is no
+  // draft, and "a reason needs some words in it" is not why the link is dead.
+  const editBlocked =
+    draft.trim().length > 0
+      ? editVerdict
+      : canEditTile(board, tile.id, me.playerId, "a reason");
   const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
   const standing = throwsHere.filter((thrown) => thrown.status === "standing");
   const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
@@ -559,6 +643,7 @@ function TileNode({
             <span className="text-xs opacity-60">
               {TILE_MAX_CHARS - draft.length} characters left
             </span>
+            <WhyNot verdict={editBlocked} />
             <span className="flex gap-2">
               <button
                 type="button"
@@ -592,7 +677,8 @@ function TileNode({
                 <button
                   type="button"
                   className="text-xs underline opacity-70 disabled:opacity-30"
-                  disabled={pending || !editVerdict.ok}
+                  disabled={pending || !editBlocked.ok}
+                  title={!editBlocked.ok ? editBlocked.error : undefined}
                   onClick={() => setEditing(true)}
                 >
                   edit
@@ -623,6 +709,14 @@ function TileNode({
         )}
       </div>
       <ErrorLine error={error} />
+      {/* The links above go dead together and for the same reason, so the
+          reason is said once under the reason it belongs to. */}
+      {editing ? null : (
+        <WhyNotAll
+          className="ml-6 text-xs opacity-70"
+          verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
+        />
+      )}
 
       {moving && (
         <MoveForm
@@ -712,6 +806,12 @@ function ResolutionRow({
     });
   };
 
+  // Every token in the row is refused for the same reason when it is refused at
+  // all, so the reason goes under the row once rather than into six tooltips.
+  const tokenVerdicts = RESOLUTION_TOKENS.map((token) =>
+    canPlaceResolutionToken(board, thread.rootId, token),
+  );
+
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -727,8 +827,8 @@ function ResolutionRow({
             take back your token
           </button>
         ) : (
-          RESOLUTION_TOKENS.map((token) => {
-            const verdict = canPlaceResolutionToken(board, thread.rootId, token);
+          RESOLUTION_TOKENS.map((token, index) => {
+            const verdict = tokenVerdicts[index];
             return (
               <button
                 key={token}
@@ -745,6 +845,7 @@ function ResolutionRow({
           })
         )}
       </div>
+      {myToken ? null : <WhyNotAll verdicts={tokenVerdicts} />}
       <ErrorLine error={error} />
     </div>
   );
@@ -903,17 +1004,11 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
   const parentTileId = target.length > 0 ? target : null;
   const verdict = canPlaceTile(board, text, parentTileId);
 
-  // Why the button below is dead, in words rather than in a tooltip.
-  //
-  // The button is disabled whenever the move is illegal, and for a while its
-  // only explanation was a `title`, which is to say no explanation at all: a
-  // player who has just written six threads clicks Place tile, nothing
-  // happens, and the game looks broken. It was not broken. It was full.
-  //
   // Computed against a placeholder instead of the real text on purpose. An
   // empty box is the normal state of a composer and "a reason needs some
   // words in it" is not news. What is news is a block that no amount of
   // typing clears: the thread cap, a resolved thread, a game that has ended.
+  // WhyNot, above, is where the rest of that argument is written down.
   const blocked = canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
@@ -955,7 +1050,7 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
       <span className="text-xs opacity-60">
         {TILE_MAX_CHARS - text.length} characters left
       </span>
-      {blocked.ok ? null : <p className="text-xs opacity-70">{blocked.error}</p>}
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -976,6 +1071,8 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
   const [pending, startTransition] = useTransition();
 
   const verdict = canProposeTopicRevision(board, text);
+  const blocked =
+    text.trim().length > 0 ? verdict : canProposeTopicRevision(board, "a revised topic");
 
   const submit = () => {
     setError(null);
@@ -999,6 +1096,7 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
           onChange={(event) => setText(event.target.value)}
         />
       </label>
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -1068,6 +1166,14 @@ function ReadingHandbackForm({
   );
 
   const verdict = canProposeReadingHandback(board, tileId, me.role, text);
+  // Nothing worth saying until a reason is picked: "that reason is not on this
+  // board" is true of the empty selection and is not what the player needs.
+  const blocked =
+    tileId.length === 0
+      ? null
+      : text.trim().length > 0
+        ? verdict
+        : canProposeReadingHandback(board, tileId, me.role, "a reading");
 
   const submit = () => {
     setError(null);
@@ -1112,6 +1218,7 @@ function ReadingHandbackForm({
         placeholder="In your own words, what are they saying?"
         onChange={(event) => setText(event.target.value)}
       />
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -1134,6 +1241,8 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
   const [pending, startTransition] = useTransition();
 
   const verdict = canProposeSteelmanReading(board, text);
+  const blocked =
+    text.trim().length > 0 ? verdict : canProposeSteelmanReading(board, "a reading");
 
   const submit = () => {
     setError(null);
@@ -1154,6 +1263,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
         placeholder="The strongest version of what they think."
         onChange={(event) => setText(event.target.value)}
       />
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -1184,6 +1294,12 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
   const destinations = useMemo(() => allTargets(board), [board]);
   const parentTileId = parent.length > 0 ? parent : null;
   const verdict = canProposeSteelmanTile(board, parentTileId, text);
+  // Against a stand-in this surfaces the six-thread ceiling, which is the block
+  // no amount of typing clears and the one a player hits without warning.
+  const blocked =
+    text.trim().length > 0
+      ? verdict
+      : canProposeSteelmanTile(board, parentTileId, "a reason");
 
   const submit = () => {
     setError(null);
@@ -1220,6 +1336,7 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
           ))}
         </select>
       </label>
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
@@ -1242,6 +1359,10 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
   const [pending, startTransition] = useTransition();
 
   const verdict = canProposeDefinition(board, term, text);
+  const blocked =
+    term.trim().length > 0 && text.trim().length > 0
+      ? verdict
+      : canProposeDefinition(board, "a word", "a meaning");
 
   const submit = () => {
     setError(null);
@@ -1273,6 +1394,7 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
         placeholder="What it should mean for the rest of this game."
         onChange={(event) => setText(event.target.value)}
       />
+      <WhyNot verdict={blocked} />
       <button
         type="button"
         className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
