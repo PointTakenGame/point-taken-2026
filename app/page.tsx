@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Wordmark } from "@/components/brand/art";
 import { RoomEntry } from "@/components/rooms/room-entry";
 import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
@@ -9,8 +10,12 @@ import { currentPlayerId } from "@/lib/supabase/session";
 /**
  * The front door: start a room, or join one with its code.
  *
- * Plain type on purpose. Rannie's frames for this surface are aesthetics to
- * apply later, and the roadmap governs what is on the screen (BRAIN-T260823-09).
+ * Plain type on purpose, with one exception. Rannie's frames for this surface
+ * are aesthetics to apply later, and the roadmap governs what is on the screen
+ * (BRAIN-T260823-09). The wordmark is not part of that: it is the mark the game
+ * has always shipped under, copied out of the retired client rather than
+ * designed here, and a front door that does not say whose it is fails at the one
+ * job a front door has.
  */
 
 export const dynamic = "force-dynamic";
@@ -27,7 +32,10 @@ export default async function Home() {
       <SiteNav here="home" />
       <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
         <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">Point Taken</h1>
+          {/* The mark carries the name, so there is no heading text to repeat. */}
+          <h1>
+            <Wordmark width={220} />
+          </h1>
           <p className="opacity-70">
             A writing game for two people who disagree. You trade reasons, link them, and
             find out exactly where you part ways.

@@ -14,6 +14,7 @@ import {
   canStartGame,
   hasLeft,
 } from "@/lib/board/setup";
+import { Glyph } from "@/components/brand/art";
 import { useGameFeed } from "./use-game-feed";
 import { SIDE_LABEL } from "./side-label";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
@@ -284,7 +285,11 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">The agreement</h2>
+        {/* The old client marked this same moment with this same drawing. */}
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Glyph name="book" size={22} />
+          The agreement
+        </h2>
         <ul className="flex flex-col gap-1 text-sm">
           {SIGNING_LINES.map((line) => (
             <li key={line.id}>

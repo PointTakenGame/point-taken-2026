@@ -1,4 +1,5 @@
 import type { BoardState } from "@/lib/board/project";
+import { Glyph } from "@/components/brand/art";
 
 /**
  * The sentence a finished game owes its players.
@@ -9,12 +10,18 @@ import type { BoardState } from "@/lib/board/project";
  * cooperative and that is the whole point of the design, so the moment it is
  * reached is the one moment that has to say so out loud.
  *
+ * The glyph appears on the two cooperative endings and on nothing else. A game
+ * somebody walked out of is still worth keeping, which is what it says, but it
+ * is not an occasion and drawing one on it would be a lie told in pictures.
+ *
  * This deliberately does not restate the mechanic. FinishedMap's stats line
  * already names which of the two endings happened, and this sits directly
  * above it; saying it twice is how the live board's thread counter went wrong.
  * So this says what it meant. Print hides it for the same reason: on paper the
  * stats line is the record, and a record does not congratulate anybody.
  */
+
+const WON = new Set(["threads_resolved", "topic_agreed"]);
 
 const ENDING: Record<string, { title: string; body: string }> = {
   threads_resolved: {
@@ -42,10 +49,14 @@ const UNKNOWN = {
 
 export function Ending({ board }: { board: BoardState }) {
   const ending = ENDING[board.winCondition ?? ""] ?? UNKNOWN;
+  const won = WON.has(board.winCondition ?? "");
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-8 pt-8 print:hidden">
-      <h2 className="text-xl font-semibold">{ending.title}</h2>
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        {won && <Glyph name="party" size={28} />}
+        {ending.title}
+      </h2>
       <p className="opacity-70">{ending.body}</p>
     </section>
   );
