@@ -11,7 +11,6 @@ const ENV_KEYS = [
 const VALUES = {
   stage: "Playing a game",
   description: "the board froze",
-  severity: "3",
   userAgent: "test-agent",
   category: "bug",
 };
@@ -55,7 +54,6 @@ describe("submitFeedback: configured destination", () => {
     process.env.NEXT_PUBLIC_FEEDBACK_FORM_ENTRY_IDS = JSON.stringify({
       stage: "entry.111",
       description: "entry.222",
-      severity: "entry.333",
       userAgent: "entry.444",
       category: "entry.555",
     });
@@ -82,11 +80,10 @@ describe("submitFeedback: configured destination", () => {
     expect(forms).toHaveLength(1);
 
     const inputs = Array.from(form?.querySelectorAll("input") ?? []);
-    expect(inputs).toHaveLength(5);
+    expect(inputs).toHaveLength(4);
     const byName = Object.fromEntries(inputs.map((input) => [input.name, input.value]));
     expect(byName["entry.111"]).toBe("Playing a game");
     expect(byName["entry.222"]).toBe("the board froze");
-    expect(byName["entry.333"]).toBe("3");
     expect(byName["entry.444"]).toBe("test-agent");
     expect(byName["entry.555"]).toBe("bug");
   });

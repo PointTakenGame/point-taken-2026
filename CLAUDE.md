@@ -118,7 +118,7 @@ behind it 404s everywhere else, so a deploy carries nothing.
 The bar is visible whenever dev mode is on, whether or not an override is currently active, so
 its presence is not a sign that you are in somebody else's seat.
 
-**Two route gotchas.** `/join/<CODE>` takes the six-character room code a player reads aloud
+**Two route gotchas.** `/join/<CODE>` takes the five-character room code a player reads aloud
 and redirects to `/game/<uuid>`. `/game/` itself takes the UUID, so `/game/<CODE>` is a 404,
 not a bug. And there is no host role in setup: either seated player can set the topic and start.
 

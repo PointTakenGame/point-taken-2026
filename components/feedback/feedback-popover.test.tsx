@@ -4,7 +4,7 @@
  * Interaction tests for the composed FeedbackPopover, layered on top of the
  * TilePopover primitive (already covered on its own in
  * components/ui/tile-popover.test.tsx). These focus on what this component
- * adds: the trigger buttons, the fixed severity, stage derivation via the
+ * adds: the trigger buttons, stage derivation via the
  * current route, the unconfigured-destination path, and the success state
  * with its auto-close.
  */
@@ -121,7 +121,7 @@ describe("FeedbackPopover: stage hint", () => {
 });
 
 describe("FeedbackPopover: submit path", () => {
-  it("submits the five expected values, with severity fixed at 3", async () => {
+  it("submits the four expected values", async () => {
     mockUsePathname.mockReturnValue("/cards");
     const user = userEvent.setup();
     render(<FeedbackPopover variant="floating" />);
@@ -138,7 +138,6 @@ describe("FeedbackPopover: submit path", () => {
     const submitted = mockSubmitFeedback.mock.calls[0][0];
     expect(submitted.stage).toBe("Cards");
     expect(submitted.description).toBe("the coach repeated itself");
-    expect(submitted.severity).toBe("3");
     expect(submitted.category).toBe("ai");
     expect(typeof submitted.userAgent).toBe("string");
   });

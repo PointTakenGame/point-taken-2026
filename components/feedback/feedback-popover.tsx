@@ -35,10 +35,6 @@ const DESCRIPTION_FIELD_ID = "description";
 const MAX_DESCRIPTION_LENGTH = 500;
 const SUCCESS_CLOSE_DELAY_MS = 1800;
 
-// Severity is never collected from the player: there is no control for it
-// anywhere in this pop-up. Every report goes out at the same fixed value.
-const FIXED_SEVERITY = "3";
-
 export function FeedbackPopover({ variant }: { variant: "floating" | "inline" }) {
   const pathname = usePathname();
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -59,7 +55,6 @@ export function FeedbackPopover({ variant }: { variant: "floating" | "inline" })
     submitFeedback({
       stage: deriveFeedbackStage(pathname ?? "/"),
       description: text,
-      severity: FIXED_SEVERITY,
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
       category: category ?? "",
     });

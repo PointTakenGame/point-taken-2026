@@ -8,8 +8,7 @@
  * exists.
  */
 
-export type FeedbackFieldName =
-  "stage" | "description" | "severity" | "userAgent" | "category";
+export type FeedbackFieldName = "stage" | "description" | "userAgent" | "category";
 
 export type FeedbackFormConfig = {
   actionUrl: string;
@@ -19,7 +18,6 @@ export type FeedbackFormConfig = {
 const REQUIRED_FIELDS: FeedbackFieldName[] = [
   "stage",
   "description",
-  "severity",
   "userAgent",
   "category",
 ];
