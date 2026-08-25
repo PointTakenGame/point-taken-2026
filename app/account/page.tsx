@@ -39,7 +39,7 @@ export const dynamic = "force-dynamic";
 const OUTCOME: Record<string, string> = {
   threads_resolved: "All threads resolved",
   topic_agreed: "Agreed a new topic",
-  abandoned: "Abandoned",
+  abandoned: "Left unfinished",
   timeout: "Ran out of time",
 };
 
@@ -366,7 +366,18 @@ export default async function AccountPage({
             value={stats.games_played}
             note={thisWeek > 0 ? `+${thisWeek} this week` : undefined}
           />
-          <Counter label="Games finished" value={stats.games_completed} />
+          {/*
+            "Ended", not "finished": `games_completed` counts every game whose
+            status reached `ended`, which includes one somebody walked out of.
+            Calling that finished contradicts the history row right below it,
+            which reads "Left unfinished" for the same game. The stricter number
+            (games that reached a win condition) cannot be worked out here,
+            because `listGamesForPlayer` is capped at fifty and a headline stat
+            derived from a capped list quietly goes wrong on the fifty-first
+            game. Splitting the two is a stats change, so it is flagged rather
+            than made: BRAIN-T260824-29.
+          */}
+          <Counter label="Games ended" value={stats.games_completed} />
           <Counter label="Topics debated" value={countTopics(topics)} />
           <Counter label="Threads resolved" value={stats.threads_resolved} />
           <Counter
