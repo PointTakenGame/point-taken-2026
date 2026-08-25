@@ -17,6 +17,7 @@ import {
 import { Glyph } from "@/components/brand/art";
 import { useGameFeed } from "./use-game-feed";
 import { SIDE_LABEL } from "./side-label";
+import { StancePicker } from "./stance-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   chooseSide,
@@ -35,8 +36,6 @@ import type { Side } from "@/lib/events/types";
  * for its verdict, so a disabled control and a refused action give the same
  * reason in the same words.
  */
-
-const SIDES: readonly Side[] = ["plus", "minus"];
 
 const TIERS = ["Practice", "Serious Stuff", "Tough"] as const;
 
@@ -129,6 +128,8 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
   const mine = board.players.find((player) => player.id === me.playerId);
   const here = board.players.filter((player) => player.left !== "quit");
+  const plusVerdict = canChooseSide(board, me.playerId, "plus");
+  const minusVerdict = canChooseSide(board, me.playerId, "minus");
   const startVerdict = canStartGame(board);
   const signVerdict = canSign(
     board,
@@ -200,25 +201,19 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">Your side</h2>
-        <div className="flex gap-2">
-          {SIDES.map((side) => {
-            const verdict = canChooseSide(board, me.playerId, side);
-            return (
-              <button
-                key={side}
-                type="button"
-                className="border border-current/40 px-3 py-1 text-sm disabled:opacity-40"
-                aria-pressed={mine?.role === side}
-                disabled={pending || (!verdict.ok && mine?.role !== side)}
-                title={verdict.ok ? undefined : verdict.error}
-                onClick={() => run(() => chooseSide(gameId, side))}
-              >
-                {SIDE_LABEL[side]}
-                {mine?.role === side ? " ✓" : ""}
-              </button>
-            );
-          })}
-        </div>
+        <StancePicker
+          value={mine?.role ?? null}
+          disabled={pending}
+          disabledSides={[
+            ...(!plusVerdict.ok && mine?.role !== "plus" ? (["plus"] as const) : []),
+            ...(!minusVerdict.ok && mine?.role !== "minus" ? (["minus"] as const) : []),
+          ]}
+          reasons={{
+            plus: plusVerdict.ok ? undefined : plusVerdict.error,
+            minus: minusVerdict.ok ? undefined : minusVerdict.error,
+          }}
+          onPick={(side) => run(() => chooseSide(gameId, side))}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

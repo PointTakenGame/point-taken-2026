@@ -35,17 +35,38 @@ const SIDE_TEXT: Record<TileSide, string> = {
  * this simple is not worth opening new asset-pipeline surface area for,
  * especially while a background agent is mid-flight touching unrelated
  * files in this same working tree. See the final report for the full note.
+ *
+ * `active` distinguishes the retired stance picker's not-selected (grey) and
+ * selected/hovered (side colour) icon states; every other caller draws an
+ * already-committed side and wants colour, so it defaults to true. The
+ * retired minus artwork also mirrored horizontally on that same transition,
+ * carried here as a literal transform. With this glyph's plain horizontal
+ * stroke that mirror has no visible effect (a horizontal line mirrored
+ * horizontally is unchanged), but the behaviour is wired correctly for
+ * whenever the glyph gains asymmetric detail.
  */
 export function SideGlyph({
   side,
   className,
+  active = true,
 }: {
   side: "plus" | "minus";
   className?: string;
+  active?: boolean;
 }) {
-  const stroke = side === "plus" ? "var(--color-green)" : "var(--color-orange)";
+  const stroke = active
+    ? side === "plus"
+      ? "var(--color-green)"
+      : "var(--color-orange)"
+    : "var(--color-gray)";
+  const mirror = active && side === "minus";
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      style={mirror ? { transform: "scaleX(-1)" } : undefined}
+      aria-hidden="true"
+    >
       <line
         x1="4"
         y1="12"
