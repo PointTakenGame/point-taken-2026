@@ -35,7 +35,10 @@ function isDisabled(element: HTMLElement): boolean {
 }
 
 beforeEach(() => {
-  mockUsePathname.mockReturnValue("/game/some-uuid");
+  // Not a /game route by default: the floating variant hides itself there
+  // (see the "route gating" describe block below), and most of these tests
+  // are about the shared popover behavior, not that gate.
+  mockUsePathname.mockReturnValue("/how-to-play");
   mockGetFeedbackShareMoreUrl.mockReturnValue(null);
 });
 
@@ -52,6 +55,20 @@ describe("FeedbackPopover: trigger variants", () => {
   });
 
   it("renders the inline trigger reading Report a bug", () => {
+    render(<FeedbackPopover variant="inline" />);
+    expect(screen.getByRole("button", { name: "Report a bug" })).toBeTruthy();
+  });
+});
+
+describe("FeedbackPopover: route gating", () => {
+  it("does not render the floating trigger on a /game route", () => {
+    mockUsePathname.mockReturnValue("/game/some-uuid");
+    render(<FeedbackPopover variant="floating" />);
+    expect(screen.queryByLabelText("Share feedback")).toBeNull();
+  });
+
+  it("still renders the inline trigger on a /game route", () => {
+    mockUsePathname.mockReturnValue("/game/some-uuid");
     render(<FeedbackPopover variant="inline" />);
     expect(screen.getByRole("button", { name: "Report a bug" })).toBeTruthy();
   });

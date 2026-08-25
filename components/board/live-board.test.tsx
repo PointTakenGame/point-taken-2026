@@ -23,6 +23,10 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  // The header now also mounts the inline FeedbackPopover
+  // (components/feedback/feedback-popover.tsx), which reads the current
+  // route via usePathname.
+  usePathname: () => "/game/00000000-0000-4000-8000-000000000000",
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({

@@ -57,9 +57,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         */}
         <AlertStack />
         {/*
-          Every page. This is the floating entry point into the shared
-          feedback pop-up; the inline "Report a bug" variant lives inside
-          the game board's own utility row instead.
+          Every page except /game. This is the floating entry point into the
+          shared feedback pop-up; it hides itself on game routes (see
+          components/feedback/feedback-popover.tsx) so nothing floats over
+          the board, and the inline "Report a bug" variant in the board's
+          own utility row (components/board/live-board.tsx) takes over there.
         */}
         <FeedbackPopover variant="floating" />
         {/*

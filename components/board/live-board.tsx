@@ -23,6 +23,7 @@ import { TopicTile } from "@/components/board/topic-tile";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
 import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -1665,15 +1666,24 @@ export function LiveBoard({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
       <header className="border-neutral-black/15 relative flex flex-col items-center gap-3 border-b pb-4">
-        <button
-          type="button"
-          title="Instructions"
-          aria-label="Instructions"
-          onClick={() => setOnboardingOpen(true)}
-          className="btn-icon absolute right-0 top-0 h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-base font-bold text-neutral-black shadow-md"
-        >
-          ?
-        </button>
+        {/*
+          The board's utility row: small controls that are not part of play
+          itself. The floating feedback button (app/layout.tsx) hides itself
+          on /game routes so it never floats over the board; this inline pill
+          is the replacement entry point while a game is in view.
+        */}
+        <div className="absolute right-0 top-0 flex items-center gap-2">
+          <FeedbackPopover variant="inline" />
+          <button
+            type="button"
+            title="Instructions"
+            aria-label="Instructions"
+            onClick={() => setOnboardingOpen(true)}
+            className="btn-icon h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-base font-bold text-neutral-black shadow-md"
+          >
+            ?
+          </button>
+        </div>
         <p className="text-p-sm text-gray">
           {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
           {connected ? "updating live" : "reconnecting"}

@@ -2,11 +2,11 @@
 
 /**
  * One shared pop-up behind two entry points: the floating button rendered
- * globally from app/layout.tsx (every page, bottom-right corner) and an
- * inline pill meant to sit in the game page's utility row. The inline
- * variant is built and exported here but not wired into components/board/
- * yet, since another agent owns that directory right now; whoever adds it
- * there only needs `<FeedbackPopover variant="inline" />`.
+ * globally from app/layout.tsx (every page except /game, bottom-right
+ * corner) and an inline pill that sits in the game board's own utility row
+ * (components/board/live-board.tsx). The floating variant hides itself on
+ * /game routes so it never floats over the playing surface; the inline
+ * variant is the replacement entry point there.
  *
  * This component is the controlling caller for TilePopover: it owns all of
  * the local state (open, selected category, description text, sent) and
@@ -60,6 +60,12 @@ export function FeedbackPopover({ variant }: { variant: "floating" | "inline" })
     });
     setSent(true);
     window.setTimeout(resetAndClose, SUCCESS_CLOSE_DELAY_MS);
+  }
+
+  // The floating button would otherwise float over the playing surface on
+  // every game route; the board renders the inline variant instead.
+  if (variant === "floating" && (pathname ?? "").startsWith("/game")) {
+    return null;
   }
 
   const shareMoreUrl = getFeedbackShareMoreUrl();
