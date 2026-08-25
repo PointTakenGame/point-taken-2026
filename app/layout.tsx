@@ -3,6 +3,7 @@ import { Anton, Coming_Soon, Noto_Sans } from "next/font/google";
 
 import { BuildStamp } from "@/components/build-stamp";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
+import { AlertStack } from "@/components/alerts/alert-stack";
 import "./globals.css";
 
 /*
@@ -46,6 +47,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/*
+          Every page. Renders whatever is currently in the toast stack
+          (`components/alerts/alert-store.ts`); empty and invisible when
+          nothing has been pushed. Nothing yet calls `alertActions.push` from
+          `components/board/live-board.tsx` or elsewhere, so this mount makes
+          the surface reachable without wiring any caller to it this round.
+          See the build report for BRAIN-T260825-12.
+        */}
+        <AlertStack />
         {/*
           Every page. This is the floating entry point into the shared
           feedback pop-up; the inline "Report a bug" variant lives inside

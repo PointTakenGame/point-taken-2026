@@ -150,3 +150,39 @@ button.form-base:not(:disabled):active {
 .input-primary::placeholder {
   color: var(--color-gray);
 }
+
+/*
+  Alert stack entrance/exit. Added for the alert stack rebuild
+  (BRAIN-T260825-12, docs/reference/materials/design-briefs/
+  2026-08-25_alerts-win-info-interaction-spec.md, BRAIN-T260825-34).
+  180ms each way, under the spec's "roughly a fifth of a second" mark.
+*/
+@keyframes alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alert-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.animate-alert-in {
+  animation: alert-in 180ms ease-out;
+}
+
+.animate-alert-out {
+  animation: alert-out 180ms ease-in forwards;
+}
