@@ -156,7 +156,10 @@ export function WinOverlay({ board }: { board: BoardState }) {
             <p className="font-secondary text-p-md text-center">
               You&apos;ve resolved all threads on the game board:
             </p>
-            <div className="grid w-full grid-cols-2 gap-3">
+            {/* Sized to content rather than laid out in fixed columns: the number of
+                distinct token types here is 1 to 5, and a rigid two-column grid wrapped
+                the single-type case across two lines mid-phrase. */}
+            <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3">
               {Array.from(resolvedByToken.entries()).map(([token, count]) => (
                 <div key={token} className="flex items-center gap-2">
                   <TokenGlyph token={token} size={28} />
