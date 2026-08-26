@@ -18,6 +18,21 @@ bad copy that the architecture also needs rescuing. Fix the surface. Leave the g
 You own the presentation layer: `components/`, `app/**/page.tsx`, `app/**/layout.tsx`, the
 stylesheets, and every user-facing string wherever it sits.
 
+## Minimal history, and how work is tracked here
+
+This is a ground-up rewrite. An earlier Nuxt + Express version of Point Taken still runs the
+live public game at `play.pointtaken.social`, but it is retired from active development; nothing
+new is built there. This repo, pushed to GitHub 2026-08-25, is the only codebase in active
+development. Nathan was added as a collaborator with write access on 2026-08-26.
+
+**Track work as GitHub Issues on this repo** (`PointTakenGame/point-taken-2026`), not any other
+tool. Steve's other projects use a CSV-based todo tracker, but it hardcodes an absolute path to
+a tool outside this repo and will not work from a standalone clone; do not try to vendor or
+reach for it here. If you need a durable record of a decision or a bug, it goes in an Issue.
+
+Reach Steve directly for anything blocking or ambiguous, including the settled/still-moving
+list at the bottom of this file and the Gym-scope contradiction noted just above.
+
 ## What the game is
 
 Two players, one on the Plus side and one on the Minus side, disagree about a topic they type
@@ -31,18 +46,20 @@ consequence is always that the target revises the tile, never that anyone loses 
 Both win conditions are cooperative. Either the players resolve their threads, or they agree
 on a revised wording of the topic itself.
 
-There is no ruleset document in this repo. The design sources live in Steve's other working
-folders, outside this git history, so nothing here can link to them. Ask Steve for these three
-by name:
+The ruleset lives in `docs/design/`, copied into this repo (2026-08-26) so a bare clone is
+self-contained. The canonical, kept-current copies live in point-taken-brain, Steve's other
+working folder; if these look stale, ask Steve rather than editing around the gap:
 
-- `2026-08-22_gym-levels-1-4-implementation-guide.md`, the game itself at levels 1 to 4
-- `2026-08-22_skill-ladder-levels-1-4.md`, what each level teaches and why in that order
-- `2026-08-23_account-pages-entity-list.md`, the account screens and the entities behind them
+- `docs/design/2026-08-22_gym-levels-1-4-implementation-guide.md`, the game itself at levels 1 to 4
+- `docs/design/2026-08-22_skill-ladder-levels-1-4.md`, what each level teaches and why in that order
+- `docs/design/2026-08-23_account-pages-entity-list.md`, the account screens and the entities behind them
 
 Where those documents describe the practice ladder (the Gym), they describe something this
-codebase does not build. Steve's 2026-08-17 scope ruling took the scripted practice opponent
-off the critical path, because the prototype is live play against a human. Treat them as what
-the account and the coach must stay compatible with, not as a description of what runs today.
+codebase's `CLAUDE.md` used to say it does not build. That is currently in dispute: this section
+said Steve's 2026-08-17 scope ruling took the scripted practice opponent off the critical path,
+but branch `core/gym-mode-passthrough` shows active, ongoing Gym work (`app/gym/page.tsx`,
+`lib/gym/`, level-select, mode/levelId/bossId wiring). Unresolved as of 2026-08-26. Ask Steve
+which is current before treating either claim as settled.
 
 ## The one architectural fact
 
