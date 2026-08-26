@@ -40,11 +40,21 @@ async function seat(gameId: string, playerId: string): Promise<void> {
   });
 }
 
-export async function createRoom(): Promise<RoomResult> {
+/** A Gym run names the level and boss it practices; a live room needs neither. */
+export interface GymRun {
+  levelId: string;
+  bossId: string;
+}
+
+export async function createRoom(gym?: GymRun): Promise<RoomResult> {
   const playerId = await currentPlayerId();
   if (!playerId) return NEEDS_NAME;
 
-  const game = await createGame({ mode: "live", createdBy: playerId });
+  const game = await createGame(
+    gym
+      ? { mode: "gym", createdBy: playerId, levelId: gym.levelId, bossId: gym.bossId }
+      : { mode: "live", createdBy: playerId },
+  );
   await seat(game.id, playerId);
 
   revalidatePath("/account");
