@@ -9,27 +9,30 @@ but has its own git history and its own remote; nothing here is tracked by the o
 
 Supabase project `point-taken-2026`, ref `tvtmltchotkzviqaywdy`, us-east-1. Credentials live in
 `../../../point-taken-biz/api-keys/supabase-point-taken-2026.env`, which is gitignored and outside
-this tree. Nothing in here holds a secret.
+this tree. Nothing in here holds a secret. If you cloned this repo standalone (no
+`point-taken-biz` alongside it), you won't have that path either way: Steve sends the four
+`.env.local` values directly (see "Running it locally" below).
 
 ## What the game is
 
-Code questions are answered here. Design questions are answered in
-`../../../point-taken-biz/docs/reference/`, and where anything else disagrees with those files,
-they win:
+Code questions are answered here. Design questions are answered by the docs in `docs/design/`
+and `docs/spec/` in this repo, and where anything else disagrees with those files, they win:
 
 - **Levels 1 to 4, the game itself** (beats, bosses, cards, badges, points):
-  `2026-08-22_gym-levels-1-4-implementation-guide.md`. This is the source of record.
+  `docs/design/2026-08-22_gym-levels-1-4-implementation-guide.md`. This is the source of record.
 - **What skill each level teaches, and why in that order:**
-  `2026-08-22_skill-ladder-levels-1-4.md`.
+  `docs/design/2026-08-22_skill-ladder-levels-1-4.md`.
 - **Account screens and the entities behind them:**
-  `2026-08-23_account-pages-entity-list.md`.
+  `docs/design/2026-08-23_account-pages-entity-list.md`.
 - **Build order:**
-  `../../docs/reference/materials/roadmap-consolidation/2026-08-16_dev-roadmap.md`.
+  `docs/roadmap/2026-08-16_dev-roadmap.md`.
 
-Levels 5 to 8 are not designed. The surviving half of
-`../../docs/reference/materials/roadmap-consolidation/2026-08-04_level-build-table.md` is the only
-material on them, and it is provisional. Everything else in that folder is superseded and says so
-at the top.
+Levels 5 to 8 are not designed yet. The one document that touches them,
+`2026-08-04_level-build-table.md`, is mostly superseded (only its levels-5-to-8 half still
+stands, and even that is provisional) and is not copied into this repo. It lives in the brain
+agent's tree at `point-taken-brain/docs/reference/materials/roadmap-consolidation/`, which this
+repo cannot see from a standalone clone. If levels 5 to 8 become active work, ask Steve for that
+file rather than guessing at scope.
 
 The Gym (the scripted practice ladder those documents describe) is **not** what this codebase
 builds today. Steve's 2026-08-17 scope ruling took the scripted opponent off the critical path,
@@ -54,18 +57,26 @@ lib/supabase/server.ts  service-role client, server-only, never importable from 
 lib/supabase/session.ts the signed-in player's own client, and currentPlayerId()
 proxy.ts                keeps the session cookie fresh (Next 16's name for middleware)
 supabase/migrations/    ordered SQL, applied in filename order
+docs/design/            game-design source docs: levels, skill ladder, account entities
+docs/spec/              architecture prose behind the migrations: event log, catalogue, identity
+docs/roadmap/           build order
 ```
+
+The docs under `docs/` are copies of documents whose canonical version lives in the brain agent's
+own tree (`point-taken-brain/docs/reference/materials/`). They're copied in here so a standalone
+clone of this repo is self-contained; if the canonical version changes, these copies go stale
+until someone re-copies them. Check with Steve if a doc here looks like it might be outdated.
 
 ## The one thing to read first
 
 `supabase/migrations/0001_event_log.sql` and its prose half,
-`../../docs/reference/materials/spec/2026-08-19_event-log-contract.md` (registry row
+`docs/spec/2026-08-19_event-log-contract.md` (registry row
 `BRAIN-T260819-18`). Every projection, badge criterion, analytic, and replay reads that table, so
 its shape is the hardest thing here to change later. The type catalogue is
-`0002_event_type_catalogue.sql` plus `../../docs/reference/materials/spec/2026-08-22_event-type-catalogue.md`.
+`0002_event_type_catalogue.sql` plus `docs/spec/2026-08-22_event-type-catalogue.md`.
 
 `0004_identity_and_games.sql` adds the tables the log points at, with
-`../../docs/reference/materials/spec/2026-08-22_identity-and-read-models.md` as its prose half
+`docs/spec/2026-08-22_identity-and-read-models.md` as its prose half
 (registry row `BRAIN-T260822-09`). **`games` and `game_players` are read models.** One trigger on
 `game_events` maintains them and nothing else may write them. If you find yourself updating a game's
 status by hand, the event you should have appended is the actual fix.
@@ -108,7 +119,7 @@ a migration first, then the TypeScript. Changing one without the other is a bug 
 ## Running it locally
 
 ```
-cp .env.example .env.local     # fill from the api-keys file above
+cp .env.example .env.local     # fill in the values Steve sends you (see .env.example's comments)
 npm install
 TMPDIR=/tmp npm run dev
 ```

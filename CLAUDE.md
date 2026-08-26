@@ -18,17 +18,47 @@ bad copy that the architecture also needs rescuing. Fix the surface. Leave the g
 You own the presentation layer: `components/`, `app/**/page.tsx`, `app/**/layout.tsx`, the
 stylesheets, and every user-facing string wherever it sits.
 
+## Your repo, and only this repo
+
+**`PointTakenGame/point-taken-2026` is the entire scope of your read/write access, and it is the
+only codebase you should ever touch.** Two other repos exist, `point-taken-frontend` (Nuxt) and
+`point-taken-backend` (Express), which run the old, currently-public version of the game at
+`play.pointtaken.social`. They are retired, read-only, and off-limits: **you have no write
+access to either, and neither should ever be edited, even to fix something that looks broken.**
+See "The old game as design reference, not a codebase" below for what they're actually for.
+
+Inside `point-taken-2026`, you're free to develop, branch, experiment, and break things in your
+own working copy however you like. There is no local sandbox restriction: run the app, rip up a
+component, try three different layouts, revert what doesn't work. Nothing you do locally affects
+anyone until it's in a pull request.
+
+**Everything ships as a pull request against `main`, never a direct push.** Branch, commit,
+open a PR, and let Steve review and merge it. This repo's plan (private, no GitHub Pro) means
+branch protection can't technically block a direct push to `main`, so this is a working
+agreement rather than something GitHub enforces for you: treat it as a hard rule anyway. **Do
+not merge your own pull requests** (also stated below, under core-file changes, because it
+applies there too).
+
 ## Minimal history, and how work is tracked here
 
 This is a ground-up rewrite. An earlier Nuxt + Express version of Point Taken still runs the
 live public game at `play.pointtaken.social`, but it is retired from active development; nothing
 new is built there. This repo, pushed to GitHub 2026-08-25, is the only codebase in active
-development. Nathan was added as a collaborator with write access on 2026-08-26.
+development. Nathan (GitHub `Natron21405`) has accepted his write invitation to this repo as of
+2026-08-26; he has read-only access to `point-taken-frontend` and `point-taken-backend`, enough
+to browse them as design reference but not to push.
 
 **Track work as GitHub Issues on this repo** (`PointTakenGame/point-taken-2026`), not any other
 tool. Steve's other projects use a CSV-based todo tracker, but it hardcodes an absolute path to
 a tool outside this repo and will not work from a standalone clone; do not try to vendor or
 reach for it here. If you need a durable record of a decision or a bug, it goes in an Issue.
+
+**Why PRs and Issues, and not something quieter:** this is also how Steve keeps a live read on
+your work without pinging you for status. An open PR shows what you're mid-task on; a merged one
+shows what shipped; an Issue thread shows a decision's history. Push your branch early, even
+before a PR is ready to merge (open it as a draft), rather than working silently for days and
+surfacing one big diff. Small, frequent, named commits on a visible branch beat one large
+end-of-week push, both for review quality and for Steve not having to guess what you're doing.
 
 Reach Steve directly for anything blocking or ambiguous, including the settled/still-moving
 list at the bottom of this file and the Gym-scope contradiction noted just above.
@@ -60,6 +90,27 @@ said Steve's 2026-08-17 scope ruling took the scripted practice opponent off the
 but branch `core/gym-mode-passthrough` shows active, ongoing Gym work (`app/gym/page.tsx`,
 `lib/gym/`, level-select, mode/levelId/bossId wiring). Unresolved as of 2026-08-26. Ask Steve
 which is current before treating either claim as settled.
+
+## The old game as design reference, not a codebase
+
+This repo's UI is a deliberately rough placeholder (see the top of this file): unstyled black
+text on white, no board rendering yet. That is not what the finished game is supposed to look
+like. **`point-taken-frontend`, the retired Nuxt app that still runs the live public game at
+`play.pointtaken.social`, is what a real Point Taken looks and feels like: a spatial board of
+tiles connected into threads, not the flat placeholder currently in this repo.** Use it as your
+design and UX reference for the splash page, the topic selector, and above all the game board
+itself, the spatial tile-and-thread interchange interface. It is what this repo's UI is rebuilding
+toward, properly styled and interactive, not a text-chat feed.
+
+**Read it, never edit it.** Both `point-taken-frontend` and its backend, `point-taken-backend`,
+are retired and off-limits, per "Your repo, and only this repo" above. Pull them up, click
+through the live game, read the Vue components for structure, screenshot what you need. Never
+commit to either.
+
+The backend's auth approach, a one-time link mailed to the player with no password, is worth
+reusing as a *pattern*: `point-taken-2026` already has its own equivalent built (see "Accounts:
+how somebody gets in, and back in" below) and needs no changes copied over from the old backend.
+Look at the old flow for how it reads to a player, not as something to port code from.
 
 ## The one architectural fact
 
