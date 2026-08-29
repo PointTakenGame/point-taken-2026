@@ -3,18 +3,8 @@
 import { useState } from "react";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 
-/**
- * The row of tokens a player picks from to say what kind of disagreement a
- * thread turned out to be. Ported from the retired client's `TileEmojis.vue`:
- * same hover lift/rotate, same swap from a default header to the hovered
- * token's own phrase.
- *
- * Only two tokens are live here (thumbs-up, eyes) because
- * `RESOLUTION_TOKENS` in `lib/board/rules.ts` only accepts two; the other
- * three drawings exist in `public/tokens/` and in `tokenLabel` but are
- * deferred behind progression that does not exist yet, exactly as the
- * retired client's own `SHOW_FLAVORED_DISAGREE = false` gate left them.
- */
+// Row of tokens for resolving a thread, ported from the retired client's
+// TileEmojis.vue. Placeable tokens come from RESOLUTION_TOKENS only.
 export function ResolutionPicker({
   tokens,
   disabledTokens = [],
@@ -27,11 +17,11 @@ export function ResolutionPicker({
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <p className="text-p-sm font-secondary text-neutral-black">
+    <div className="flex flex-col items-center gap-4">
+      <p className="text-p-md font-secondary font-bold text-gray">
         {hovered ? tokenLabel(hovered) : "Resolve thread"}
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-row items-center gap-4">
         {tokens.map((token) => {
           const isDisabled = disabledTokens.includes(token);
           return (
@@ -45,9 +35,9 @@ export function ResolutionPicker({
                 setHovered((current) => (current === token ? null : current))
               }
               title={tokenLabel(token)}
-              className="ease-in-out flex flex-col items-center gap-1 rounded-full p-1.5 duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40"
+              className="ease-in-out flex size-14 items-center justify-center overflow-visible duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40"
             >
-              <TokenGlyph token={token} size={32} hovered={hovered === token} />
+              <TokenGlyph token={token} size={40} hovered={hovered === token} />
             </button>
           );
         })}
