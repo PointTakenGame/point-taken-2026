@@ -1,21 +1,22 @@
-import Link from "next/link";
-
 import { Wordmark } from "@/components/brand/art";
 import { RoomEntry } from "@/components/rooms/room-entry";
 import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
+import { HomeLinks } from "@/components/home/home-links";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { currentPlayerId } from "@/lib/supabase/session";
 
 /**
  * The front door: start a room, or join one with its code.
  *
- * Plain type on purpose, with one exception. Rannie's frames for this surface
- * are aesthetics to apply later, and the roadmap governs what is on the screen
- * (BRAIN-T260823-09). The wordmark is not part of that: it is the mark the game
- * has always shipped under, copied out of the retired client rather than
- * designed here, and a front door that does not say whose it is fails at the one
- * job a front door has.
+ * Styled to the archived client's splash screen (point-taken-frontend's
+ * pages/index.vue): a centered wordmark over cream, a bordered card holding
+ * the room actions, quiet links below it. Presentation only, ported now that
+ * the roadmap has settled what belongs on this screen (BRAIN-T260823-09). The
+ * wordmark is not part of that settling: it is the mark the game has always
+ * shipped under, copied out of the retired client rather than designed here,
+ * and a front door that does not say whose it is fails at the one job a front
+ * door has.
  */
 
 export const dynamic = "force-dynamic";
@@ -30,40 +31,23 @@ export default async function Home() {
   return (
     <>
       <SiteNav here="home" />
-      <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
-        <header className="flex flex-col gap-2">
+      <main className="mx-auto flex min-h-[80vh] max-w-2xl flex-1 flex-col items-center justify-center gap-10 p-8">
+        <header className="flex flex-col items-center gap-3 text-center">
           {/* The mark carries the name, so there is no heading text to repeat. */}
           <h1>
-            <Wordmark width={220} />
+            <Wordmark width={260} />
           </h1>
-          <p className="opacity-70">
+          <p className="font-secondary text-p-lg text-gray">
             A writing game for two people who disagree. You trade reasons, link them, and
             find out exactly where you part ways.
           </p>
         </header>
-        <RoomEntry />
-        {/*
-          The rules link is here and not only in SiteNav, which renders nothing
-          for a signed-out visitor. That visitor is exactly the person who has
-          never played.
-        */}
-        <p className="text-sm opacity-60">
-          Never played?{" "}
-          <Link href="/how-to-play" className="underline">
-            How to play
-          </Link>{" "}
-          is the whole thing in one page.
-        </p>
-        {me ? null : (
-          <p className="text-sm opacity-60">
-            Played before and attached an email?{" "}
-            <Link href="/signin" className="underline">
-              Sign in
-            </Link>{" "}
-            to get back to those games. Otherwise just start a room: an account comes with
-            it.
-          </p>
-        )}
+
+        <div className="border-gray/30 bg-offwhite w-full rounded-2xl border p-6 shadow-md sm:p-8">
+          <RoomEntry />
+        </div>
+
+        <HomeLinks signedIn={me !== null} />
       </main>
       {dev ? <HotseatBar me={me} /> : null}
     </>

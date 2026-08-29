@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Notice } from "@/components/auth/notice";
 import { Wordmark } from "@/components/brand/art";
 import { getPlayer } from "@/lib/db/players";
 import { currentPlayerId } from "@/lib/supabase/session";
@@ -56,18 +57,14 @@ export default async function SignInPage({
           </p>
         </header>
 
-        {failed ? (
-          <p className="font-secondary text-p-sm rounded-md border border-red-600/40 p-3 text-red-600">
-            {failed}
-          </p>
-        ) : null}
+        <Notice tone="error">{failed}</Notice>
 
         {player ? (
-          <p className="font-secondary text-p-sm text-gray">
+          <Notice>
             {guest
               ? `You are already playing as ${player.display_name ?? "a player with no name yet"}, on an account with no email. Signing in here puts this browser into the other account and leaves that one behind for good, so if you are mid-game, finish first.`
               : `You are already signed in as ${player.display_name ?? "a player with no name yet"}.`}
-          </p>
+          </Notice>
         ) : null}
 
         <SignInForm />
