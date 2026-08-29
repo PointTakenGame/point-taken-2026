@@ -53,7 +53,9 @@ function buildStack(root: BoardTile): StackTile[] {
 export function CollapsedThread({ root }: { root: BoardTile }) {
   const [spread, setSpread] = useState(false);
   const stack = buildStack(root);
-  const spacing = spread ? 3.5 : 1.5;
+  // Ratios carried from the retired client's own 8rem / 19rem fan spacing on
+  // a 17rem tile: resting tiles mostly stacked, hover nearly separates them.
+  const spacing = spread ? 10 : 4;
 
   return (
     <div

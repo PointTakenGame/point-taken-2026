@@ -28,22 +28,16 @@ const SIDE_TEXT: Record<TileSide, string> = {
   neutral: "text-neutral-black",
 };
 
+const SIDE_RING: Record<TileSide, string> = {
+  plus: "ring-green",
+  minus: "ring-orange",
+  neutral: "ring-neutral-black",
+};
+
 /**
- * A small plus or minus, drawn with two strokes rather than harvested art.
- * The retired client's `plus.svg` / `minus.svg` live under `~/assets/icons/`
- * in that repo; there is no `public/icons/` folder here yet, and one glyph
- * this simple is not worth opening new asset-pipeline surface area for,
- * especially while a background agent is mid-flight touching unrelated
- * files in this same working tree. See the final report for the full note.
- *
- * `active` distinguishes the retired stance picker's not-selected (grey) and
- * selected/hovered (side colour) icon states; every other caller draws an
- * already-committed side and wants colour, so it defaults to true. The
- * retired minus artwork also mirrored horizontally on that same transition,
- * carried here as a literal transform. With this glyph's plain horizontal
- * stroke that mirror has no visible effect (a horizontal line mirrored
- * horizontally is unchanged), but the behaviour is wired correctly for
- * whenever the glyph gains asymmetric detail.
+ * The retired client's harvested `plus.svg` / `minus.svg` art, now copied
+ * into `public/icons/`. `active` picks the committed-side drawing over the
+ * grey not-selected one, matching the retired stance picker's two states.
  */
 export function SideGlyph({
   side,
@@ -54,40 +48,16 @@ export function SideGlyph({
   className?: string;
   active?: boolean;
 }) {
-  const stroke = active
+  const src = active
     ? side === "plus"
-      ? "var(--color-green)"
-      : "var(--color-orange)"
-    : "var(--color-gray)";
-  const mirror = active && side === "minus";
+      ? "/icons/plus.svg"
+      : "/icons/minus.svg"
+    : side === "plus"
+      ? "/icons/plus-notselected.svg"
+      : "/icons/minus-notselected.svg";
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      style={mirror ? { transform: "scaleX(-1)" } : undefined}
-      aria-hidden="true"
-    >
-      <line
-        x1="4"
-        y1="12"
-        x2="20"
-        y2="12"
-        stroke={stroke}
-        strokeWidth={3}
-        strokeLinecap="round"
-      />
-      {side === "plus" && (
-        <line
-          x1="12"
-          y1="4"
-          x2="12"
-          y2="20"
-          stroke={stroke}
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
-      )}
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element -- non-square art, sized by caller className
+    <img src={src} alt="" aria-hidden="true" className={`object-contain ${className ?? ""}`} />
   );
 }
 
@@ -96,6 +66,7 @@ export function TileShape({
   size = 13,
   watermark,
   dimmed = false,
+  selected = false,
   className,
   style,
   children,
@@ -107,6 +78,8 @@ export function TileShape({
   watermark?: string;
   /** Resolution-thread dimming (retired `resolvingThreadRoot`): fades everything but the thread being resolved. No engine state drives this yet; wired for the day one exists. */
   dimmed?: boolean;
+  /** Retired client's selected/active tile highlight: a stronger, side-coloured ring. */
+  selected?: boolean;
   className?: string;
   /** Extra inline style, merged after the size. Lets callers (e.g. the collapsed-thread fan) position instances absolutely without a bespoke size prop. */
   style?: CSSProperties;
@@ -125,9 +98,11 @@ export function TileShape({
   const innerEdge = outerEdge - 0.75;
   const innerInset = (size - innerEdge) / 2;
 
+  const sideIcon = side === "plus" ? "/icons/plus.svg" : "/icons/minus.svg";
+
   return (
     <div
-      className={`shrink-0 ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
+      className={`group shrink-0 ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
       style={{
         position: "relative",
         width: `${size}rem`,
@@ -136,7 +111,7 @@ export function TileShape({
       }}
     >
       <div
-        className={`absolute rotate-45 border bg-offwhite ${SIDE_BORDER[side]}`}
+        className={`absolute rotate-45 border bg-offwhite shadow-sm transition-shadow duration-150 group-hover:shadow-md ${SIDE_BORDER[side]} ${selected ? `ring-2 ring-offset-2 ${SIDE_RING[side]}` : ""}`}
         style={{ inset: `${outerInset}rem` }}
         aria-hidden="true"
       />
@@ -146,16 +121,33 @@ export function TileShape({
         aria-hidden="true"
       />
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-6 text-center">
+        {side !== "neutral" && (
+          // eslint-disable-next-line @next/next/no-img-element -- decorative watermark, no intrinsic size needed
+          <img
+            src={sideIcon}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-0 m-auto size-24 object-contain opacity-8"
+          />
+        )}
         {watermark && (
           <span
-            className={`font-primary pointer-events-none absolute top-3 text-xs tracking-wide uppercase ${SIDE_TEXT[side]} opacity-40`}
+            className={`font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide uppercase ${SIDE_TEXT[side]} opacity-40`}
           >
             {watermark}
           </span>
         )}
-        <div className="font-tiles text-p-md text-neutral-black flex max-h-full flex-col items-center gap-1 overflow-y-auto">
+        <div className="font-tiles text-p-md text-neutral-black relative z-10 flex max-h-full flex-col items-center gap-1 overflow-y-auto">
           {children}
         </div>
+        {side !== "neutral" && (
+          <div className="pointer-events-none absolute bottom-2 z-10 flex gap-4" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              // eslint-disable-next-line @next/next/no-img-element -- decorative row, no intrinsic size needed
+              <img key={i} src={sideIcon} alt="" className="size-5 object-contain" />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
