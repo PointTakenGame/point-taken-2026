@@ -49,7 +49,9 @@ export function PlayerAgreement({
           </span>
           <Glyph name={GLYPH_FOR[line.id] ?? "monacle"} size={32} className="flex-none" />
           <span className="flex flex-col gap-0.5">
-            <h3 className="font-secondary text-p-sm text-neutral-black font-bold">{line.family}</h3>
+            <h3 className="font-secondary text-p-sm text-neutral-black font-bold">
+              {line.family}
+            </h3>
             <p className="font-secondary text-p-sm text-gray">{line.text}</p>
           </span>
         </div>

@@ -17,7 +17,11 @@ export function RoomCodeDisplay({ code, copied, onCopy }: RoomCodeDisplayProps) 
       <span>
         Room <span className="text-neutral-black font-mono font-semibold">{code}</span>
       </span>
-      <button type="button" onClick={onCopy} className="text-gold underline underline-offset-2">
+      <button
+        type="button"
+        onClick={onCopy}
+        className="text-gold underline underline-offset-2"
+      >
         {copied ? "link copied" : "copy link"}
       </button>
     </p>
