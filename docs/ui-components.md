@@ -251,13 +251,15 @@ determined either way.
 
 ### Paths-to-winning card (`components/info/paths-to-winning-card.tsx`)
 A persistent, non-transient HUD card: no animation, no timeout, at most one instance. Header text is the
-static string "PATHS TO WINNING." Body is a 2x2 grid of up to four resolved-thread token icons plus an
-"N/4" count, and a diamond indicator reading either "Revised" or "Not yet" for the topic-revision state.
-Two buttons, "Revise" and "Instructions"; their behavior is owned by whichever parent mounts the card, not
-by the card itself. Historically this floated fixed in a page corner (superseded by
-`ways-to-win-card.tsx`); the current rebuild docks it in normal document flow instead, matching where it
-is actually used today (a demo page sidebar), per the spec's own note that the two placements differ
-materially and the floating one was not requested back.
+static string "PATHS TO WINNING". Body is a `grid-cols-2` of all five tokens in
+`ALL_RESOLUTION_TOKENS` (`[...RESOLUTION_TOKENS, ...DEFERRED_RESOLUTION_TOKENS]`, so 👍 👀 🔍 ⚖️ 🍷,
+three of which are not placeable — this is contradiction 5 in `rules.md` section 13), a dynamic
+`{resolvedCount}/{threads.length}` count, and a diamond indicator reading either "Revised" or "Not yet"
+for the topic-revision state. One button, "Revise"; its behavior is owned by whichever parent mounts the
+card, not by the card itself. The card docks in normal document flow rather than floating fixed in a page
+corner, per the spec's note that the two placements differ materially and the floating one was not
+requested back. **Nothing mounts it.** Its only importer is
+`components/info/paths-to-winning-card.test.tsx`; see sections 3 and 9.
 
 ### Turn timers
 `GAP:` The task's brief states 30 seconds for the speaker and 45 seconds to summarize as an established,
@@ -351,15 +353,21 @@ questions should be answered once these files run out.
 
 From `docs/reference/materials/design-briefs/2026-08-19_rannie-figma-delta.md` (BRAIN-T260817-02)
 `[ruled]`, drawn-but-cut systems: an eight-rung level ladder with different names than the shipped
-five-level model; a public "Cooperation Score" and percentile rank; a per-match "Win/Loss" versus score
+four-level ladder that actually ships (`app/gym/page.tsx:5,12`, `LEVELS` renders four); a public
+"Cooperation Score" and percentile rank; a per-match "Win/Loss" versus score
 (the actual model is one shared team score); an events calendar with signups; a "Season 3" / version
 footer; a boss-count badge pending a roster decision. Stale naming: "Dojo" (now "Gym," BRAIN-T260816-18);
 rule cards named for the fallacy rather than the good move; 11 cards across levels 2-8 in Figma versus 8
-card tracks across levels 1-5 in the decided model. Fields Figma shows that the app does not store this
-way: city/location (no privacy decision has been made to collect it); email/password as a custom form
+card tracks in the decided model. `GAP:` across which levels do those 8 tracks run? Neither the four
+levels the Gym ships nor the eight-rung ladder `roadmap.md` section 5 designs on paper divides into 8
+tracks cleanly. Only the Figma delta brief can settle the range.
+
+Fields Figma shows that the app does not store this way: city/location (no privacy decision has been made to collect it); email/password as a custom form
 (should be a provider link-out); badges as a fraction (badges are re-earnable, so they need an occurrence
-count, not a fraction). Two items stored but never drawn: `current`/`longest` streak, and emoji
-resolutions broken out by type (fact/priorities/taste). Two unresolved conflicts: the signing ritual has
+count, not a fraction). Two items stored but not drawn in Figma: `current`/`longest` streak (the app
+does render these, via `StreakCounters` at `app/account/page.tsx:19,392`, while `roadmap.md`
+section 5 defers streaks because the data model does not support them), and emoji resolutions broken
+out by type (fact/priorities/taste). Two unresolved conflicts: the signing ritual has
 four lines in Figma versus three in shipped code (`BIZ-T260819-06` names the same open roster question);
 and Rannie's live-board frame has no hand/throw mechanic for picking up and throwing a rule card at a
 tile, described in the brief as "the single largest new interaction in the whole roadmap."

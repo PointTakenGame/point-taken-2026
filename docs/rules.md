@@ -289,3 +289,4 @@ Neither decided nor built, and therefore listed as a GAP above: turn order, time
 9. The guide implied an `overgeneralization` word list already shipped. It never did; `lib/board/language.ts` was written from scratch [ruled BRAIN-T260823-42].
 10. Registry row BRAIN-T260815-09 says No Exaggeration is level 4. It is level 3 and the row is wrong; the Gym guide is newer and wins.
 11. `2026-08-04_level-build-table.md` is superseded for levels 1 to 4, including its tile-count row and its mislabelling of Sloppy Salma as level 3 [ruled guide §9].
+12. The join code is 5 characters (`JOIN_CODE_LENGTH = 5`, `lib/games/joinCode.ts:17`, from a 32-character ambiguity-free alphabet), but `app/not-found.tsx` tells the player it is six, twice, at `:7` and `:41`. Shipped copy contradicts shipped behaviour: a player who counts the characters someone read aloud to them is told the wrong number. The code is correct and the copy is the bug [unratified].

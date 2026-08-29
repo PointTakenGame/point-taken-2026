@@ -186,6 +186,18 @@ SQL this pass). UPDATE and DELETE are blocked by trigger: `[ruled]`, Steve
 separate deletion event" (the deletion event is `content_redacted`, an
 ordinary append that marks another row's payload gone, not a row removal).
 
+`0003_service_role_read.sql` grants `service_role` SELECT on `game_events` and
+restates the same grant on `game_event_types`. `0001` turned RLS on with no
+policies and revoked everything from `anon` and `authenticated`, and never
+granted anything back to `service_role` because nothing read the table yet;
+writes kept working because `append_game_event`/`append_game_events` are
+SECURITY DEFINER, so the missing grant stayed invisible until the first reader
+hit `42501` on a select. **SELECT only, deliberately.** A direct INSERT grant
+would let a caller write a row without the append functions, and the `seq`
+those functions assign under the per-game advisory lock is the entire ordering
+guarantee: one write path. UPDATE and DELETE stay off for the same reason
+`0001` blocks them. `anon` and `authenticated` remain ungranted with no policy.
+
 **`public.games`** and **`public.game_players`** are read models, maintained
 purely by a trigger off `game_events` (`0004_identity_and_games.sql`).
 Nothing in the application writes them directly except one exception: game
@@ -486,7 +498,9 @@ cannot conclude the function is open.
   specifically for validated gym runs, so gym mode is not entirely absent
   from the code; what the repo's own docs say is unbuilt is the scripted
   opponent and level content that would make it playable end to end.
-- **A five-value 👀 split (fact/priorities/taste)** referenced in
+- **The three-way 👀 split (fact/priorities/taste)** — the deferred 🔍 ⚖️ 🍷
+  tokens of `DEFERRED_RESOLUTION_TOKENS`, which take the five-token vocabulary
+  to its full size — referenced in
   `lib/board/rules.ts`'s comments as Steve's 2026-07-09 intent, gated behind
   the same not-yet-built progression system.
 

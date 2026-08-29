@@ -305,15 +305,17 @@ Verified against the clone. Do not assume any of this exists because a source sa
 - **No `THROW_POINTS`, no `fastForward`, no per-level rules object.** The board wants a per-level rules
   object, not a scatter of per-level flags `[ruled]`.
 - **No rungs.** `app/game/[gameId]/actions.ts:197` `[unratified]`.
-- **No turn timers anywhere.** The only timers in the code are a 60ms feed debounce and toast
-  auto-dismiss `[unratified]`, and `app/how-to-play/page.tsx:110` says the win condition is reached
+- **No turn timers anywhere.** Every timer in the code is a UI-presentation delay, not a clock a
+  player races: a 60ms feed debounce, toast auto-dismiss and its 180ms exit
+  (`components/ui/alert-store.ts:32,82`), an 1800ms success-close on the feedback popover
+  (`components/feedback/feedback-popover.tsx:36,62`), an 800ms onboarding-video loop delay
+  (`components/onboarding-video.tsx:19,29-33`), and a 2000ms settle in `lib/feedback/submit.ts:47-51`
+  `[unratified]`. `app/how-to-play/page.tsx:110` says the win condition is reached
   when someone concedes and not when a timer runs out `[unratified]`. Steve has ruled turn timers of
   30 seconds for the speaker and 45 seconds to summarize `[ruled]`, and there is no Gym timer by
   ruling.
   GAP: which surface do the 30-second and 45-second timers govern? They are not in the code, not in
   the Gym, and no source assigns them to a screen.
-- **No client realtime transport.** State moves through server actions and a router refresh; a
-  realtime migration exists for the events table but no client socket layer is proven wired.
 - **No levels 5 to 8.** Designed on paper and provisional; see section 5.
 - **No third human.** The referee is the AI `[ruled]`; do not build a moderator seat.
 - **No tokens** in Brain for now `[ruled]`. Generosity tokens are deferred.
@@ -321,8 +323,13 @@ Verified against the clone. Do not assume any of this exists because a source sa
   and test against placeholder environment values with no deploy step `[unratified]`.
 
 Already built, so do not file as missing: the event log and its type catalogue, the board projection,
-the four card ids, the three signing-line ids, the topic list, the rule-card display popup, and the
-Steel Man reading, Steel Man tile, and definition action paths.
+the four card ids, the three signing-line ids, the topic list, the rule-card display popup, the
+Steel Man reading, Steel Man tile, and definition action paths, and the client realtime transport.
+That last one is live: `components/board/use-game-feed.ts:44-56` opens a Supabase Realtime channel
+on `postgres_changes` INSERT against `game_events`, filtered to the game, and is consumed by
+`components/board/live-board.tsx:58,1677` and `components/board/game-setup.tsx:18,122`. Writes still
+go through server actions, and the subscription triggers a refetch rather than carrying state
+`[unratified]`. `tech-spec.md` section 3 is the normative account.
 
 ---
 

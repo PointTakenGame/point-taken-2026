@@ -510,8 +510,12 @@ for all three so nobody can probe which game ids are real. `metadata.title`, "No
 here - Point Taken" (`:24`, note this string's own hyphen, not an em dash). H1 "That
 page is not here" (`:31`); body "Nothing is broken. This address does not open
 anything for you right now." (`:33`). "The usual reasons" list (`:38-53`): a room
-code typed into the wrong field, since the six-character code goes to `/join/` and
-not `/game/`; "The game finished and the room closed."; a link to a game the visitor
+code typed into the wrong field, since the "six-character" code goes to `/join/` and
+not `/game/` (**the shipped copy is wrong: `JOIN_CODE_LENGTH = 5`,
+`lib/games/joinCode.ts:17`, and that file's own comment at `:8` says "Five
+characters from 32". `app/not-found.tsx` says "six" twice, at `:7` and `:41`. See
+`rules.md` section 13**); "The game finished and the room closed."; a link to a game the
+visitor
 was not in, since "a finished game is private to the two people who played it, so it
 opens for them and for nobody else."; "The address is a character off." "Where to go
 instead" list (`:56-78`): "Start a room" (`:61`), "Your games" (`:66`, described as
@@ -540,7 +544,7 @@ To keep this snapshot honest about its own coverage: `components/board/game-setu
 `components/board/resolution-picker.tsx`, `components/feedback/feedback-popover.tsx`,
 `lib/feedback/stage.ts`, `lib/feedback/config.ts`, `lib/feedback/submit.ts`, and
 `app/join/actions.ts` / `app/join/[code]/page.tsx` were identified as in-scope surfaces
-but not read (or not re-verified) in this pass. None of the four
-`[vibecoded]`/`GAP:` markers above depend on them; they are named here so a future
-regeneration knows where coverage is thin rather than assuming this document is
+but not read (or not re-verified) in this pass. Neither of the two `GAP:` markers
+above depends on them, and this document carries no `[vibecoded]` values; they are named here so a
+future regeneration knows where coverage is thin rather than assuming this document is
 exhaustive.

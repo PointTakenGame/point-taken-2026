@@ -81,7 +81,9 @@ otherwise is wrong. [ruled]
 - **A solo learner in the Gym**, practicing before ever facing a person.
 
 GAP: which of these audiences is the first public release optimized for? Marketing
-material names several in parallel, the code favors none. Nobody is conscripted. The game is strictly opt-in and never asks a
+material names several in parallel, the code favors none.
+
+Nobody is conscripted. The game is strictly opt-in and never asks a
 vulnerable person to defend their own existence to a hostile stranger. A player who
 wants to demonize rather than reason is outside the frame, and the correct product
 response is exit, not accommodation. [ruled]
