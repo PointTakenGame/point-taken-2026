@@ -215,7 +215,7 @@ same `Verdict`. Grouped by the function that returns them:
 - `canProposeRelocation`: "A reason cannot hang from itself." (`:277`); "That
   destination is not on the board." (`:281`); "That would put a reason underneath its
   own reply." (`:283`); "A reason with no parent starts its own thread." (`:286`).
-- `readingText(text, noun)` (`:313-323`), a shared helper behind reading-handback and
+- `readingText(text, noun)` (`:317-324`), a shared helper behind reading-handback and
   definition proposals: "${noun} needs some words in it." and "${noun} is at most
   ${READING_MAX_CHARS} characters.", with `noun` supplied per call site (e.g. "A
   reading", "A definition").
@@ -225,19 +225,19 @@ same `Verdict`. Grouped by the function that returns them:
 - card-throw function: "That card is not in play in this game." (`:446`); "That reason
   is not on this board." (`:449`, same string as `canPlaceTile`); "That reason was
   taken off the board." (`:450`); "Cards go to the other side's reasons, not your own."
-  (`:452`); "That thread is already resolved." (`:456`, same string as above); "You
+  (`:452`); "That thread is already resolved." (`:457`, same string as above); "You
   already played that card on this reason." (`:467`).
 - card-decline function: "That card play is not on this board." (`:489`); "You already
   answered that card by rewriting the reason." (`:491`); "You already turned that card
   down." (`:493`); "That reason is not on this board." (`:496`); "Only the person who
   wrote the reason can turn a card down." (`:498`); "A note is at most
   ${DECLINE_REASON_MAX_CHARS} characters." (`:502`).
-- card-rewrite function: "That reason is not on this board." (`:526`); "That reason
-  was taken off the board." (`:527`); "Only the person who wrote the reason can
+- card-rewrite function: "That reason is not on this board." (`:525`); "That reason
+  was taken off the board." (`:526`); "Only the person who wrote the reason can
   rewrite it." (`:528`); "That card play is not on this board." (`:532`); "That card
   was played on another reason." (`:534`); "That card has already been answered."
-  (`:535`); "A reason needs some words in it." (`:539`, same string as `canPlaceTile`);
-  "A reason is at most ${TILE_MAX_CHARS} characters." (`:541`); "That is the same
+  (`:535`); "A reason needs some words in it." (`:538`, same string as `canPlaceTile`);
+  "A reason is at most ${TILE_MAX_CHARS} characters." (`:540`); "That is the same
   words you had before." (`:542`).
 
 Several strings repeat verbatim across functions on purpose ("That reason is not on
@@ -510,8 +510,12 @@ for all three so nobody can probe which game ids are real. `metadata.title`, "No
 here - Point Taken" (`:24`, note this string's own hyphen, not an em dash). H1 "That
 page is not here" (`:31`); body "Nothing is broken. This address does not open
 anything for you right now." (`:33`). "The usual reasons" list (`:38-53`): a room
-code typed into the wrong field, since the six-character code goes to `/join/` and
-not `/game/`; "The game finished and the room closed."; a link to a game the visitor
+code typed into the wrong field, since the "six-character" code goes to `/join/` and
+not `/game/` (**the shipped copy is wrong: `JOIN_CODE_LENGTH = 5`,
+`lib/games/joinCode.ts:17`, and that file's own comment at `:8` says "Five
+characters from 32". `app/not-found.tsx` says "six" twice, at `:7` and `:41`. See
+`rules.md` section 13**); "The game finished and the room closed."; a link to a game the
+visitor
 was not in, since "a finished game is private to the two people who played it, so it
 opens for them and for nobody else."; "The address is a character off." "Where to go
 instead" list (`:56-78`): "Start a room" (`:61`), "Your games" (`:66`, described as
@@ -540,7 +544,7 @@ To keep this snapshot honest about its own coverage: `components/board/game-setu
 `components/board/resolution-picker.tsx`, `components/feedback/feedback-popover.tsx`,
 `lib/feedback/stage.ts`, `lib/feedback/config.ts`, `lib/feedback/submit.ts`, and
 `app/join/actions.ts` / `app/join/[code]/page.tsx` were identified as in-scope surfaces
-but not read (or not re-verified) in this pass. None of the four
-`[vibecoded]`/`GAP:` markers above depend on them; they are named here so a future
-regeneration knows where coverage is thin rather than assuming this document is
+but not read (or not re-verified) in this pass. Neither of the two `GAP:` markers
+above depends on them, and this document carries no `[vibecoded]` values; they are named here so a
+future regeneration knows where coverage is thin rather than assuming this document is
 exhaustive.
