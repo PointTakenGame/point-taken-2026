@@ -57,7 +57,12 @@ export function SideGlyph({
       : "/icons/minus-notselected.svg";
   return (
     // eslint-disable-next-line @next/next/no-img-element -- non-square art, sized by caller className
-    <img src={src} alt="" aria-hidden="true" className={`object-contain ${className ?? ""}`} />
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      className={`object-contain ${className ?? ""}`}
+    />
   );
 }
 
@@ -141,7 +146,10 @@ export function TileShape({
           {children}
         </div>
         {side !== "neutral" && (
-          <div className="pointer-events-none absolute bottom-2 z-10 flex gap-4" aria-hidden="true">
+          <div
+            className="pointer-events-none absolute bottom-2 z-10 flex gap-4"
+            aria-hidden="true"
+          >
             {[0, 1, 2].map((i) => (
               // eslint-disable-next-line @next/next/no-img-element -- decorative row, no intrinsic size needed
               <img key={i} src={sideIcon} alt="" className="size-5 object-contain" />

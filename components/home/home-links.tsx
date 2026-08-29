@@ -7,7 +7,10 @@ export function HomeLinks({ signedIn }: { signedIn: boolean }) {
     <footer className="flex flex-col items-center gap-2 text-center text-p-sm text-gray">
       <p>
         Never played?{" "}
-        <Link href="/how-to-play" className="underline decoration-gold underline-offset-2">
+        <Link
+          href="/how-to-play"
+          className="underline decoration-gold underline-offset-2"
+        >
           How to play
         </Link>{" "}
         is the whole thing in one page.

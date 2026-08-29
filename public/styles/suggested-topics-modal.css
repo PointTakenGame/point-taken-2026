@@ -1,16 +1,16 @@
 .heading-suggested-topics {
-  font-family: 'Anton', sans-serif !important;
+  font-family: "Anton", sans-serif !important;
   font-style: normal !important;
   font-weight: 400 !important;
   font-size: 20px !important;
   line-height: 24px !important;
-  color: #4D4C4A !important;
+  color: #4d4c4a !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
 .subheading-instruction {
-  font-family: 'Anton', sans-serif !important;
+  font-family: "Anton", sans-serif !important;
   font-style: normal !important;
   font-weight: 400 !important;
   font-size: 10px !important;
@@ -23,41 +23,41 @@
 }
 
 .section-heading {
-  font-family: 'Anton', sans-serif !important;
+  font-family: "Anton", sans-serif !important;
   font-style: normal !important;
   font-weight: 400 !important;
   font-size: 14px !important;
   line-height: 21px !important;
   text-align: center !important;
   text-transform: uppercase !important;
-  color: #EFAE45 !important;
+  color: #efae45 !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
 .topic-text {
-  font-family: 'Noto Sans', sans-serif !important;
+  font-family: "Noto Sans", sans-serif !important;
   font-style: normal !important;
   font-weight: 700 !important;
   font-size: 12px !important;
   line-height: 16px !important;
-  color: #4D4C4A !important;
+  color: #4d4c4a !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
 .topic-number {
-  font-family: 'Noto Sans', sans-serif !important;
+  font-family: "Noto Sans", sans-serif !important;
   font-style: normal !important;
   font-weight: 700 !important;
   font-size: 12px !important;
   line-height: 16px !important;
-  color: #4D4C4A !important;
+  color: #4d4c4a !important;
   margin-right: 4px !important;
 }
 
 .tag-text {
-  font-family: 'Noto Sans', sans-serif !important;
+  font-family: "Noto Sans", sans-serif !important;
   font-style: italic !important;
   font-weight: 400 !important;
   font-size: 11.74px !important;
@@ -68,7 +68,7 @@
 }
 
 .tip-text {
-  font-family: 'Noto Sans', sans-serif !important;
+  font-family: "Noto Sans", sans-serif !important;
   font-style: italic !important;
   font-weight: 400 !important;
   font-size: 8px !important;
@@ -79,13 +79,13 @@
 }
 
 .footer-heading {
-  font-family: 'Anton', sans-serif !important;
+  font-family: "Anton", sans-serif !important;
   font-style: normal !important;
   font-weight: 400 !important;
   font-size: 10px !important;
   line-height: 15px !important;
   text-align: center !important;
-  color: #4D4C4A !important;
+  color: #4d4c4a !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -99,13 +99,12 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 10px;
   border: 2px solid transparent;
 }
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #FFFFFF transparent;
+  scrollbar-color: #ffffff transparent;
 }
-

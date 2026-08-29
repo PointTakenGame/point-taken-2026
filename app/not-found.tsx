@@ -38,8 +38,8 @@ export default function NotFound() {
         <h2 className="font-semibold">The usual reasons</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm opacity-80">
           <li>
-            A room code went in the wrong place. The five characters someone reads aloud go
-            to <span className="font-mono">/join/</span> and the code, like{" "}
+            A room code went in the wrong place. The five characters someone reads aloud
+            go to <span className="font-mono">/join/</span> and the code, like{" "}
             <span className="font-mono">/join/ABC23</span>. The{" "}
             <span className="font-mono">/game/</span> address takes the long id the site
             hands you once you are in.
