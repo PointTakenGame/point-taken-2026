@@ -10,7 +10,7 @@ import { avatarMark } from "@/lib/avatar";
 
 const SIZE = {
   sm: "h-8 w-8 text-xs",
-  lg: "h-14 w-14 text-base",
+  lg: "h-14 w-14 text-p-md",
 } as const;
 
 export function Avatar({

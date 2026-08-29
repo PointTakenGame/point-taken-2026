@@ -119,7 +119,7 @@ function allTargets(board: BoardState): BoardTile[] {
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="text-sm text-orange">{error}</p>;
+  return <p className="text-p-sm text-orange">{error}</p>;
 }
 
 /**
@@ -139,7 +139,7 @@ function ErrorLine({ error }: { error: string | null }) {
  */
 function WhyNot({ verdict }: { verdict: Verdict | null }) {
   if (!verdict || verdict.ok) return null;
-  return <p className="text-xs opacity-70">{verdict.error}</p>;
+  return <p className="text-xs text-gray">{verdict.error}</p>;
 }
 
 /**
@@ -152,7 +152,7 @@ function WhyNot({ verdict }: { verdict: Verdict | null }) {
  */
 function WhyNotAll({
   verdicts,
-  className = "text-xs opacity-70",
+  className = "text-xs text-gray",
 }: {
   verdicts: readonly (Verdict | null)[];
   className?: string;
@@ -227,7 +227,7 @@ function CardHand({
       <div className="ml-6">
         <button
           type="button"
-          className="text-xs underline opacity-70"
+          className="text-xs underline text-gray"
           onClick={() => setOpen(true)}
         >
           play a card
@@ -264,7 +264,7 @@ function CardHand({
         })}
         <button
           type="button"
-          className="text-xs underline opacity-70"
+          className="text-xs underline text-gray"
           disabled={pending}
           onClick={() => setOpen(false)}
         >
@@ -393,7 +393,7 @@ function StandingThrow({
       {answerable && mode === "revise" && (
         <div className="flex flex-col gap-1">
           <textarea
-            className="w-full border border-current/30 p-1 text-sm"
+            className="w-full border border-current/30 p-1 text-p-sm"
             value={draft}
             maxLength={TILE_MAX_CHARS}
             disabled={pending}
@@ -415,7 +415,7 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline opacity-70"
+              className="text-xs underline text-gray"
               disabled={pending}
               onClick={() => setMode("idle")}
             >
@@ -428,7 +428,7 @@ function StandingThrow({
       {answerable && mode === "decline" && (
         <div className="flex flex-col gap-1">
           <input
-            className="w-full border border-current/30 p-1 text-sm"
+            className="w-full border border-current/30 p-1 text-p-sm"
             placeholder="why it does not fit (optional)"
             value={reason}
             maxLength={DECLINE_REASON_MAX_CHARS}
@@ -448,7 +448,7 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline opacity-70"
+              className="text-xs underline text-gray"
               disabled={pending}
               onClick={() => setMode("idle")}
             >
@@ -546,7 +546,7 @@ function MoveForm({
       <label className="flex flex-col gap-1 text-xs">
         Move it under
         <select
-          className="border border-current/30 p-1 text-sm"
+          className="border border-current/30 p-1 text-p-sm"
           value={target}
           disabled={pending}
           onChange={(event) => setTarget(event.target.value)}
@@ -709,7 +709,7 @@ function TileNode({
                   <>
                     <button
                       type="button"
-                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      className="text-p-sm underline text-gray disabled:opacity-30"
                       disabled={pending || !editBlocked.ok}
                       title={!editBlocked.ok ? editBlocked.error : undefined}
                       onClick={() => setEditing(true)}
@@ -718,7 +718,7 @@ function TileNode({
                     </button>
                     <button
                       type="button"
-                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      className="text-p-sm underline text-gray disabled:opacity-30"
                       disabled={pending || !removeVerdict.ok}
                       title={!removeVerdict.ok ? removeVerdict.error : undefined}
                       onClick={runRemove}
@@ -730,7 +730,7 @@ function TileNode({
                 {/* Anyone may ask to move any reason: the other side answers. */}
                 <button
                   type="button"
-                  className="text-p-sm underline opacity-70 disabled:opacity-30"
+                  className="text-p-sm underline text-gray disabled:opacity-30"
                   disabled={pending || moving || !moveVerdict.ok}
                   title={!moveVerdict.ok ? moveVerdict.error : undefined}
                   onClick={() => setMoving(true)}
@@ -850,7 +850,7 @@ function ResolutionRow({
   const disabledTokens = RESOLUTION_TOKENS.filter((_, index) => !tokenVerdicts[index].ok);
 
   return (
-    <div className="flex flex-col items-center gap-2 text-sm">
+    <div className="flex flex-col items-center gap-2 text-p-sm">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Placed who="You" token={myToken} />
         <Placed who="Them" token={otherToken} />
@@ -983,7 +983,7 @@ function ProposalRow({
   };
 
   return (
-    <li className="flex flex-col gap-1 border border-current/15 p-2 text-sm">
+    <li className="flex flex-col gap-1 border border-current/15 p-2 text-p-sm">
       <span className="opacity-60">{proposalKindLabel(proposal.kind)}</span>
       <span>{proposalSummary(proposal, board)}</span>
       {awaitingMe ? (
@@ -1056,7 +1056,7 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
 
   return (
     <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-p-sm">
         Reply to
         <select
           className="border border-current/30 p-1"
@@ -1102,7 +1102,7 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
         </div>
       )}
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={TILE_MAX_CHARS}
         disabled={pending}
@@ -1115,7 +1115,7 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1154,10 +1154,10 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
 
   return (
     <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-p-sm">
         Propose a revised topic
         <textarea
-          className="w-full border border-current/30 p-1 text-sm"
+          className="w-full border border-current/30 p-1 text-p-sm"
           value={text}
           maxLength={300}
           disabled={pending}
@@ -1168,7 +1168,7 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1207,7 +1207,7 @@ function Move({
   return (
     <div className="flex flex-col gap-2 border border-current/20 p-3">
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-p-sm font-semibold">{title}</h3>
         <p className="text-xs opacity-60">{hint}</p>
       </div>
       {children}
@@ -1255,7 +1255,7 @@ function ReadingHandbackForm({
 
   if (theirs.length === 0) {
     return (
-      <p className="text-sm opacity-50">
+      <p className="text-p-sm opacity-50">
         Once they have placed a reason, you can try saying it back to them.
       </p>
     );
@@ -1263,10 +1263,10 @@ function ReadingHandbackForm({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1 text-p-sm">
         Which reason
         <select
-          className="border border-current/30 p-1 text-sm"
+          className="border border-current/30 p-1 text-p-sm"
           value={tileId}
           disabled={pending}
           onChange={(event) => setTileId(event.target.value)}
@@ -1280,7 +1280,7 @@ function ReadingHandbackForm({
         </select>
       </label>
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1290,7 +1290,7 @@ function ReadingHandbackForm({
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1325,7 +1325,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1335,7 +1335,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1382,7 +1382,7 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={TILE_MAX_CHARS}
         disabled={pending}
@@ -1392,7 +1392,7 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
       <label className="flex flex-col gap-1 text-xs">
         Hang it under
         <select
-          className="border border-current/30 p-1 text-sm"
+          className="border border-current/30 p-1 text-p-sm"
           value={parent}
           disabled={pending}
           onChange={(event) => setParent(event.target.value)}
@@ -1408,7 +1408,7 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1448,7 +1448,7 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
   return (
     <div className="flex flex-col gap-2">
       <input
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={term}
         maxLength={DEFINITION_TERM_MAX_CHARS}
         disabled={pending}
@@ -1456,7 +1456,7 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
         onChange={(event) => setTerm(event.target.value)}
       />
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1466,7 +1466,7 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1494,7 +1494,7 @@ function GenerosityButton({ gameId }: { gameId: string }) {
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending}
         onClick={give}
       >
@@ -1530,13 +1530,13 @@ function LeaveButton({ gameId }: { gameId: string }) {
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
         disabled={pending}
         onClick={leave}
       >
         {sure ? "Yes, end it for both of us" : "Leave this game"}
       </button>
-      <p className="text-sm opacity-60">
+      <p className="text-p-sm opacity-60">
         The map stays in your history either way, marked unfinished.
       </p>
       <ErrorLine error={error} />
@@ -1644,10 +1644,10 @@ function HowThisEnds({ board }: { board: BoardState }) {
 
   return (
     <section className="flex flex-col gap-2 border border-current/15 p-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+      <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
         How this game ends
       </h2>
-      <p className="text-sm">
+      <p className="text-p-sm">
         {threads.length === 0
           ? "No threads yet."
           : `${resolved} of ${threads.length} ${
@@ -1655,9 +1655,9 @@ function HowThisEnds({ board }: { board: BoardState }) {
             } resolved.`}
         {threadRoute ? ` ${threadRoute}` : null}
       </p>
-      {ceiling ? <p className="text-sm opacity-70">{ceiling}</p> : null}
+      {ceiling ? <p className="text-p-sm text-gray">{ceiling}</p> : null}
       {topicAgreementEndsGame(board) ? (
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           The other way out is agreeing on a rewritten topic, at the bottom of this page.
           Either ending is a win, and it is the same win for both of you.
         </p>
@@ -1720,7 +1720,7 @@ export function LiveBoard({
             title="Instructions"
             aria-label="Instructions"
             onClick={() => setOnboardingOpen(true)}
-            className="btn-icon h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-base font-bold text-neutral-black shadow-md"
+            className="btn-icon h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-p-md font-bold text-neutral-black shadow-md"
           >
             ?
           </button>
@@ -1748,10 +1748,10 @@ export function LiveBoard({
       />
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Players
         </h2>
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col gap-1 text-p-sm">
           {board.players.map((player) => (
             <li key={player.id}>
               {player.displayName ?? "Someone"}
@@ -1768,15 +1768,15 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Generosity
         </h2>
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           Thanks, on the record. When the other player takes a challenge well, or rewrites
           a reason to meet you halfway, give them a token. It always goes to them, and it
           counts toward nothing: this game is won together or not at all.
         </p>
-        <p className="text-sm">
+        <p className="text-p-sm">
           {SIDE_LABEL.plus} has been given {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
           has been given {board.generosity.minus}
         </p>
@@ -1784,7 +1784,7 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Place a tile
         </h2>
         <Composer gameId={gameId} board={board} />
@@ -1794,10 +1794,10 @@ export function LiveBoard({
 
       {definitions.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
             Words you have pinned down
           </h2>
-          <dl className="flex flex-col gap-2 text-sm">
+          <dl className="flex flex-col gap-2 text-p-sm">
             {definitions.map((entry) => (
               <div key={entry.proposalId} className="flex flex-col">
                 <dt className="font-semibold">{entry.term}</dt>
@@ -1826,7 +1826,7 @@ export function LiveBoard({
       </div>
 
       {threads.length === 0 ? (
-        <p className="opacity-70">Place the first tile above.</p>
+        <p className="text-gray">Place the first tile above.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {threads.map((thread, index) => (
@@ -1843,11 +1843,11 @@ export function LiveBoard({
       )}
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Proposals waiting on you
         </h2>
         {awaiting.length === 0 ? (
-          <p className="text-sm opacity-50">None right now.</p>
+          <p className="text-p-sm opacity-50">None right now.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {awaiting.map((proposal) => (
@@ -1864,11 +1864,11 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Proposals you asked
         </h2>
         {asked.length === 0 ? (
-          <p className="text-sm opacity-50">None right now.</p>
+          <p className="text-p-sm opacity-50">None right now.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {asked.map((proposal) => (
@@ -1885,10 +1885,10 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Understanding each other
         </h2>
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           Four moves that are not arguments. Each one is a proposal: nothing lands on the
           board until the other player accepts it.
         </p>
@@ -1919,10 +1919,10 @@ export function LiveBoard({
       </section>
 
       <section id={TOPIC_REVISION_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Rewriting the topic
         </h2>
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           One of the two ways this game ends well. If the argument has taught you both
           what the real question was, write that question down: a version of the topic you
           would both sign. The other way out is resolving every thread.
@@ -1931,7 +1931,7 @@ export function LiveBoard({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Leaving
         </h2>
         <LeaveButton gameId={gameId} />

@@ -61,19 +61,19 @@ function Thread({ thread, index }: { thread: BoardThread; index: number }) {
   return (
     <section className="flex break-inside-avoid flex-col gap-3 border-t border-current/15 pt-5">
       <header className="flex items-baseline justify-between gap-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h3 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Thread {index + 1}
         </h3>
         {thread.resolution ? (
-          <p className="flex items-center justify-end gap-1.5 text-right text-sm">
+          <p className="flex items-center justify-end gap-1.5 text-right text-p-sm">
             <TokenGlyph token={thread.resolution.emoji} size={20} />
             <span>{tokenLabel(thread.resolution.emoji)}</span>
             {thread.resolution.note && (
-              <span className="opacity-70">{thread.resolution.note}</span>
+              <span className="text-gray">{thread.resolution.note}</span>
             )}
           </p>
         ) : (
-          <p className="text-sm opacity-50">Unresolved</p>
+          <p className="text-p-sm opacity-50">Unresolved</p>
         )}
       </header>
 
@@ -116,7 +116,7 @@ export function FinishedMap({
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 print:max-w-none print:p-0">
       <header className="flex flex-col gap-2">
-        <p className="text-sm uppercase tracking-wide opacity-60">
+        <p className="text-p-sm uppercase tracking-wide opacity-60">
           {board.mode === "gym" ? "Gym run" : "Point Taken"}
           {endedAt && (
             <>
@@ -129,11 +129,11 @@ export function FinishedMap({
           {board.currentTopicText ?? "No topic was set."}
         </h1>
         {revised && board.topic && (
-          <p className="text-sm opacity-70">
+          <p className="text-p-sm text-gray">
             Started from: {board.topic.redacted ? REDACTED_TEXT : board.topic.text}
           </p>
         )}
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           {board.players
             .map(
               (p) =>
@@ -143,7 +143,7 @@ export function FinishedMap({
         </p>
       </header>
 
-      <p className="text-sm opacity-70">
+      <p className="text-p-sm text-gray">
         {board.status === "ended"
           ? (OUTCOME[board.winCondition ?? ""] ?? "Ended")
           : "Still in play, so this map is not final."}
@@ -155,10 +155,10 @@ export function FinishedMap({
 
       {definitions.length > 0 && (
         <section className="flex break-inside-avoid flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
             Words you pinned down
           </h2>
-          <dl className="flex flex-col gap-2 text-sm">
+          <dl className="flex flex-col gap-2 text-p-sm">
             {definitions.map((entry) => (
               <div key={entry.proposalId} className="flex flex-col">
                 <dt className="font-semibold">{entry.term}</dt>
@@ -170,7 +170,7 @@ export function FinishedMap({
       )}
 
       {threads.length === 0 ? (
-        <p className="opacity-70">Nobody placed a reason, so there is no map to draw.</p>
+        <p className="text-gray">Nobody placed a reason, so there is no map to draw.</p>
       ) : (
         threads.map((thread, index) => (
           <Thread key={thread.rootId} thread={thread} index={index} />

@@ -24,11 +24,11 @@ export function Counter({
       <div className="text-2xl font-semibold tabular-nums">
         {value}
         {unit ? (
-          <span className="ml-1 text-base font-normal opacity-70">{unit}</span>
+          <span className="ml-1 text-p-md font-normal text-gray">{unit}</span>
         ) : null}
       </div>
-      <div className="text-sm opacity-70">{label}</div>
-      {note ? <div className="text-sm opacity-50">{note}</div> : null}
+      <div className="text-p-sm text-gray">{label}</div>
+      {note ? <div className="text-p-sm opacity-50">{note}</div> : null}
     </div>
   );
 }

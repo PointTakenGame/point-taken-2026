@@ -63,11 +63,11 @@ function ReadingCard({
   };
 
   return (
-    <li className="flex flex-col gap-1 rounded border border-current/20 p-3 text-sm">
+    <li className="flex flex-col gap-1 rounded border border-current/20 p-3 text-p-sm">
       <p className="font-semibold">
         {card ? `${card.icon} ${card.name}` : "The coach has a note"}
       </p>
-      {card && <p className="opacity-70">{card.plain}</p>}
+      {card && <p className="text-gray">{card.plain}</p>}
       {tileText && <p className="italic opacity-60">&ldquo;{tileText}&rdquo;</p>}
       {reading.feedback && <p>{reading.feedback}</p>}
       {/* When a dare is on offer the rewrite appears below with a button, so
@@ -179,19 +179,21 @@ export function CoachPanel({
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">Coach</h2>
-      <label className="flex w-fit items-center gap-2 text-sm">
+      <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
+        Coach
+      </h2>
+      <label className="flex w-fit items-center gap-2 text-p-sm">
         <input type="checkbox" checked={on} onChange={toggle} disabled={pending} />
         Let the coach read my reasons
       </label>
-      {error && <p className="text-sm text-orange">{error}</p>}
+      {error && <p className="text-p-sm text-orange">{error}</p>}
       {!on && (
-        <p className="text-sm opacity-50">
+        <p className="text-p-sm opacity-50">
           Off. Nothing you write is sent anywhere while this is unchecked.
         </p>
       )}
       {on && mine.length === 0 && (
-        <p className="text-sm opacity-50">
+        <p className="text-p-sm opacity-50">
           Nothing to say so far. Silence is the usual answer.
         </p>
       )}

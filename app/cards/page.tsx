@@ -45,7 +45,7 @@ export default async function CardsPage() {
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <h1 className="text-2xl font-semibold">Your cards</h1>
-        <p className="opacity-70">
+        <p className="text-gray">
           You are not signed in. Starting a game gives you a name, an account, and the
           same four cards everyone gets.
         </p>
@@ -67,7 +67,7 @@ export default async function CardsPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">Your cards</h1>
-          <p className="opacity-70">
+          <p className="text-gray">
             Everyone holds these four. Throwing one says a reason broke that rule; the
             other player answers it, or rewrites. Your coach reads from the same four, so
             there is never a rule raised at you that you do not already hold.
@@ -75,7 +75,7 @@ export default async function CardsPage() {
         </header>
 
         {decksAgree ? null : (
-          <p className="rounded-md border border-orange/40 p-3 text-sm text-orange">
+          <p className="rounded-md border border-orange/40 p-3 text-p-sm text-orange">
             The coach and the deck have drifted apart. Someone edited one list and not the
             other: see lib/coach/cards.ts and lib/board/setup.ts.
           </p>
@@ -94,7 +94,7 @@ export default async function CardsPage() {
                   </span>
                   {card.name}
                 </h2>
-                <p className="text-sm opacity-70">{card.plain}</p>
+                <p className="text-p-sm text-gray">{card.plain}</p>
               </div>
               <div className="flex gap-8">
                 <Count label="thrown" value={stats.cards_thrown_by_id[card.id] ?? 0} />
@@ -106,7 +106,7 @@ export default async function CardsPage() {
 
         <section className="flex flex-col gap-2 border-t border-current/10 pt-6">
           <h2 className="font-semibold">Cards you turned down</h2>
-          <p className="text-sm opacity-70">
+          <p className="text-p-sm text-gray">
             {stats.card_throws_declined === 0
               ? "None yet. When someone throws a card at one of your reasons you can rewrite the reason, or you can say the card does not fit. Saying it does not fit is a move, and it gets counted here."
               : `${stats.card_throws_declined}. Each one is a card thrown at a reason of yours that you answered by disputing the card rather than by rewriting.`}

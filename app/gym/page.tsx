@@ -88,7 +88,7 @@ export default function GymPage() {
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">Gym</h1>
-          <p className="text-sm opacity-60">
+          <p className="text-p-sm opacity-60">
             Practice mode. Starting a level isn&apos;t wired up yet.
           </p>
         </header>
@@ -114,17 +114,17 @@ export default function GymPage() {
                     Start
                   </button>
                 </div>
-                <p className="text-sm opacity-70">Topic: {level.topic}</p>
+                <p className="text-p-sm text-gray">Topic: {level.topic}</p>
                 {card ? (
-                  <p className="flex items-center gap-2 text-sm opacity-70">
-                    <span aria-hidden className="text-lg leading-none">
+                  <p className="flex items-center gap-2 text-p-sm text-gray">
+                    <span aria-hidden className="text-p-lg leading-none">
                       {card.icon}
                     </span>
                     Teaches {card.name}
                   </p>
                 ) : null}
-                <p className="flex items-center gap-2 text-sm opacity-70">
-                  <span aria-hidden className="text-lg leading-none">
+                <p className="flex items-center gap-2 text-p-sm text-gray">
+                  <span aria-hidden className="text-p-lg leading-none">
                     {level.bossEmoji}
                   </span>
                   Boss: {level.bossName}

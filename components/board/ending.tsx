@@ -57,7 +57,7 @@ export function Ending({ board }: { board: BoardState }) {
         {won && <Glyph name="party" size={28} />}
         {ending.title}
       </h2>
-      <p className="opacity-70">{ending.body}</p>
+      <p className="text-gray">{ending.body}</p>
     </section>
   );
 }

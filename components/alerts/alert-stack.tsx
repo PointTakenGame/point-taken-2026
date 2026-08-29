@@ -65,7 +65,7 @@ export function AlertStack() {
             type="button"
             aria-label="Dismiss"
             onClick={() => removeAlert(alert.id)}
-            className="shrink-0 font-semibold leading-none opacity-70 hover:opacity-100"
+            className="shrink-0 font-semibold leading-none text-gray hover:opacity-100"
           >
             ✕
           </button>

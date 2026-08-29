@@ -100,7 +100,7 @@ export function WaysToWinCard({
         <span className="text-neutral-black bg-offwhite border-gray/30 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-extrabold">
           1
         </span>
-        <span className="text-neutral-black text-sm leading-tight font-bold">
+        <span className="text-neutral-black text-p-sm leading-tight font-bold">
           Resolve all
           <br />
           {MIN_THREADS_TO_END} threads
@@ -153,7 +153,7 @@ export function WaysToWinCard({
         <span className="text-neutral-black bg-offwhite border-gray/30 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-extrabold">
           2
         </span>
-        <span className="text-neutral-black text-sm font-bold">Revise the topic</span>
+        <span className="text-neutral-black text-p-sm font-bold">Revise the topic</span>
       </div>
     </div>
   );

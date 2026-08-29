@@ -25,12 +25,12 @@ export default async function SettingsPage() {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-6 p-8">
         <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="opacity-70">
+        <p className="text-gray">
           You are not signed in. Starting a game gives you a name and an account, with no
           email and no password.
         </p>
         <StartPlaying />
-        <p className="text-sm opacity-60">
+        <p className="text-p-sm opacity-60">
           Or, if you attached an email to an account before,{" "}
           <Link href="/signin" className="underline">
             sign in
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
       <main className="mx-auto flex max-w-2xl flex-col gap-6 p-8">
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="opacity-70">
+          <p className="text-gray">
             Signed in as {player.display_name ?? "a player with no name yet"}.
           </p>
         </header>

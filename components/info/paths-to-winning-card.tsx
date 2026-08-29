@@ -72,7 +72,7 @@ export function PathsToWinningCard({
       aria-label="Paths to winning"
       className="flex w-full max-w-xs flex-col gap-4 rounded-2xl border-2 border-neutral-black bg-offwhite p-4 shadow-sm"
     >
-      <h3 className="font-primary text-lg tracking-wide">PATHS TO WINNING</h3>
+      <h3 className="font-primary text-p-lg tracking-wide">PATHS TO WINNING</h3>
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-2">

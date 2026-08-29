@@ -142,7 +142,7 @@ export function WinOverlay({ board }: { board: BoardState }) {
           type="button"
           aria-label="Close and review the board"
           onClick={close}
-          className="absolute top-4 right-4 text-xl leading-none opacity-70 hover:opacity-100"
+          className="absolute top-4 right-4 text-xl leading-none text-gray hover:opacity-100"
         >
           ✕
         </button>

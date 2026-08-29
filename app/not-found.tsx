@@ -29,14 +29,14 @@ export default function NotFound() {
     <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold">That page is not here</h1>
-        <p className="opacity-70">
+        <p className="text-gray">
           Nothing is broken. This address does not open anything for you right now.
         </p>
       </header>
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">The usual reasons</h2>
-        <ul className="flex list-disc flex-col gap-2 pl-5 text-sm opacity-80">
+        <ul className="flex list-disc flex-col gap-2 pl-5 text-p-sm opacity-80">
           <li>
             A room code went in the wrong place. The five characters someone reads aloud
             go to <span className="font-mono">/join/</span> and the code, like{" "}
@@ -55,7 +55,7 @@ export default function NotFound() {
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">Where to go instead</h2>
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col gap-1 text-p-sm">
           <li>
             <Link href="/" className="underline">
               Start a room

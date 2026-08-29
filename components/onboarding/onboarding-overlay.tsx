@@ -259,9 +259,9 @@ export function OnboardingOverlay({
         {step.showTokenLegend ? (
           <ul className="flex flex-col items-center gap-2">
             {RESOLUTION_TOKENS.map((token) => (
-              <li key={token} className="flex items-center gap-3 text-sm">
+              <li key={token} className="flex items-center gap-3 text-p-sm">
                 <TokenGlyph token={token} size={24} />
-                <span className="opacity-70">{tokenLabel(token)}</span>
+                <span className="text-gray">{tokenLabel(token)}</span>
               </li>
             ))}
           </ul>

@@ -36,7 +36,7 @@ const FIELD = "form-base input-primary";
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;
   return (
-    <p className={result.ok ? "text-sm opacity-70" : "text-sm text-orange"}>
+    <p className={result.ok ? "text-p-sm text-gray" : "text-p-sm text-orange"}>
       {result.ok ? result.message : result.error}
     </p>
   );
@@ -55,7 +55,7 @@ function Section({
     <section className="flex flex-col gap-3 border-t border-current/10 pt-6">
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold">{title}</h2>
-        <p className="text-sm opacity-70">{hint}</p>
+        <p className="text-p-sm text-gray">{hint}</p>
       </div>
       {children}
     </section>
@@ -236,14 +236,14 @@ function SignOut({ claimed }: { claimed: boolean }) {
         {armed ? (
           <button
             type="button"
-            className="text-sm underline opacity-70"
+            className="text-p-sm underline text-gray"
             onClick={() => setArmed(false)}
           >
             Keep me signed in
           </button>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-orange">{error}</p> : null}
+      {error ? <p className="text-p-sm text-orange">{error}</p> : null}
     </div>
   );
 }

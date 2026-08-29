@@ -127,7 +127,7 @@ function ModeFilter({ modes, active }: { modes: GameMode[]; active: GameMode | n
   ];
 
   return (
-    <nav aria-label="Filter games" className="flex gap-3 text-sm">
+    <nav aria-label="Filter games" className="flex gap-3 text-p-sm">
       {options.map((option) => (
         <Link
           key={option.label}
@@ -136,7 +136,7 @@ function ModeFilter({ modes, active }: { modes: GameMode[]; active: GameMode | n
           className={
             option.value === active
               ? "font-semibold underline"
-              : "opacity-70 hover:underline"
+              : "text-gray hover:underline"
           }
         >
           {option.label}
@@ -172,7 +172,7 @@ function History({
 }) {
   if (games.length === 0) {
     return (
-      <p className="opacity-70">
+      <p className="text-gray">
         {filtered
           ? "No games of that kind yet."
           : "No games yet. The first one starts the archive."}
@@ -214,7 +214,7 @@ function History({
                 <span className={topic ? "" : "opacity-60"}>
                   {topic?.text ?? UNNAMED}
                 </span>
-                <span className="text-sm opacity-70">
+                <span className="text-p-sm text-gray">
                   {game.mode === "gym" ? "Gym" : "Live"}
                   {opponent ? ` with ${opponent}` : ""}
                   {game.status === "ended"
@@ -224,7 +224,7 @@ function History({
                       : ", waiting to start"}
                 </span>
                 {detail.length > 0 ? (
-                  <span className="text-sm opacity-50">{detail.join(", ")}</span>
+                  <span className="text-p-sm opacity-50">{detail.join(", ")}</span>
                 ) : null}
                 {tokens.length > 0 ? (
                   <span className="flex flex-wrap items-center gap-3 pt-0.5">
@@ -232,7 +232,7 @@ function History({
                       <span
                         key={token}
                         title={tokenLabel(token)}
-                        className="flex items-center gap-1 text-sm tabular-nums opacity-70"
+                        className="flex items-center gap-1 text-p-sm tabular-nums text-gray"
                       >
                         <TokenGlyph token={token} size={16} />
                         {count}
@@ -241,7 +241,7 @@ function History({
                   </span>
                 ) : null}
               </span>
-              <span className="shrink-0 text-sm opacity-70">
+              <span className="shrink-0 text-p-sm text-gray">
                 <LocalDay iso={game.ended_at ?? game.started_at ?? game.created_at} />
               </span>
             </Link>
@@ -258,7 +258,7 @@ function Signature({ stats }: { stats: PlayerStats }) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-lg font-semibold">How your threads end</h2>
+      <h2 className="text-p-lg font-semibold">How your threads end</h2>
       <ul className="flex flex-wrap gap-4">
         {emoji.map(([mark, count]) => (
           <li key={mark} className="flex items-center gap-2 tabular-nums">
@@ -284,7 +284,7 @@ export default async function AccountPage({
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <h1 className="text-2xl font-semibold">Your account</h1>
-        <p className="opacity-70">
+        <p className="text-gray">
           You are not signed in. Starting a game gives you a name and an account, with no
           email and no password. You can attach an email later to keep it.
         </p>
@@ -342,7 +342,7 @@ export default async function AccountPage({
             <h1 className="text-2xl font-semibold">
               {player?.display_name ?? "Your account"}
             </h1>
-            <p className="text-sm opacity-70">
+            <p className="text-p-sm text-gray">
               {player?.claimed_at ? (
                 <>
                   Account kept since <LocalDay iso={player.claimed_at} />.
@@ -396,7 +396,7 @@ export default async function AccountPage({
 
         <section className="flex flex-col gap-2">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-lg font-semibold">Your games</h2>
+            <h2 className="text-p-lg font-semibold">Your games</h2>
             {modes.length > 1 ? <ModeFilter modes={modes} active={mode} /> : null}
           </div>
           <History
