@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SideGlyph } from "@/components/board/tile-shape";
 import { SIDE_LABEL } from "./side-label";
 import type { Side } from "@/lib/events/types";
 
@@ -20,6 +19,13 @@ import type { Side } from "@/lib/events/types";
  */
 
 const SIDES: readonly Side[] = ["plus", "minus"];
+
+// This surface uses the "peer" art for the active state, not the plain
+// plus/minus glyphs the tiles use.
+const SIDE_ICON: Record<Side, { active: string; inactive: string }> = {
+  plus: { active: "/icons/plus-peer.svg", inactive: "/icons/plus-notselected.svg" },
+  minus: { active: "/icons/minus-peer.svg", inactive: "/icons/minus-notselected.svg" },
+};
 
 const SIDE_BORDER_ACTIVE: Record<Side, string> = {
   plus: "border-green",
@@ -51,11 +57,11 @@ export function StancePicker({
   const [hovered, setHovered] = useState<Side | null>(null);
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <h3 className="font-secondary text-p-sm text-neutral-black text-center font-semibold">
+    <div className="flex flex-col items-center">
+      <h3 className="font-secondary text-p-sm text-neutral-black mb-8 text-center font-semibold">
         And choose your stance
       </h3>
-      <div className="flex flex-row items-center gap-10">
+      <div className="flex flex-row items-center gap-24">
         {SIDES.map((side) => {
           const isDisabled = disabled || disabledSides.includes(side);
           const active = value === side || hovered === side;
@@ -71,11 +77,18 @@ export function StancePicker({
                 setHovered((current) => (current === side ? null : current))
               }
               onClick={() => onPick(side)}
-              className={`grid h-24 w-24 place-items-center gap-1 rounded-xl border-2 transition hover:shadow-md focus:outline-none disabled:pointer-events-none disabled:opacity-40 ${
+              className={`grid h-30 w-30 place-items-center gap-1 rounded-xl border-2 transition hover:shadow-md disabled:pointer-events-none disabled:opacity-40 ${
                 active ? SIDE_BORDER_ACTIVE[side] : "border-gray"
               }`}
             >
-              <SideGlyph side={side} active={active} className="size-12" />
+              <img
+                src={active ? SIDE_ICON[side].active : SIDE_ICON[side].inactive}
+                alt=""
+                aria-hidden="true"
+                className={`h-18 w-18 object-contain ${
+                  side === "minus" && active ? "scale-x-[-1]" : ""
+                }`}
+              />
               <span
                 className={`font-primary text-p-sm ${active ? SIDE_TEXT_ACTIVE[side] : "text-gray"}`}
               >

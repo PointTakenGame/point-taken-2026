@@ -17,7 +17,9 @@ import {
 import { Glyph } from "@/components/brand/art";
 import { useGameFeed } from "./use-game-feed";
 import { SIDE_LABEL } from "./side-label";
-import { StancePicker } from "./stance-picker";
+import { RoomCodeDisplay } from "@/components/lobby/room-code-display";
+import { StancePicker } from "@/components/board/stance-picker";
+import { PlayerAgreement } from "@/components/lobby/player-agreement";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   chooseSide,
@@ -46,33 +48,11 @@ export interface GameSetupProps {
   me: { playerId: string; role: Side | null };
 }
 
-/** The code, and the link that carries it, for whoever the host is inviting. */
-function Invite({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  const path = `/join/${code}`;
-
-  async function copy() {
-    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
-    setCopied(true);
-  }
-
-  return (
-    <p className="flex items-baseline gap-2 text-sm opacity-70">
-      <span>
-        Invite code <span className="font-mono font-semibold">{code}</span>
-      </span>
-      <button type="button" onClick={copy} className="underline">
-        {copied ? "link copied" : "copy link"}
-      </button>
-    </p>
-  );
-}
-
 function Who({ player, me }: { player: BoardPlayer; me: string }) {
   const name = player.displayName ?? "someone";
   const side = player.role ? SIDE_LABEL[player.role] : "no side yet";
   return (
-    <li>
+    <li className="font-secondary text-p-sm text-neutral-black">
       {name}
       {player.id === me ? " (you)" : ""}: {side}
       {player.signed ? ", signed" : ", has not signed"}
@@ -93,14 +73,14 @@ function Who({ player, me }: { player: BoardPlayer; me: string }) {
 function Waiting({ hasInvite }: { hasInvite: boolean }) {
   if (!hasInvite) {
     return (
-      <p className="text-sm opacity-70">
+      <p className="font-secondary text-p-sm text-gray">
         Waiting for the other player. They come in through this room&apos;s invite link.
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1 text-sm opacity-70">
+    <div className="font-secondary text-p-sm text-gray flex flex-col gap-1">
       <p>
         Waiting for the other player. Copy the link above and send it to them: it opens
         this room in their browser and puts them in the seat across from you.
@@ -115,7 +95,7 @@ function Waiting({ hasInvite }: { hasInvite: boolean }) {
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="text-sm text-red-600">{error}</p>;
+  return <p className="font-secondary text-p-sm text-red-600">{error}</p>;
 }
 
 export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
@@ -125,8 +105,11 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
   const [custom, setCustom] = useState("");
   const [picked, setPicked] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const mine = board.players.find((player) => player.id === me.playerId);
+  const peer = board.players.find((player) => player.id !== me.playerId);
+  const peerSigned = Boolean(peer?.signed);
   const here = board.players.filter((player) => player.left !== "quit");
   const plusVerdict = canChooseSide(board, me.playerId, "plus");
   const minusVerdict = canChooseSide(board, me.playerId, "minus");
@@ -147,6 +130,12 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
   const customVerdict = canSetTopic(board, custom);
 
+  async function copyInvite() {
+    if (!joinCode) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/join/${joinCode}`);
+    setCopied(true);
+  }
+
   // Leaving does not navigate anywhere, so this is the screen the leaver is
   // looking at. Showing them the room's controls with "left" beside their own
   // name was the bug: the server now refuses those writes, and there is no
@@ -154,8 +143,8 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   if (hasLeft(board, me.playerId)) {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-        <h1 className="text-xl font-semibold">You left this room</h1>
-        <p className="text-sm opacity-70">
+        <h1 className="font-primary text-neutral-black text-xl">You left this room</h1>
+        <p className="font-secondary text-p-sm text-gray">
           Your seat is still here and nobody else can take it. Walk back in whenever you
           want.
         </p>
@@ -163,13 +152,13 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="w-fit border border-current/30 px-2 py-1 disabled:opacity-30"
+            className="border-neutral-black font-secondary text-p-sm w-fit rounded-full border-2 px-3 py-1 disabled:opacity-30"
             disabled={pending}
             onClick={() => run(() => rejoinLobby(gameId))}
           >
             {pending ? "..." : "Rejoin"}
           </button>
-          <a className="text-sm underline opacity-60" href="/account">
+          <a className="font-secondary text-p-sm text-gray underline" href="/account">
             Back to your account
           </a>
         </div>
@@ -180,9 +169,11 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Before you start</h1>
-        {joinCode ? <Invite code={joinCode} /> : null}
-        <p className="text-xs opacity-50">
+        <h1 className="font-primary text-neutral-black text-xl">Before you start</h1>
+        {joinCode ? (
+          <RoomCodeDisplay code={joinCode} copied={copied} onCopy={copyInvite} />
+        ) : null}
+        <p className="font-secondary text-p-sm text-gray">
           {connected ? "live" : "not listening"} &middot; {here.length}/{MAX_PLAYERS} here
         </p>
       </header>
@@ -190,8 +181,8 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       <ErrorLine error={error} />
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">In the room</h2>
-        <ul className="text-sm">
+        <h2 className="font-primary text-neutral-black">In the room</h2>
+        <ul className="flex flex-col gap-1">
           {board.players.map((player) => (
             <Who key={player.id} player={player} me={me.playerId} />
           ))}
@@ -200,7 +191,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Your side</h2>
+        <h2 className="font-primary text-neutral-black">Your side</h2>
         <StancePicker
           value={mine?.role ?? null}
           disabled={pending}
@@ -217,9 +208,9 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-semibold">The topic</h2>
+        <h2 className="font-primary text-neutral-black">The topic</h2>
         {board.currentTopicText ? (
-          <p className="border-l-2 border-current/40 pl-2 text-sm">
+          <p className="border-gold bg-offwhite font-secondary text-p-sm text-neutral-black rounded-lg border-l-4 px-3 py-2">
             {board.currentTopicText}
           </p>
         ) : null}
@@ -229,13 +220,15 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
           if (topics.length === 0) return null;
           return (
             <div key={tier} className="flex flex-col gap-1">
-              <h3 className="text-xs uppercase tracking-wide opacity-60">{tier}</h3>
+              <h3 className="font-secondary text-p-sm text-gray font-bold uppercase tracking-wide">
+                {tier}
+              </h3>
               <ul className="flex flex-col gap-1">
                 {topics.map((topic) => (
                   <li key={topic.id}>
                     <button
                       type="button"
-                      className="text-left text-sm underline disabled:no-underline disabled:opacity-40"
+                      className="font-secondary text-p-sm text-neutral-black text-left underline disabled:no-underline disabled:opacity-40"
                       disabled={pending}
                       aria-pressed={picked === topic.id}
                       onClick={() => {
@@ -255,9 +248,11 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
         })}
 
         <div className="flex flex-col gap-1">
-          <h3 className="text-xs uppercase tracking-wide opacity-60">Your own</h3>
+          <h3 className="font-secondary text-p-sm text-gray font-bold uppercase tracking-wide">
+            Your own
+          </h3>
           <textarea
-            className="w-full border border-current/30 p-1 text-sm"
+            className="border-gray font-secondary text-p-sm w-full rounded-lg border p-2"
             value={custom}
             maxLength={TOPIC_MAX_CHARS}
             placeholder="Write the statement you disagree about."
@@ -266,7 +261,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
           />
           <button
             type="button"
-            className="self-start border border-current/40 px-3 py-1 text-sm disabled:opacity-40"
+            className="border-neutral-black font-secondary text-p-sm self-start rounded-full border-2 px-3 py-1 font-bold disabled:opacity-40"
             disabled={pending || !customVerdict.ok}
             title={customVerdict.ok ? undefined : customVerdict.error}
             onClick={() => {
@@ -281,36 +276,28 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
       <section className="flex flex-col gap-2">
         {/* The old client marked this same moment with this same drawing. */}
-        <h2 className="flex items-center gap-2 font-semibold">
+        <h2 className="font-primary text-neutral-black flex items-center gap-2">
           <Glyph name="book" size={22} />
           The agreement
         </h2>
-        <ul className="flex flex-col gap-1 text-sm">
-          {SIGNING_LINES.map((line) => (
-            <li key={line.id}>
-              <span className="opacity-60">{line.family}:</span> {line.text}
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm opacity-60">
+        <PlayerAgreement
+          lines={SIGNING_LINES}
+          signed={Boolean(mine?.signed)}
+          peerSigned={peerSigned}
+          disabled={pending || !signVerdict.ok}
+          reason={signVerdict.ok ? undefined : signVerdict.error}
+          onSign={() => run(() => signAgreement(gameId))}
+        />
+        <p className="font-secondary text-p-sm text-gray">
           Changing the topic clears both signatures, because this is what you are signing
           about.
         </p>
-        <button
-          type="button"
-          className="self-start border border-current/40 px-3 py-1 text-sm disabled:opacity-40"
-          disabled={pending || !signVerdict.ok}
-          title={signVerdict.ok ? undefined : signVerdict.error}
-          onClick={() => run(() => signAgreement(gameId))}
-        >
-          {mine?.signed ? "Signed" : "I stand behind all three"}
-        </button>
       </section>
 
       <section className="flex items-center gap-3">
         <button
           type="button"
-          className="border border-current/60 px-4 py-2 font-semibold disabled:opacity-40"
+          className="bg-gold text-neutral-white font-primary rounded-full px-4 py-2 shadow-md disabled:opacity-40"
           disabled={pending || !startVerdict.ok}
           title={startVerdict.ok ? undefined : startVerdict.error}
           onClick={() => run(() => startGame(gameId))}
@@ -318,14 +305,14 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
           Start the game
         </button>
         {startVerdict.ok ? null : (
-          <span className="text-sm opacity-70">{startVerdict.error}</span>
+          <span className="font-secondary text-p-sm text-gray">{startVerdict.error}</span>
         )}
       </section>
 
       <footer>
         <button
           type="button"
-          className="text-sm underline opacity-60 disabled:opacity-30"
+          className="font-secondary text-p-sm text-gray underline disabled:opacity-30"
           disabled={pending}
           onClick={() => run(() => leaveLobby(gameId))}
         >
