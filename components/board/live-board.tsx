@@ -99,6 +99,9 @@ export interface LiveBoardProps {
   me: { playerId: string; role: Side };
   /** Whether this player has the coach switched on. Off by default. */
   coachEnabled: boolean;
+  /** Room code, small print during play. Display only: no link, no share
+   *  token, until Steve decides there should be (BRAIN-T260822-14). */
+  joinCode?: string | null;
 }
 
 /** Every live tile that has no live parent and is not a thread root. */
@@ -1668,6 +1671,7 @@ export function LiveBoard({
   board,
   me,
   coachEnabled,
+  joinCode = null,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
   const definitions = agreedDefinitions(board);
@@ -1722,6 +1726,15 @@ export function LiveBoard({
           </button>
         </div>
         <p className="text-p-sm text-gray">
+          {joinCode ? (
+            <>
+              Room{" "}
+              <span className="text-neutral-black font-mono font-semibold">
+                {joinCode}
+              </span>{" "}
+              ·{" "}
+            </>
+          ) : null}
           {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
           {connected ? "updating live" : "reconnecting"}
         </p>

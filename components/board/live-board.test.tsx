@@ -205,3 +205,48 @@ describe("LiveBoard: the header's Instructions button", () => {
     expect(screen.getByText("Step 1 of 4")).toBeTruthy();
   });
 });
+
+describe("LiveBoard: the room code during play", () => {
+  it("shows the code as small print when the game has one", () => {
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={activeBoard()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+        joinCode="PTKN22"
+      />,
+    );
+
+    expect(screen.getByText("PTKN22")).toBeTruthy();
+  });
+
+  it("omits the code entirely when the game has none", () => {
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={activeBoard()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+
+    expect(screen.queryByText(/^Room/)).toBeNull();
+  });
+
+  // BRAIN-T260822-14: there is no public link and no share token yet, so the
+  // code is display only.
+  it("offers no copy or share affordance beside it", () => {
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={activeBoard()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+        joinCode="PTKN22"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /copy|share|invite|link/i })).toBeNull();
+  });
+});

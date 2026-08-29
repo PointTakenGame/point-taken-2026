@@ -120,6 +120,7 @@ export default async function GamePage({
         board={board}
         me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
         coachEnabled={player?.coach_enabled ?? false}
+        joinCode={seat.seat.game.join_code}
       />
       {hotseat}
     </>
