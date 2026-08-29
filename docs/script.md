@@ -138,11 +138,11 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 - `DECLINE_REASON_MAX_CHARS = 200`
 - `MAX_PLAYERS = 2` (read pre-compaction, `lib/board/setup.ts`)
 - `MAX_THREADS = 6`
-- `MIN_THREADS_TO_END = 4`, carrying its own in-code flag: **"GAP: Steve ruled the
-  ceiling on 2026-08-23 and did not restate this number, so four is still carried
-  forward from the deployed 2024 server rather than ratified (BRAIN-T260823-10)."** This
-  is the code's own admission, not this document's invention; repeated here verbatim
-  because the task requires surfacing gaps the source itself flags.
+- `MIN_THREADS_TO_END = 4`. The floor is **4 in live play, and the level's own thread
+  count in the Gym**, `[ruled Nathan 2026-08-29]` (`BRAIN-T260823-10`); `rules.md` §9
+  holds it. The code carries one global constant and its source comment still states the
+  question as open, so what is left is unbuilt work rather than a disagreement about the
+  rule.
 
 **Resolution tokens** (agree/disagree markers on a thread, distinct from Heart's 🙏):
 `RESOLUTION_TOKENS = ["👍", "👀"]`, settled 2026-08-23 by Steve, `[ruled]`.

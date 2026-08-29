@@ -285,10 +285,11 @@ a pre-rewrite Vue file that no longer exists in this codebase; the current
 number is confirmed directly in TypeScript, not carried over from a stale
 pointer.
 
-`MIN_THREADS_TO_END = 4` carries a `GAP:` in its own source comment
-(`lib/board/rules.ts`): Steve ruled the six-thread ceiling on 2026-08-23 but
-did not restate this floor, so 4 is carried forward from the deployed 2024
-server rather than freshly ratified (tracked `BRAIN-T260823-10`). `MAX_THREADS
+`MIN_THREADS_TO_END = 4` is `[ruled Nathan 2026-08-29]` for live play, with the
+Gym floor being the level's own thread count rather than a global number
+(tracked `BRAIN-T260823-10`; `rules.md` §9 holds the rule). The code carries one
+global constant and its source comment still states the question as open, so the
+per-mode floor is unbuilt rather than disputed. `MAX_THREADS
 = 6` is `[ruled]`, same date, same source. `RESOLUTION_TOKENS = ["👍", "👀"]`
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so

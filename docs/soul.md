@@ -80,9 +80,12 @@ otherwise is wrong. [ruled]
   nonprofits, private-equity firms, high schools, and with Army officers. [ruled]
 - **A solo learner in the Gym**, practicing before ever facing a person.
 
-GAP: which of these audiences is the first public release optimized for? Marketing
-material names several in parallel, the code favors none. Nobody is conscripted. The game is strictly opt-in and never asks a
-vulnerable person to defend their own existence to a hostile stranger. A player who
+The first public release aims at the **education sector** first [ruled Nathan 2026-08-29],
+and is not built for it alone. Point Taken is for the general public on an opt-in model, so
+no one audience gets a surface tailored to it at the expense of the others.
+
+Nobody is conscripted. The game is strictly opt-in and never asks a vulnerable
+person to defend their own existence to a hostile stranger. A player who
 wants to demonize rather than reason is outside the frame, and the correct product
 response is exit, not accommodation. [ruled]
 
@@ -282,13 +285,17 @@ code enforces it:
 |---|---|---|
 | Session length target, 20 to 40 minutes | [vibecoded]; the printed paper instructions say 15 to 30 minutes and no web target was ever ruled | no file |
 
-GAP: is there a shared failure state for live play, distinct from "no adversarial
-punishment"? That no player punishes another is settled. Whether a live session can
-collectively end in a named "no resolution" outcome, ideally with a visible turn budget
-so failure is felt rather than announced, is open, and is the largest unanswered design
-question in the game. The Gym answer is settled (no failure); live play is not.
+**There is no failure state in live play either** [ruled Nathan 2026-08-29]. No player
+punishes another, and no session collectively loses. Two people who genuinely found no
+common ground still finish the ordinary way: four threads closed with 👀 on each, saying
+they can now see why they disagree. That is an outcome, not a loss. There is no named "no
+resolution" ending and no visible turn budget. The only way a game stops without either win
+condition is a player leaving or disconnecting, which closes it as `abandoned`
+(`lib/games/abandon.ts`) and is scored against nobody.
 
-GAP: at what point, if any, does a player's history become a public profile? Badges and points exist in the levels design; nothing states what another player can see.
+**A player's history is not public** [ruled Nathan 2026-08-29]. Badges, points, and stats
+are personal and non-comparative, and nothing a player earns is visible to another player.
+Opening part of it up later stays possible, and nothing is designed on that assumption.
 
 ## 11. Material that cannot be carried into this repo
 
