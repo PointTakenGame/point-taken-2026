@@ -106,7 +106,7 @@ function ReadingCard({
         >
           {pending ? "..." : dare?.text ? "Keep mine" : "Got it"}
         </button>
-        {error && <span className="text-red-600">{error}</span>}
+        {error && <span className="text-orange">{error}</span>}
       </div>
     </li>
   );
@@ -184,7 +184,7 @@ export function CoachPanel({
         <input type="checkbox" checked={on} onChange={toggle} disabled={pending} />
         Let the coach read my reasons
       </label>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-orange">{error}</p>}
       {!on && (
         <p className="text-sm opacity-50">
           Off. Nothing you write is sent anywhere while this is unchecked.

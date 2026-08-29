@@ -119,7 +119,7 @@ function allTargets(board: BoardState): BoardTile[] {
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="text-sm text-red-600">{error}</p>;
+  return <p className="text-sm text-orange">{error}</p>;
 }
 
 /**
@@ -357,7 +357,7 @@ function StandingThrow({
   const card = coachCard(thrown.cardId);
 
   return (
-    <div className="ml-6 flex flex-col gap-1 border-l-2 border-amber-500/50 pl-3">
+    <div className="ml-6 flex flex-col gap-1 border-l-2 border-gold/50 pl-3">
       <p className="text-xs">
         <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
         <span className="ml-2 opacity-60">

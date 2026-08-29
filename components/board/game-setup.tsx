@@ -95,7 +95,7 @@ function Waiting({ hasInvite }: { hasInvite: boolean }) {
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="font-secondary text-p-sm text-red-600">{error}</p>;
+  return <p className="font-secondary text-p-sm text-orange">{error}</p>;
 }
 
 export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {

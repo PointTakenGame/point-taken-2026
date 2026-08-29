@@ -103,7 +103,7 @@ export function RoomEntry() {
         </div>
       </form>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-orange">{error}</p>}
     </div>
   );
 }
@@ -121,7 +121,7 @@ export function JoinRoom({ code, label }: { code: string; label: string }) {
       >
         {pending ? "Working..." : label}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-orange">{error}</p>}
     </div>
   );
 }

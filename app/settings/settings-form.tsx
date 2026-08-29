@@ -36,7 +36,7 @@ const FIELD = "form-base input-primary";
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;
   return (
-    <p className={result.ok ? "text-sm opacity-70" : "text-sm text-red-600"}>
+    <p className={result.ok ? "text-sm opacity-70" : "text-sm text-orange"}>
       {result.ok ? result.message : result.error}
     </p>
   );
@@ -243,7 +243,7 @@ function SignOut({ claimed }: { claimed: boolean }) {
           </button>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-orange">{error}</p> : null}
     </div>
   );
 }

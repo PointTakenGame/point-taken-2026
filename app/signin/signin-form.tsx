@@ -79,7 +79,7 @@ export function SignInForm() {
         {pending ? "Sending..." : "Mail me a link"}
       </button>
       {sent ? <p className="font-secondary text-p-sm text-gray">{SENT}</p> : null}
-      {error ? <p className="font-secondary text-p-sm text-red-600">{error}</p> : null}
+      {error ? <p className="font-secondary text-p-sm text-orange">{error}</p> : null}
     </form>
   );
 }

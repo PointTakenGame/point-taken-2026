@@ -77,7 +77,7 @@ export function ResumeOrStart({
         Nothing running right now. Starting a room gives you a code to send whoever you
         want to argue with.
       </p>
-      {failed && <p className="text-sm text-red-600">{failed}</p>}
+      {failed && <p className="text-sm text-orange">{failed}</p>}
     </div>
   );
 }

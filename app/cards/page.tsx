@@ -75,7 +75,7 @@ export default async function CardsPage() {
         </header>
 
         {decksAgree ? null : (
-          <p className="rounded-md border border-red-600/40 p-3 text-sm text-red-600">
+          <p className="rounded-md border border-orange/40 p-3 text-sm text-orange">
             The coach and the deck have drifted apart. Someone edited one list and not the
             other: see lib/coach/cards.ts and lib/board/setup.ts.
           </p>

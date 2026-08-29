@@ -14,7 +14,7 @@ export function Notice({
     <p
       className={
         tone === "error"
-          ? "font-secondary text-p-sm rounded-md border border-red-600/40 p-3 text-red-600"
+          ? "font-secondary text-p-sm rounded-md border border-orange/40 p-3 text-orange"
           : "font-secondary text-p-sm text-gray"
       }
     >

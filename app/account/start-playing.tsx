@@ -35,7 +35,7 @@ export function StartPlaying() {
       >
         {busy ? "Getting you a name..." : "Start playing"}
       </button>
-      {failed && <p className="text-sm text-red-600">{failed}</p>}
+      {failed && <p className="text-sm text-orange">{failed}</p>}
     </div>
   );
 }
