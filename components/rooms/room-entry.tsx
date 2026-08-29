@@ -90,7 +90,7 @@ export function RoomEntry() {
             maxLength={JOIN_CODE_LENGTH}
             autoComplete="off"
             spellCheck={false}
-            placeholder="PTKN23"
+            placeholder="PTKN2"
             className="w-32 rounded-md border border-current/25 bg-transparent px-3 py-2 font-mono uppercase tracking-widest"
           />
           <button

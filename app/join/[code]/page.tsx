@@ -16,20 +16,51 @@ import { currentPlayerId } from "@/lib/supabase/session";
  * not. It shows only what somebody holding the code needs to decide whether to
  * walk in: the topic if there is one, and who is already there by first name.
  * Registry row BRAIN-T260823-17.
+ *
+ * The code card is styled to the archived client's lobby header
+ * (point-taken-frontend's pages/lobby/[gameCode].vue): the code as the
+ * headline, a quiet share line underneath rather than a working button.
  */
 
 export const dynamic = "force-dynamic";
 
 const NOT_SEATED = "00000000-0000-4000-8000-000000000000";
 
+/** The share glyph from the archived client's icon set, decorative only. */
+function ShareGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+      <path d="M15 13.3998C14.3667 13.3998 13.8 13.6498 13.3667 14.0415L7.425 10.5832C7.46667 10.3915 7.5 10.1998 7.5 9.99984C7.5 9.79984 7.46667 9.60817 7.425 9.4165L13.3 5.9915C13.75 6.40817 14.3417 6.6665 15 6.6665C16.3833 6.6665 17.5 5.54984 17.5 4.1665C17.5 2.78317 16.3833 1.6665 15 1.6665C13.6167 1.6665 12.5 2.78317 12.5 4.1665C12.5 4.3665 12.5333 4.55817 12.575 4.74984L6.7 8.17484C6.25 7.75817 5.65833 7.49984 5 7.49984C3.61667 7.49984 2.5 8.6165 2.5 9.99984C2.5 11.3832 3.61667 12.4998 5 12.4998C5.65833 12.4998 6.25 12.2415 6.7 11.8248L12.6333 15.2915C12.5917 15.4665 12.5667 15.6498 12.5667 15.8332C12.5667 17.1748 13.6583 18.2665 15 18.2665C16.3417 18.2665 17.4333 17.1748 17.4333 15.8332C17.4333 14.4915 16.3417 13.3998 15 13.3998ZM15 3.33317C15.4583 3.33317 15.8333 3.70817 15.8333 4.1665C15.8333 4.62484 15.4583 4.99984 15 4.99984C14.5417 4.99984 14.1667 4.62484 14.1667 4.1665C14.1667 3.70817 14.5417 3.33317 15 3.33317ZM5 10.8332C4.54167 10.8332 4.16667 10.4582 4.16667 9.99984C4.16667 9.5415 4.54167 9.1665 5 9.1665C5.45833 9.1665 5.83333 9.5415 5.83333 9.99984C5.83333 10.4582 5.45833 10.8332 5 10.8332ZM15 16.6832C14.5417 16.6832 14.1667 16.3082 14.1667 15.8498C14.1667 15.3915 14.5417 15.0165 15 15.0165C15.4583 15.0165 15.8333 15.3915 15.8333 15.8498C15.8333 16.3082 15.4583 16.6832 15 16.6832Z" />
+    </svg>
+  );
+}
+
+/** The code as the card's headline, spaced out letter by letter. */
+function RoomHeading({ code, shareable }: { code: string; shareable: boolean }) {
+  return (
+    <header className="border-gray/30 bg-offwhite flex flex-col items-center gap-2 rounded-2xl border p-6 text-center shadow-md">
+      <h1 className="flex flex-col items-center gap-1">
+        <span className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+          Room
+        </span>
+        <span className="font-primary text-gold text-3xl tracking-widest">{code}</span>
+      </h1>
+      {shareable ? (
+        <p className="font-secondary text-p-sm text-gray flex items-center gap-1.5">
+          <ShareGlyph />
+          Share this code so they can join
+        </p>
+      ) : null}
+    </header>
+  );
+}
+
 function Message({ code, text }: { code: string; text: string }) {
   return (
-    <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-4 p-8">
-      <h1 className="text-2xl font-semibold">
-        Room <span className="font-mono">{code}</span>
-      </h1>
-      <p className="opacity-70">{text}</p>
-      <Link href="/" className="underline">
+    <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
+      <RoomHeading code={code} shareable={false} />
+      <p className="font-secondary text-p-md text-gray text-center">{text}</p>
+      <Link href="/" className="text-brown text-center underline">
         Start your own room
       </Link>
     </main>
@@ -72,25 +103,22 @@ export default async function JoinPage({
 
   return (
     <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          Room <span className="font-mono">{code}</span>
-        </h1>
-        <p className="opacity-70">
-          {board.currentTopicText
-            ? `The topic: ${board.currentTopicText}`
-            : "No topic yet. You settle it together once you are both in."}
-        </p>
-      </header>
+      <RoomHeading code={code} shareable />
+
+      <p className="font-secondary text-p-md text-gray text-center">
+        {board.currentTopicText
+          ? `The topic: ${board.currentTopicText}`
+          : "No topic yet. You settle it together once you are both in."}
+      </p>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
+        <h2 className="font-secondary text-p-sm text-gray uppercase tracking-wide">
           Already here
         </h2>
         {here.length === 0 ? (
-          <p className="opacity-70">Nobody yet.</p>
+          <p className="font-secondary text-p-md text-gray">Nobody yet.</p>
         ) : (
-          <ul className="list-inside list-disc">
+          <ul className="font-secondary text-p-md list-inside list-disc">
             {here.map((player) => (
               <li key={player.id}>{player.displayName ?? "someone"}</li>
             ))}
@@ -101,7 +129,7 @@ export default async function JoinPage({
       {verdict.ok ? (
         <JoinRoom code={code} label="Join this room" />
       ) : (
-        <p className="text-sm opacity-70">{verdict.error}</p>
+        <p className="font-secondary text-p-sm text-gray text-center">{verdict.error}</p>
       )}
     </main>
   );

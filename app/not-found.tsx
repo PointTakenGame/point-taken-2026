@@ -4,7 +4,7 @@ import Link from "next/link";
  * The 404, which is a routine destination here rather than an edge case.
  *
  * Three ordinary things land a player on it. They typed a room code into the
- * game address, which cannot work: /game/ takes the long id and a six-character
+ * game address, which cannot work: /game/ takes the long id and a five-character
  * code goes to /join/. They opened a link to a game that has since ended. Or
  * they opened a link to a game they were never in, because a game holds what
  * two people actually said to each other and only those two can open it
@@ -38,9 +38,9 @@ export default function NotFound() {
         <h2 className="font-semibold">The usual reasons</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-sm opacity-80">
           <li>
-            A room code went in the wrong place. The six characters someone reads aloud go
+            A room code went in the wrong place. The five characters someone reads aloud go
             to <span className="font-mono">/join/</span> and the code, like{" "}
-            <span className="font-mono">/join/ABC123</span>. The{" "}
+            <span className="font-mono">/join/ABC23</span>. The{" "}
             <span className="font-mono">/game/</span> address takes the long id the site
             hands you once you are in.
           </li>
