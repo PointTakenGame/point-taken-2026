@@ -17,7 +17,8 @@ import { createRoom } from "@/app/join/actions";
  * says.
  */
 
-const BUTTON = "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
+const BUTTON =
+  "form-base btn-primary font-secondary disabled:cursor-not-allowed disabled:opacity-50";
 
 export function ResumeOrStart({
   gameId,
@@ -54,10 +55,10 @@ export function ResumeOrStart({
   if (gameId) {
     return (
       <div className="flex flex-col items-start gap-2">
-        <Link href={`/game/${gameId}`} className={BUTTON}>
+        <Link href={`/game/${gameId}`} className={`${BUTTON} inline-block`}>
           {waiting ? "Back to your room" : "Back to your game"}
         </Link>
-        <p className="text-sm opacity-70">
+        <p className="font-secondary text-p-sm text-gray">
           {waiting
             ? "Nobody has taken the other seat yet. The room holds the code to send them."
             : topic
@@ -73,11 +74,11 @@ export function ResumeOrStart({
       <button type="button" className={BUTTON} disabled={pending} onClick={begin}>
         {pending ? "Opening a room..." : "Start a room"}
       </button>
-      <p className="text-sm opacity-70">
+      <p className="font-secondary text-p-sm text-gray">
         Nothing running right now. Starting a room gives you a code to send whoever you
         want to argue with.
       </p>
-      {failed && <p className="text-sm text-orange">{failed}</p>}
+      {failed && <p className="font-secondary text-p-sm text-orange">{failed}</p>}
     </div>
   );
 }

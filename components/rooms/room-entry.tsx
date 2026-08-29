@@ -50,7 +50,8 @@ function useRoom() {
   return { pending, error, enter };
 }
 
-const BUTTON = "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
+const BUTTON =
+  "form-base btn-primary font-secondary disabled:cursor-not-allowed disabled:opacity-50";
 
 export function RoomEntry() {
   const { pending, error, enter } = useRoom();
@@ -67,7 +68,7 @@ export function RoomEntry() {
         >
           {pending ? "Working..." : "Start a room"}
         </button>
-        <p className="text-sm opacity-70">
+        <p className="font-secondary text-p-sm text-gray">
           You get a code to send whoever you want to argue with.
         </p>
       </div>
@@ -79,7 +80,7 @@ export function RoomEntry() {
           enter(() => joinRoom(code));
         }}
       >
-        <label className="text-sm opacity-70" htmlFor="join-code">
+        <label className="font-secondary text-p-sm text-gray" htmlFor="join-code">
           Or join a room with its code
         </label>
         <div className="flex items-center gap-2">
@@ -91,7 +92,7 @@ export function RoomEntry() {
             autoComplete="off"
             spellCheck={false}
             placeholder="PTKN2"
-            className="w-32 rounded-md border border-current/25 bg-transparent px-3 py-2 font-mono uppercase tracking-widest"
+            className="form-base w-32 font-mono uppercase tracking-widest"
           />
           <button
             type="submit"
@@ -103,7 +104,7 @@ export function RoomEntry() {
         </div>
       </form>
 
-      {error && <p className="text-sm text-orange">{error}</p>}
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
     </div>
   );
 }
@@ -121,7 +122,7 @@ export function JoinRoom({ code, label }: { code: string; label: string }) {
       >
         {pending ? "Working..." : label}
       </button>
-      {error && <p className="text-sm text-orange">{error}</p>}
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
     </div>
   );
 }
