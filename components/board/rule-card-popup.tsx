@@ -106,8 +106,8 @@ function NotAllowedStrike() {
       className="pointer-events-none absolute inset-6 top-1/2 bottom-1/2"
       aria-hidden="true"
     >
-      <div className="absolute inset-0 rotate-45 border-t-2 border-red-600" />
-      <div className="absolute inset-0 -rotate-45 border-t-2 border-red-600" />
+      <div className="absolute inset-0 rotate-45 border-t-2 border-orange" />
+      <div className="absolute inset-0 -rotate-45 border-t-2 border-orange" />
     </div>
   );
 }
@@ -157,7 +157,7 @@ export function RuleCardPopup({
           <ul className="flex flex-col items-start gap-1 text-left">
             {content.notAllowed.map((example, index) => (
               <li key={index} className="flex items-center gap-2 text-p-sm">
-                <span aria-hidden="true" className="text-red-600">
+                <span aria-hidden="true" className="text-orange">
                   ⊘
                 </span>
                 <span>{example}</span>

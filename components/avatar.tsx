@@ -28,7 +28,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       style={{ background }}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide text-white ${SIZE[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide text-neutral-white ${SIZE[size]}`}
     >
       {initials}
     </span>

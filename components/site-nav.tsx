@@ -38,11 +38,17 @@ export async function SiteNav({ here }: { here: Here }) {
   if (!player) return null;
 
   return (
-    <nav className="border-b border-current/10">
-      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-baseline gap-x-4 gap-y-1 p-4 text-sm">
-        <span className="font-semibold">{player.display_name ?? "You"}</span>
+    <nav className="border-b-2 border-neutral-black bg-offwhite">
+      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 p-4">
+        <span className="font-primary text-p-md text-gold tracking-wide">
+          {player.display_name ?? "You"}
+        </span>
         {LINKS.filter((link) => link.here !== here).map((link) => (
-          <Link key={link.href} href={link.href} className="underline opacity-70">
+          <Link
+            key={link.href}
+            href={link.href}
+            className="rounded-md border-2 border-neutral-black px-3 py-1 font-secondary text-p-sm transition-colors hover:border-gold hover:bg-sand"
+          >
             {link.label}
           </Link>
         ))}
