@@ -1,0 +1,111 @@
+.heading-suggested-topics {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 20px !important;
+  line-height: 24px !important;
+  color: #4D4C4A !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.subheading-instruction {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 10px !important;
+  line-height: 15px !important;
+  text-align: center !important;
+  color: #747474 !important;
+  max-width: 333px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.section-heading {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+  line-height: 21px !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  color: #EFAE45 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.topic-text {
+  font-family: 'Noto Sans', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  color: #4D4C4A !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.topic-number {
+  font-family: 'Noto Sans', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  color: #4D4C4A !important;
+  margin-right: 4px !important;
+}
+
+.tag-text {
+  font-family: 'Noto Sans', sans-serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 11.74px !important;
+  line-height: 12px !important;
+  color: #747474 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.tip-text {
+  font-family: 'Noto Sans', sans-serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 8px !important;
+  line-height: 8px !important;
+  color: #747474 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.footer-heading {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-size: 10px !important;
+  line-height: 15px !important;
+  text-align: center !important;
+  color: #4D4C4A !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #FFFFFF;
+  border-radius: 10px;
+  border: 2px solid transparent;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #FFFFFF transparent;
+}
+
