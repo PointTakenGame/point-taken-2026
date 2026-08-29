@@ -79,7 +79,7 @@ const LEVELS: readonly GymLevel[] = [
 ];
 
 const START_BUTTON =
-  "rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50";
+  "form-base btn-primary font-secondary disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function GymPage() {
   return (

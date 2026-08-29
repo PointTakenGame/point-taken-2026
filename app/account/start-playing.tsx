@@ -31,11 +31,11 @@ export function StartPlaying() {
         type="button"
         onClick={start}
         disabled={busy}
-        className="rounded-md bg-foreground px-4 py-2 text-background disabled:opacity-50"
+        className="form-base btn-primary font-secondary disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? "Getting you a name..." : "Start playing"}
       </button>
-      {failed && <p className="text-sm text-orange">{failed}</p>}
+      {failed && <p className="font-secondary text-p-sm text-orange">{failed}</p>}
     </div>
   );
 }
