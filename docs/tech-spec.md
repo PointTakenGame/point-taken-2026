@@ -69,8 +69,8 @@ Runtime shape: every route is `export const dynamic = "force-dynamic"`, so
 there is no static page cache to reason about and no build-time secret
 requirement. Hosting target (Vercel tier, region) is `[unratified]`, discussed
 in `2026-08-22_platform-rebuild-handoff.md` but not confirmed in code or a
-registry ruling; GAP: what hosting tier and region does the deployed app
-actually run on.
+registry ruling. The open question about it is in section 10, with the rest of
+this document's gaps.
 
 The database is a single Supabase project, Postgres 17.6, per
 `2026-08-22_platform-rebuild-handoff.md` (project ref and region named there,

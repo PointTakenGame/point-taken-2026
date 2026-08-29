@@ -109,8 +109,8 @@ Nothing else can be built on top until this is settled, because everything else 
   split so practice and live play are two pages, not one page with a flag. `levelId` and `bossId`
   already project at `lib/board/project.ts:308-309, 365-366, 430-431`, and the coach projects at
   `:194` and `:512` `[unratified]`.
-  GAP: the mode enum's exact values. The source specifies `'dojo' | 'gym'`, written before the rename,
-  and `dojo` is the retired word.
+  The mode enum is `GameMode = "gym" | "live"` (`lib/db/types.ts:16`) `[unratified]`. The source
+  specifies `'dojo' | 'gym'`, which names the retired word and omits the live mode; build to the code.
 - **1.4 The account progression record.** Cards owned, badges earned with occurrence counts, points,
   highest level reached, in-flight practice game id, coach pick. **Absent from this repo entirely.**
   Harvest it from the retired backend's progression module rather than reimplementing; the old

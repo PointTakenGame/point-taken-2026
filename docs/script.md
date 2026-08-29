@@ -215,7 +215,7 @@ same `Verdict`. Grouped by the function that returns them:
 - `canProposeRelocation`: "A reason cannot hang from itself." (`:277`); "That
   destination is not on the board." (`:281`); "That would put a reason underneath its
   own reply." (`:283`); "A reason with no parent starts its own thread." (`:286`).
-- `readingText(text, noun)` (`:313-323`), a shared helper behind reading-handback and
+- `readingText(text, noun)` (`:317-324`), a shared helper behind reading-handback and
   definition proposals: "${noun} needs some words in it." and "${noun} is at most
   ${READING_MAX_CHARS} characters.", with `noun` supplied per call site (e.g. "A
   reading", "A definition").
@@ -225,19 +225,19 @@ same `Verdict`. Grouped by the function that returns them:
 - card-throw function: "That card is not in play in this game." (`:446`); "That reason
   is not on this board." (`:449`, same string as `canPlaceTile`); "That reason was
   taken off the board." (`:450`); "Cards go to the other side's reasons, not your own."
-  (`:452`); "That thread is already resolved." (`:456`, same string as above); "You
+  (`:452`); "That thread is already resolved." (`:457`, same string as above); "You
   already played that card on this reason." (`:467`).
 - card-decline function: "That card play is not on this board." (`:489`); "You already
   answered that card by rewriting the reason." (`:491`); "You already turned that card
   down." (`:493`); "That reason is not on this board." (`:496`); "Only the person who
   wrote the reason can turn a card down." (`:498`); "A note is at most
   ${DECLINE_REASON_MAX_CHARS} characters." (`:502`).
-- card-rewrite function: "That reason is not on this board." (`:526`); "That reason
-  was taken off the board." (`:527`); "Only the person who wrote the reason can
+- card-rewrite function: "That reason is not on this board." (`:525`); "That reason
+  was taken off the board." (`:526`); "Only the person who wrote the reason can
   rewrite it." (`:528`); "That card play is not on this board." (`:532`); "That card
   was played on another reason." (`:534`); "That card has already been answered."
-  (`:535`); "A reason needs some words in it." (`:539`, same string as `canPlaceTile`);
-  "A reason is at most ${TILE_MAX_CHARS} characters." (`:541`); "That is the same
+  (`:535`); "A reason needs some words in it." (`:538`, same string as `canPlaceTile`);
+  "A reason is at most ${TILE_MAX_CHARS} characters." (`:540`); "That is the same
   words you had before." (`:542`).
 
 Several strings repeat verbatim across functions on purpose ("That reason is not on
