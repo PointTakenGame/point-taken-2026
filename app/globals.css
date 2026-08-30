@@ -55,37 +55,41 @@
   --shadow-sm: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-body {
-  background-color: var(--color-offwhite);
-  color: var(--color-neutral-black);
-  font-family: var(--font-secondary);
-  font-size: var(--text-p-md);
-}
+/* Layered for the same reason the form chrome below is: unlayered CSS beats
+   layered CSS at any specificity, so a text-* on a heading did nothing. */
+@layer base {
+  body {
+    background-color: var(--color-offwhite);
+    color: var(--color-neutral-black);
+    font-family: var(--font-secondary);
+    font-size: var(--text-p-md);
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-primary);
-  font-weight: normal;
-}
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-primary);
+    font-weight: normal;
+  }
 
-h1 {
-  font-size: 56px;
-}
+  h1 {
+    font-size: 56px;
+  }
 
-h2 {
-  font-size: 48px;
-}
+  h2 {
+    font-size: 48px;
+  }
 
-h3 {
-  font-size: 24px;
-}
+  h3 {
+    font-size: 24px;
+  }
 
-h4,
-h5,
-h6,
-p {
-  font-family: var(--font-secondary);
+  h4,
+  h5,
+  h6,
+  p {
+    font-family: var(--font-secondary);
+  }
 }
 
 /*

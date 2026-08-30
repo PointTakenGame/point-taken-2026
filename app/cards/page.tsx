@@ -88,7 +88,7 @@ export default async function CardsPage() {
               className="flex flex-wrap items-start justify-between gap-6 rounded-lg border border-current/15 p-5"
             >
               <div className="flex min-w-56 flex-1 flex-col gap-1">
-                <h2 className="flex items-center gap-2 font-semibold">
+                <h2 className="flex items-center gap-2 text-p-lg font-semibold">
                   <span aria-hidden className="text-xl">
                     {card.icon}
                   </span>
@@ -105,7 +105,7 @@ export default async function CardsPage() {
         </ul>
 
         <section className="flex flex-col gap-2 border-t border-current/10 pt-6">
-          <h2 className="font-semibold">Cards you turned down</h2>
+          <h2 className="text-p-lg font-semibold">Cards you turned down</h2>
           <p className="text-p-sm text-gray">
             {stats.card_throws_declined === 0
               ? "None yet. When someone throws a card at one of your reasons you can rewrite the reason, or you can say the card does not fit. Saying it does not fit is a move, and it gets counted here."

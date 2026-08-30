@@ -181,7 +181,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       <ErrorLine error={error} />
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-primary text-neutral-black">In the room</h2>
+        <h2 className="font-primary text-p-md text-neutral-black">In the room</h2>
         <ul className="flex flex-col gap-1">
           {board.players.map((player) => (
             <Who key={player.id} player={player} me={me.playerId} />
@@ -191,7 +191,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-primary text-neutral-black">Your side</h2>
+        <h2 className="font-primary text-p-md text-neutral-black">Your side</h2>
         <StancePicker
           value={mine?.role ?? null}
           disabled={pending}
@@ -208,7 +208,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-primary text-neutral-black">The topic</h2>
+        <h2 className="font-primary text-p-md text-neutral-black">The topic</h2>
         {board.currentTopicText ? (
           <p className="border-gold bg-offwhite font-secondary text-p-sm text-neutral-black rounded-lg border-l-4 px-3 py-2">
             {board.currentTopicText}
@@ -276,7 +276,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
 
       <section className="flex flex-col gap-2">
         {/* The old client marked this same moment with this same drawing. */}
-        <h2 className="font-primary text-neutral-black flex items-center gap-2">
+        <h2 className="font-primary text-p-md text-neutral-black flex items-center gap-2">
           <Glyph name="book" size={22} />
           The agreement
         </h2>

@@ -102,7 +102,7 @@ export default function GymPage() {
                 className="flex flex-col gap-3 rounded-lg border border-current/15 p-5"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-4">
-                  <h2 className="font-semibold">
+                  <h2 className="text-p-lg font-semibold">
                     Level {level.number}: {level.title}
                   </h2>
                   <button

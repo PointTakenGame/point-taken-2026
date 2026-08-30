@@ -44,7 +44,7 @@ export const dynamic = "force-dynamic";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3 border-t border-current/10 pt-6">
-      <h2 className="font-semibold">{title}</h2>
+      <h2 className="text-p-lg font-semibold">{title}</h2>
       {children}
     </section>
   );

@@ -35,7 +35,7 @@ export default function NotFound() {
       </header>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">The usual reasons</h2>
+        <h2 className="text-p-md font-semibold">The usual reasons</h2>
         <ul className="flex list-disc flex-col gap-2 pl-5 text-p-sm opacity-80">
           <li>
             A room code went in the wrong place. The five characters someone reads aloud
@@ -54,7 +54,7 @@ export default function NotFound() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Where to go instead</h2>
+        <h2 className="text-p-md font-semibold">Where to go instead</h2>
         <ul className="flex flex-col gap-1 text-p-sm">
           <li>
             <Link href="/" className="underline">
