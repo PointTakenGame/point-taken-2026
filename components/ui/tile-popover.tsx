@@ -384,7 +384,7 @@ function ListBodyView({ body }: { body: TilePopoverListBody }) {
               <li key={item.id}>
                 <button
                   type="button"
-                  className="form-base input-primary flex w-full items-center justify-between gap-2 text-left"
+                  className="form-base input-primary flex w-full items-center justify-between gap-2 text-left text-neutral-black"
                   onClick={() => body.onSelect(item.id)}
                 >
                   <span>{item.label}</span>
