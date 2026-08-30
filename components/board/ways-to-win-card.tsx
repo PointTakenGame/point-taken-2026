@@ -142,7 +142,7 @@ export function WaysToWinCard({
           onMouseLeave={() => onHover?.(null)}
           onClick={() => onRevise?.()}
         >
-          <span className="bg-neutral-black absolute inset-[2px] flex items-center justify-center text-[13px] text-neutral-white [clip-path:inherit]">
+          <span className="bg-neutral-black text-p-sm absolute inset-[2px] flex items-center justify-center text-neutral-white [clip-path:inherit]">
             ✎
           </span>
         </button>
