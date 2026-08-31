@@ -257,7 +257,7 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 True today in the code: `app/gym/page.tsx` is the level-select screen and nothing more. Every "Start" button is inert on purpose. There is no scripted opponent, so none of section 10's mechanics run.
 
-First-release totals as designed: 4 of 11 rule cards, 4 of 9 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Deferred to level 5 and later: the revise-topic win condition inside the Gym, the Steel Man card, and communal points [unratified: guide §7]. Deferred past level 4, exact level open: importance ranking and generosity tokens [ruled Steve 2026-08-31].
+First-release totals as designed: 4 of 11 rule cards, 4 of 9 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Confirmed at level 5: the Steel Man card and communal points [ruled Steve 2026-08-31]. Deferred past level 4, exact level open: importance ranking, generosity tokens, and the revise-topic win condition inside the Gym [ruled Steve 2026-08-31]. The last of these had only ever carried "level 5" as shorthand for "not in the first four", never a considered placement.
 
 ## 11. Political neutrality
 
