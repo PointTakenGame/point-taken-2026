@@ -221,8 +221,9 @@ keys, so renaming one is a data change:
 
 - L1: L1.1 (three awards), L1.10, L1.12, L1.17.
 - L2: L2.3, then L2.5, L2.7, L2.9 on the throw.
-- L3: L3.4 throw, L3.6 throw, L3.8 repair (zero points), L3.9 send (docks one throw's worth of
-  points, no badge), L3.9 repair, L3.10 throw.
+- L3: L3.4 throw, L3.6 throw, L3.8 repair (zero points), L3.10 throw. (The two L3.9 award beats,
+  send and repair, are deleted along with the dare, 2026-08-31. The label L3.9 is left empty rather
+  than reused, so L3.10 onward does not silently shift.)
 - L4: L4.4 throw, L4.6 throw, L4.7 throw.
 
 `THROW_POINTS = 10` `[ruled]` (`BIZ-T260823-65`). Every points figure in the first release is
@@ -258,8 +259,9 @@ player reads without checking.
 
 Level 3's silent self-catch also uses a word list and no model call `[ruled]` (`BIZ-T260823-74`). That
 list was written from scratch in `lib/board/language.ts` (`BRAIN-T260823-42`) and holds 50 phrases
-`[unratified]`. Level 3's dare fires once per Gym run, not once per account `[ruled]`
-(`BIZ-T260824-09`).
+`[unratified]`. Level 3's dare is removed from the game `[ruled Steve 2026-08-31]`, superseding `BIZ-T260824-09`,
+which had only narrowed its guard rail. What a player who wrote nothing inflatable sees instead is
+undesigned (`BRAIN-T260831-41`).
 
 **Three voices, and only one is a model** `[ruled]`. The **boss** speaks across the board from fixed
 script text. The **coach** 🧘 sits at the side and never plays a tile; its fourth job, added
@@ -277,15 +279,17 @@ moderator at write time, neither throwable nor earnable). **Two id conventions, 
 keeps `snake_case`, everything else including badges is `kebab-case`. The exception is the reason,
 not the category.
 
-**First release totals** `[ruled]`: 15 badges of 26, 4 rule cards of 11, 4 bosses of 8, 4
+**First release totals** `[ruled]`: 15 badges of 26, 4 rule cards of 11, 4 bosses of 9, 4
 certificates. Fast-forward exists on levels 3 and 4 only; build the full level first and then scale
 back, so the short path is a strict subset of the long one.
 
-**The profile is personal and non-comparative** `[ruled]` (`BIZ-T260822-05`): no leaderboard, no
-opponent comparison, no win/loss record. Six stats, one of which is Cards Landed. It renders only
+**The profile is personal and non-comparative** `[overturned Steve 2026-08-31]` (was
+`BIZ-T260822-05`): this said no leaderboard, no opponent comparison, no win/loss record. Steve
+overturned it and a leaderboard is in. What it ranks and what one player can see of another is
+undesigned (`BRAIN-T260831-24`, `BRAIN-T260831-37`). Six stats, one of which is Cards Landed. It renders only
 once the progression port lands, so it is downstream of 1.4, not parallel to it.
 
-**Why four levels and not eight** `[ruled]`: evidence, not scope trimming. Nobody pays to build level
+**Why four levels and not nine** `[ruled]`: evidence, not scope trimming. Nobody pays to build level
 5 until somebody has played to level 4. This is a build order, not a ladder order, and level 4 is not
 being renamed the last level.
 
@@ -337,16 +341,18 @@ go through server actions, and the subscription triggers a refetch rather than c
 
 Deferred by scheduling, not closed by ruling. The difference matters if something gets promoted.
 
-- **Levels 5 to 8 in full.** 5, evaluating evidence: ✅ Fact Check, 🎓 Who Would Know?, and the
-  anecdotal-data card, renamed Show Me the Rest (`BIZ-T260824-21`). 6, one idea at a time:
-  ✂️ Divide and Conquer plus three badges. 7, unearth hidden assumptions: 🧊 What Else Has To Be True?
+- **Levels 6 to 9 in full** [ruled Steve 2026-08-31]. 6, evaluating evidence: ✅ Fact Check, 🎓 Who Would Know?, and the
+  anecdotal-data card, renamed Show Me the Rest (`BIZ-T260824-21`). 7, one idea at a time:
+  ✂️ Divide and Conquer plus three badges. 8, unearth hidden assumptions: 🧊 What Else Has To Be True?
   in the co-premise triangle notation, the first level that descends into a sub-thread and has to come
-  back up. 8, causality is complicated: 🔗 Causality is Complicated, the one card the evaluator cannot
+  back up. 9, causality is complicated: 🔗 Causality is Complicated, the one card the evaluator cannot
   check on its own.
 - **🎭 Steel Man, Not Straw Man**, deferred to level 5 entirely `[ruled]`, even though three of its
   action paths are already wired in this repo.
-- **↕️ Importance ranking**, deferred behind the single-tile relocation version `[ruled]`. The **third
-  thread per side** travels with it to level 5 `[ruled]`; two per side through level 4.
+- **↕️ Importance ranking**, deferred behind the single-tile relocation version `[ruled]`, and
+  deferred past level 4 with the exact level left open `[ruled Steve 2026-08-31]`. The old "level 5"
+  here was shorthand for "not in the first four," never a considered placement. The **third thread
+  per side** travels with it wherever it lands `[ruled]`; two per side through level 4.
 - **The revise-topic-together win condition** `[ruled]`. It scores as a team award and should be the
   largest award on its level, being a win condition rather than a move.
   GAP: the exact point value of the revise-topic win, and the tile affordance, which has never been
@@ -364,7 +370,7 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
 
 - **Every points value.** Provisional by construction and by instruction; keep the whole table in one
   module so it is a one-file change.
-- **Levels 5 to 8 as designed.** One row per card, not broken into rungs, and their open questions
+- **Levels 6 to 9 as designed** [ruled Steve 2026-08-31]. One row per card, not broken into rungs, and their open questions
   stay open.
 - **The skill wording for levels 1 to 4**, whose source is a draft awaiting Steve.
 - **The emoji vocabulary above level 1.** Level 1 ships with 👍 and 👀 only; the wider vocabulary is
@@ -375,7 +381,7 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
   table. This repo answers it with its own table `[unratified]`, which does not make the call ruled.
 - **Boss roster coverage.** Skin tones are deliberately uncorrelated with name origin `[ruled]`. No
   Indigenous, Native American, or First Nations character exists in the roster: recorded as a gap, not
-  resolved. Parked names for 5 to 8: Kranky Karl, Twisty Thibault, Cagey Chandni, Hasty Hakeem, Bao.
+  resolved. Parked names for 5 to 9 [ruled Steve 2026-08-31]: Kranky Karl, Twisty Thibault, Cagey Chandni, Hasty Hakeem, Bao.
 
 ---
 

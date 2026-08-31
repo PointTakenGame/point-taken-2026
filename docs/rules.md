@@ -115,9 +115,9 @@ Two tokens are placeable [ruled Steve 2026-08-23, lib/board/rules.ts:45]:
 
 The shipped on-screen labels are "Agree to agree" for 👍 and "Agree to disagree" for 👀 [unratified: components/board/token-glyph.tsx:29-40, inherited verbatim from the retired Nuxt client].
 
-Three further tokens have art and labels in the repo and cannot be placed by anything: 🔍 disagree on a fact, ⚖️ disagree on priorities, 🍷 disagree on personal taste [unratified: lib/board/rules.ts:53]. They are deferred behind progression. Treat the game as a two-token game.
+Three further tokens have art and labels in the repo and cannot be placed by anything: 🔍 disagree on a fact, ⚖️ disagree on priorities, 🍷 disagree on personal taste [unratified: lib/board/rules.ts:53]. They are deferred behind progression, landing at level 5 [ruled Steve 2026-08-31]. Levels 1 to 4 are a two-token game.
 
-`GAP: BRAIN-T260425-33, still open: does level 1 ship with only 👍 and 👀, making it a two-emoji game above level 1 as well, or does the vocabulary widen and when?`
+Levels 1 to 4 ship with only 👍 and 👀; the vocabulary does not widen until level 5, which closes `GAP: BRAIN-T260425-33` [ruled Steve 2026-08-31].
 
 ## 6. Asking the other player for something
 
@@ -246,8 +246,7 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 - **Level 1**: about 9 tiles, 8 to 10 minutes, no points at all. Bob commits exactly one violation, then apologises for assuming.
 - **Level 2**: about 16 tiles, 15 minutes. Threads are health, energy, evenings, coordination. Introduces removing, withdrawing or adding, and relocating a tile by grab handle.
-- **Level 3**: about 18 tiles, 15 to 18 minutes. The self-check runs on the word list in section 7 with no model call [ruled BIZ-T260823-74]. This is the only place in the first release where points move backwards: 10 docked as "oversized claim" and
-  10 refunded as "brought back to size", net zero, once per Gym run [ruled BIZ-T260824-09].
+- **Level 3**: about 18 tiles, 15 to 18 minutes. The self-check runs on the word list in section 7 with no model call [ruled BIZ-T260823-74]. The L3.9 dare that used to sit here, docking 10 points as "oversized claim" and refunding 10 as "brought back to size" for a net zero, is removed from the game [ruled Steve 2026-08-31, superseding BIZ-T260824-09, which had only re-scoped it]. Nothing in the first release moves points backwards.
 - **Level 4**: about 19 tiles, 15 to 18 minutes. The moderator refuses a tile written as a question and hands the text back for editing, with no model call, on a trailing question mark plus interrogative openers [ruled BIZ-T260824-14]. A definition asked for here is pinned at the board edge and binds both players. **Acceptance is the score; nothing ever judges the quality of the player's reading.**
 
 **How a level is passed:** by reaching the end of its beat script. Completion grants the level's rule card and its certificate; using fast-forward (available at levels 3 and 4 only) grants the card but not the certificate [unratified: guide §1.1 `fastForward.grantsCard: true, grantsCertificate: false`].
@@ -258,7 +257,7 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 True today in the code: `app/gym/page.tsx` is the level-select screen and nothing more. Every "Start" button is inert on purpose. There is no scripted opponent, so none of section 10's mechanics run.
 
-First-release totals as designed: 4 of 11 rule cards, 4 of 8 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Deferred to level 5 and later: importance ranking, the revise-topic win condition inside the Gym, the Steel Man card, communal points, and generosity tokens [unratified: guide §7].
+First-release totals as designed: 4 of 11 rule cards, 4 of 9 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Deferred to level 5 and later: the revise-topic win condition inside the Gym, the Steel Man card, and communal points [unratified: guide §7]. Deferred past level 4, exact level open: importance ranking and generosity tokens [ruled Steve 2026-08-31].
 
 ## 11. Political neutrality
 

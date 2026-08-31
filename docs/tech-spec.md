@@ -305,7 +305,8 @@ server rather than freshly ratified (tracked `BRAIN-T260823-10`). `MAX_THREADS
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so
 nothing can place one yet. This is intended-but-unbuilt, gated behind a
-progression system that does not exist today (section 9).
+progression system that does not exist today (section 9), landing at level 5
+[ruled Steve 2026-08-31].
 
 ## 6. AI integration
 
@@ -484,7 +485,8 @@ cannot conclude the function is open.
 - **A progression system gating three more resolution tokens** (`🔍`, `⚖️`,
   `🍷`) beyond the two that ship today (`👍`, `👀`). The tokens exist as
   `DEFERRED_RESOLUTION_TOKENS` in `lib/board/rules.ts` but are not accepted
-  anywhere; nothing can place one.
+  anywhere; nothing can place one. They land at level 5
+  [ruled Steve 2026-08-31].
 - **The Gym (scripted practice opponent, levels 1-4) is on the critical
   path** `[ruled]` (Steve, 2026-08-28), so progression persistence is in
   scope. This reverses a 2026-08-17 scope ruling that took the scripted
@@ -502,7 +504,8 @@ cannot conclude the function is open.
   tokens of `DEFERRED_RESOLUTION_TOKENS`, which take the five-token vocabulary
   to its full size — referenced in
   `lib/board/rules.ts`'s comments as Steve's 2026-07-09 intent, gated behind
-  the same not-yet-built progression system.
+  the same not-yet-built progression system, landing at level 5
+  [ruled Steve 2026-08-31].
 
 ## 10. Known risks and gaps
 

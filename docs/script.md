@@ -147,7 +147,7 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 **Resolution tokens** (agree/disagree markers on a thread, distinct from Heart's 🙏):
 `RESOLUTION_TOKENS = ["👍", "👀"]`, settled 2026-08-23 by Steve, `[ruled]`.
 `DEFERRED_RESOLUTION_TOKENS = ["🔍", "⚖️", "🍷"]`, not yet placeable in the UI,
-`[unratified]`/future. Labels, `components/board/token-glyph.tsx` `FACES` (`:29-56`):
+`[unratified]`/future, landing at level 5 [ruled Steve 2026-08-31]. Labels, `components/board/token-glyph.tsx` `FACES` (`:29-56`):
 "👍" "Agree to agree", "👀" "Agree to disagree", "🔍" "Disagree on a fact", "⚖️"
 "Disagree on priorities", "🍷" "Disagree on personal taste". The file's own header
 comment (`:4-19`) states all five tokens' art and wording come from the retired Nuxt

@@ -359,7 +359,7 @@ four-level ladder that actually ships (`app/gym/page.tsx:5,12`, `LEVELS` renders
 footer; a boss-count badge pending a roster decision. Stale naming: "Dojo" (now "Gym," BRAIN-T260816-18);
 rule cards named for the fallacy rather than the good move; 11 cards across levels 2-8 in Figma versus 8
 card tracks in the decided model. `GAP:` across which levels do those 8 tracks run? Neither the four
-levels the Gym ships nor the eight-rung ladder `roadmap.md` section 5 designs on paper divides into 8
+levels the Gym ships nor the nine-rung ladder `roadmap.md` section 5 designs on paper divides into 8
 tracks cleanly. Only the Figma delta brief can settle the range.
 
 Fields Figma shows that the app does not store this way: city/location (no privacy decision has been made to collect it); email/password as a custom form
