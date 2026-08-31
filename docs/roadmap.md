@@ -320,7 +320,7 @@ Verified against the clone. Do not assume any of this exists because a source sa
   ruling.
   GAP: which surface do the 30-second and 45-second timers govern? They are not in the code, not in
   the Gym, and no source assigns them to a screen.
-- **No levels 5 to 8.** Designed on paper and provisional; see section 5.
+- **No levels 5 to 9.** Designed on paper and provisional; see section 5.
 - **No third human.** The referee is the AI `[ruled]`; do not build a moderator seat.
 - **No tokens** in Brain for now `[ruled]`. Generosity tokens are deferred.
 - **The feedback form destination is unconfigured** by default, and CI runs build, typecheck, lint,
