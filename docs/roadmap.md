@@ -99,8 +99,12 @@ Nothing else can be built on top until this is settled, because everything else 
 - **1.1a The four award events are missing and are a migration.** `card_granted`,
   `certificate_granted`, `badge_granted`, `points_adjusted` `[ruled]` (`BIZ-T260824-08`). The
   catalogue is a closed set of single-token `snake_case` types enforced by the database, which is why
-  `card.granted` was never expressible. `points_adjusted` is required, not optional: level 3 docks
-  and then refunds, and the scoring model is replay-derived. Awarding a card and awarding a
+  `card.granted` was never expressible. `points_adjusted` was ruled required rather than optional
+  because level 3 docked and then refunded and the scoring model is replay-derived. The docking is
+  gone: the L3.9 dare that did it was removed 2026-08-31, and nothing in levels 1 to 4 moves points
+  backwards any more. Whether the type still earns a slot in the closed 28-type catalogue with no
+  caller is open (`BRAIN-T260831-42`); the catalogue being closed and database-enforced is the reason
+  it is cheaper to keep than to re-add. Awarding a card and awarding a
   certificate are **two events, not one** `[ruled]` (`BIZ-T260819-16`).
 - **1.2 Tile fields.** `revised` is live at `lib/board/project.ts:33`, set at `:562` `[unratified]`.
   GAP: does a tile still need a `ruleCard` field of its own in the new schema, or does the thrown card
@@ -237,7 +241,8 @@ was to pick numbers now because they are cheap to change later.
 - **Level 2 adds relevance**, and introduces tile relocation, the gesture every later
   propose-and-approve mechanic reuses.
 - **Level 3 is the only level that asks the player to fix themselves**: their own overstatement is
-  caught, docked, and repaired. Catching yourself presupposes seeing the move at all, so it needs 2.
+  caught and repaired. (It was caught, docked, and repaired until the L3.9 dare was removed on
+  2026-08-31. The self-catch survives the deletion; only the points movement is gone.) Catching yourself presupposes seeing the move at all, so it needs 2.
 - **Level 4 substitutes rather than adds.** The skill replaces an earlier reflex instead of stacking
   on it, so it cannot be reordered ahead of level 3.
 
