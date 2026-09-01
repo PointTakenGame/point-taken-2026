@@ -62,6 +62,7 @@ import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
 import { SIDE_LABEL, SIDE_MARK } from "./side-label";
+import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
@@ -546,22 +547,18 @@ function MoveForm({
 
   return (
     <div className="ml-6 flex flex-col gap-1 border border-current/20 p-2">
-      <label className="flex flex-col gap-1 text-xs">
-        Move it under
-        <select
-          className="border border-current/30 p-1 text-p-sm"
-          value={target}
-          disabled={pending}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="">Nothing: start its own thread</option>
-          {destinations.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <TilePicker
+        legend="Move it under"
+        value={target}
+        disabled={pending}
+        noneLabel="Nothing: start its own thread"
+        onChange={setTarget}
+        choices={destinations.map((candidate) => ({
+          id: candidate.id,
+          side: candidate.side,
+          label: shortText(board, candidate.id),
+        }))}
+      />
       <WhyNot verdict={verdict} />
       <span className="flex gap-2">
         <button
@@ -1309,22 +1306,17 @@ function ReadingHandbackForm({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-p-sm">
-        Which reason
-        <select
-          className="border border-current/30 p-1 text-p-sm"
-          value={tileId}
-          disabled={pending}
-          onChange={(event) => setTileId(event.target.value)}
-        >
-          <option value="">Pick one of their reasons</option>
-          {theirs.map((tile) => (
-            <option key={tile.id} value={tile.id}>
-              {SIDE_MARK[tile.side]} {shortText(board, tile.id)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <TilePicker
+        legend="Which of their reasons"
+        value={tileId}
+        disabled={pending}
+        onChange={setTileId}
+        choices={theirs.map((tile) => ({
+          id: tile.id,
+          side: tile.side,
+          label: shortText(board, tile.id),
+        }))}
+      />
       <textarea
         className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
@@ -1435,22 +1427,18 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
         placeholder="A reason for their side that you think they missed."
         onChange={(event) => setText(event.target.value)}
       />
-      <label className="flex flex-col gap-1 text-xs">
-        Hang it under
-        <select
-          className="border border-current/30 p-1 text-p-sm"
-          value={parent}
-          disabled={pending}
-          onChange={(event) => setParent(event.target.value)}
-        >
-          <option value="">Nothing: start its own thread</option>
-          {destinations.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <TilePicker
+        legend="Hang it under"
+        value={parent}
+        disabled={pending}
+        noneLabel="Nothing: start its own thread"
+        onChange={setParent}
+        choices={destinations.map((candidate) => ({
+          id: candidate.id,
+          side: candidate.side,
+          label: shortText(board, candidate.id),
+        }))}
+      />
       <WhyNot verdict={blocked} />
       <button
         type="button"
