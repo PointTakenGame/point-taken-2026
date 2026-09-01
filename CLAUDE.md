@@ -254,10 +254,17 @@ Settled, and not up for redesign in a surface pull request:
 
 Still moving, and known to be inconsistent between the code and the design documents:
 
-- the number of agreement lines in the signing ritual, three in the brief and four in the Figma
-- the level and badge taxonomy, and the name of every level
+- what the three agreement lines in the signing ritual actually say. The count is ruled: three,
+  not the Figma's four (`BIZ-T260822-04`). The wording is still open (`BRAIN-T260830-14`)
+- the badge taxonomy for levels 5 to 9, and who bosses each of those levels
+  (`BRAIN-T260831-40`). The ladder itself is no longer moving: nine levels, ratified by Steve
+  2026-08-30 (`BRAIN-T260830-24`, renumbered `BRAIN-T260831-39`), and the first four titles,
+  Onboarding, Ground rules, Claim size and Clarity, were adopted verbatim 2026-08-23
+  (`BIZ-T260823-69`)
 - the shape of the coach's turn
-- how many threads a game must have before it can end (the code says four, carried forward from
-  the old server rather than ratified, and says so in a comment)
+- whether four is the right thread minimum for **live play**. For the Gym it is ruled:
+  `MIN_THREADS_TO_END` becomes a per-game value and level 1 sets its own to 2
+  (`BIZ-T260824-11`), so the two-thread level can be won. The code still says a flat four and
+  its comment still admits that was carried forward from the old server rather than ratified
 
 **Do not resolve any of these by choosing one. Flag it.**
