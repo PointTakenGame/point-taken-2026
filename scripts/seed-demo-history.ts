@@ -106,6 +106,21 @@
  * next) varies from game to game rather than always landing on the same
  * seat.
  *
+ * RESOLUTION TOKEN VARIETY (fixed after the account page's "How your threads
+ * end" panel showed a single row)
+ * Every resolved thread used to close with the same hardcoded token, so
+ * `player_stats.resolutions_by_emoji` only ever had one key in it. Which
+ * token a real thread can close with is `RESOLUTION_TOKENS` in
+ * lib/board/rules.ts, currently two: agree to agree (a checkmark-style
+ * thumbs up) and agree to disagree (an eyes glance). The three-way split by
+ * fact, priorities, and taste that the design docs describe is drawn in
+ * lib/board/rules.ts too, as `DEFERRED_RESOLUTION_TOKENS`, but is explicitly
+ * not accepted by `isResolutionToken` yet, so no real game can produce one
+ * today; seeding one would show the account page a token nobody could have
+ * actually placed. Each resolved thread now picks its token with a skew
+ * toward agreeing (roughly two in three), the rest agreeing to disagree,
+ * rather than either a fixed value or an even split.
+ *
  * RUN
  *   npm run seed:demo
  */
@@ -115,7 +130,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { TOPIC_LIBRARY } from "../lib/board/setup";
 import { SIGNING_LINE_IDS } from "../lib/board/setup";
 import { FIRST_RELEASE_CARD_IDS } from "../lib/board/setup";
-import { RESOLUTION_TOKENS, MIN_THREADS_TO_END, MAX_THREADS } from "../lib/board/rules";
+import {
+  RESOLUTION_TOKENS,
+  type ResolutionToken,
+  MIN_THREADS_TO_END,
+  MAX_THREADS,
+} from "../lib/board/rules";
 import { generateDisplayName, numericTail, type Picker } from "../lib/names/generate";
 import { EVENT_TYPES, type GameEventType, type Uuid } from "../lib/events/types";
 
@@ -536,7 +556,22 @@ function ev(
   return { type, actorRole, source, actorId, payload };
 }
 
-const RESOLUTION_EMOJI = RESOLUTION_TOKENS[0];
+// Weighted, not uniform: about two resolved threads in three land on
+// agreeing (RESOLUTION_TOKENS[0]), the rest on agreeing to disagree
+// (RESOLUTION_TOKENS[1]), matching the order RESOLUTION_TOKENS is declared
+// in. See the RESOLUTION TOKEN VARIETY note at the top of this file for why
+// only these two tokens are in play.
+const RESOLUTION_WEIGHTS: readonly number[] = [2, 1];
+
+function pickResolutionToken(rng: Picker): ResolutionToken {
+  const total = RESOLUTION_WEIGHTS.reduce((sum, w) => sum + w, 0);
+  let roll = pick(rng, total);
+  for (let i = 0; i < RESOLUTION_TOKENS.length; i += 1) {
+    if (roll < RESOLUTION_WEIGHTS[i]) return RESOLUTION_TOKENS[i];
+    roll -= RESOLUTION_WEIGHTS[i];
+  }
+  return RESOLUTION_TOKENS[RESOLUTION_TOKENS.length - 1];
+}
 
 type Outcome = "threads_resolved" | "topic_agreed" | "abandoned" | "timeout" | "active";
 
@@ -616,22 +651,27 @@ function buildThread(
   }
 
   if (resolve) {
+    // Both sides place the same token to resolve a thread (the rule is
+    // agreement, see agreedToken in lib/board/rules.ts), so one pick here
+    // covers all three events. Which token varies per thread rather than
+    // reusing one fixed value; see pickResolutionToken above.
+    const resolutionEmoji = pickResolutionToken(rngContent);
     events.push(
       ev("resolution_emoji_placed", openerRole, "human", opener.id, {
         thread_root_id: rootTileId,
-        emoji: RESOLUTION_EMOJI,
+        emoji: resolutionEmoji,
       }),
     );
     events.push(
       ev("resolution_emoji_placed", replierRole, "human", replier.id, {
         thread_root_id: rootTileId,
-        emoji: RESOLUTION_EMOJI,
+        emoji: resolutionEmoji,
       }),
     );
     events.push(
       ev("thread_resolved", "server", "system", null, {
         thread_root_id: rootTileId,
-        emoji: RESOLUTION_EMOJI,
+        emoji: resolutionEmoji,
         note: null,
       }),
     );
