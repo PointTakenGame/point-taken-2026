@@ -71,7 +71,9 @@ function ranks(rows: LeaderboardRow[], metric: LeaderboardMetric): number[] {
 function SortLinks({ active }: { active: LeaderboardMetric }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-p-sm text-gray">Rank by</span>
+      <span className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+        Rank by
+      </span>
       {METRICS.map((metric) =>
         metric === active ? (
           <span
@@ -112,7 +114,7 @@ export default async function LeaderboardPage({
       <SiteNav here="leaderboard" />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Leaderboard</h1>
+          <h1 className="font-primary text-3xl tracking-wide">Leaderboard</h1>
           <p className="text-p-sm text-gray">
             Both ways to win this game are cooperative, so none of these columns measures
             beating anybody.
@@ -126,22 +128,41 @@ export default async function LeaderboardPage({
             Nobody has played a game yet. The first one starts the board.
           </p>
         ) : (
-          <ol className="flex flex-col divide-y divide-current/10">
+          <ol className="flex flex-col gap-3">
             {rows.map((row, index) => {
               const you = row.playerId === playerId;
+              // A little more weight for the top three, never a different colour
+              // or a medal glyph: the rank number already carries the ranking,
+              // and both win conditions here are cooperative, so nothing on the
+              // row should read as a podium.
+              const podium = places[index] <= 3;
               return (
                 <li
                   key={row.playerId}
-                  className={`flex items-center gap-3 py-3 ${you ? "bg-sand" : ""}`}
+                  className={
+                    you
+                      ? "flex items-center gap-3 rounded-xl border-2 border-gold bg-sand p-4 shadow-sm"
+                      : "flex items-center gap-3 rounded-xl border-2 border-neutral-black/15 bg-neutral-white p-4 shadow-sm"
+                  }
                 >
-                  <span className="w-8 shrink-0 text-right font-primary text-p-md text-gold tabular-nums">
+                  <span
+                    className={`w-8 shrink-0 text-right font-primary text-gold tabular-nums ${
+                      podium ? "text-p-lg" : "text-p-md"
+                    }`}
+                  >
                     {places[index]}
                   </span>
                   <Avatar playerId={row.playerId} name={row.displayName} size="sm" />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className={row.displayName ? "" : "opacity-60"}>
-                      {row.displayName ?? UNNAMED_PLAYER}
-                      {you ? " (you)" : ""}
+                    <span className="flex items-center gap-2">
+                      <span className={row.displayName ? "" : "opacity-60"}>
+                        {row.displayName ?? UNNAMED_PLAYER}
+                      </span>
+                      {you ? (
+                        <span className="rounded-full border-2 border-gold bg-neutral-white px-2 py-0.5 font-secondary text-p-sm text-gold uppercase tracking-wide">
+                          you
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-p-sm text-gray">
                       {row.gamesPlayed} game{row.gamesPlayed === 1 ? "" : "s"} played
@@ -151,13 +172,15 @@ export default async function LeaderboardPage({
                     {METRICS.map((column) => (
                       <span key={column} className="flex w-20 flex-col items-end gap-0.5">
                         <span
-                          className={`tabular-nums ${
-                            column === metric ? "font-semibold" : "opacity-60"
+                          className={`font-secondary tabular-nums ${
+                            column === metric
+                              ? "font-semibold text-neutral-black"
+                              : "text-gray"
                           }`}
                         >
                           {row[column]}
                         </span>
-                        <span className="text-p-sm text-gray">
+                        <span className="font-secondary text-p-sm text-gray uppercase tracking-wide">
                           {METRIC_LABELS[column]}
                         </span>
                       </span>

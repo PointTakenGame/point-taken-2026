@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./actions";
 
 /**
- * The three settings forms, each its own island.
+ * The three settings forms, each its own card.
  *
  * They are separate components rather than one form with three fields because
  * they are three unrelated commitments: renaming is instant, the coach toggle
@@ -19,15 +19,13 @@ import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./act
  */
 
 /*
-  Chrome comes from `app/globals.css`, which ports the retired client's
-  `.form-base` / `.input-primary` / `.btn-primary` verbatim. These two names
-  used to hold a bespoke approximation of them, which is how a screen ends up
-  wearing none of the design system while all five gate commands stay green.
-
-  Only the controls change here. The page's layout and typography stay plain on
-  purpose: Rannie's settings frame carries rows for systems that are not decided
-  (BRAIN-T260817-02), so laying this out against it now would bake in a design
-  nobody has ratified. See the header comment on `./page.tsx`.
+  Buttons and inputs keep the `.form-base` / `.input-primary` / `.btn-primary`
+  chrome ported from `app/globals.css`, rather than the orange pill used on
+  /account: that pill is reserved for the single highest-priority action on a
+  card, and no button here is the one thing this page wants a visitor to do.
+  The card, heading and hint typography around them now match /account's
+  (BRAIN-T260831-76); only the control chrome stays the retired client's
+  default. See the header comment on `./page.tsx`.
 */
 const BUTTON =
   "form-base btn-primary px-4 py-2 text-p-sm font-secondary disabled:cursor-not-allowed disabled:opacity-50";
@@ -36,7 +34,13 @@ const FIELD = "form-base input-primary";
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;
   return (
-    <p className={result.ok ? "text-p-sm text-gray" : "text-p-sm text-orange"}>
+    <p
+      className={
+        result.ok
+          ? "font-secondary text-p-sm text-gray"
+          : "font-secondary text-p-sm text-orange"
+      }
+    >
       {result.ok ? result.message : result.error}
     </p>
   );
@@ -52,10 +56,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 border-t border-current/10 pt-6">
+    <section className="flex flex-col gap-3 rounded-2xl border-2 border-neutral-black bg-neutral-white p-5 shadow-sm">
       <div className="flex flex-col gap-1">
-        <h2 className="text-p-lg font-semibold">{title}</h2>
-        <p className="text-p-sm text-gray">{hint}</p>
+        <h2 className="font-primary text-p-lg tracking-wide">{title}</h2>
+        <p className="font-secondary text-p-sm text-gray">{hint}</p>
       </div>
       {children}
     </section>
@@ -236,14 +240,14 @@ function SignOut({ claimed }: { claimed: boolean }) {
         {armed ? (
           <button
             type="button"
-            className="text-p-sm underline text-gray"
+            className="font-secondary text-p-sm underline text-gray"
             onClick={() => setArmed(false)}
           >
             Keep me signed in
           </button>
         ) : null}
       </div>
-      {error ? <p className="text-p-sm text-orange">{error}</p> : null}
+      {error ? <p className="font-secondary text-p-sm text-orange">{error}</p> : null}
     </div>
   );
 }

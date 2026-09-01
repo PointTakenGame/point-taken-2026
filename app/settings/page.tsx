@@ -10,9 +10,11 @@ import { SettingsForm } from "./settings-form";
  * The three things a player controls: their name, the coach, and whether the
  * account outlives this browser.
  *
- * Same plain type as /account and for the same reason: Rannie's settings frame
- * (755:25347) carries rows for systems that are not decided (BRAIN-T260817-02),
- * so the styling waits and the working controls do not.
+ * Same card and type system as /account (BRAIN-T260831-76) as of this pass.
+ * Rannie's settings frame (755:25347) still carries rows for systems that are
+ * not decided (BRAIN-T260817-02), so those stay out, but the chrome that is
+ * here now matches the rest of the walkthrough instead of standing apart from
+ * it.
  */
 
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ export default async function SettingsPage() {
   if (!player) {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-6 p-8">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="font-primary text-3xl tracking-wide">Settings</h1>
         <p className="text-gray">
           You are not signed in. Starting a game gives you a name and an account, with no
           email and no password.
@@ -46,8 +48,8 @@ export default async function SettingsPage() {
       <SiteNav here="settings" />
       <main className="mx-auto flex max-w-2xl flex-col gap-6 p-8">
         <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="text-gray">
+          <h1 className="font-primary text-3xl tracking-wide">Settings</h1>
+          <p className="text-p-sm text-gray">
             Signed in as {player.display_name ?? "a player with no name yet"}.
           </p>
         </header>
