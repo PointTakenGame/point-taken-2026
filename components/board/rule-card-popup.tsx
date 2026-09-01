@@ -7,7 +7,7 @@ import { TileShape } from "@/components/board/tile-shape";
 /**
  * A rule card: a reference a player reads, not a transient pop-up with a
  * decision in it. Ported from the retired client's `RuleCard.vue` (164
- * lines), which drew its own diamond tile pair and its own card chrome from
+ * lines), which drew its own tile pair and its own card chrome from
  * scratch. Here the card pair reuses `TileShape`, this codebase's existing
  * tile primitive, and the surrounding chrome is `TilePopover` configured
  * with `body: { kind: "none" }` and the card's own content passed through

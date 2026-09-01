@@ -21,6 +21,7 @@ import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicTile } from "@/components/board/topic-tile";
+import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID } from "@/components/board/layout";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
@@ -46,7 +47,6 @@ import {
   canProposeRelocation,
   canProposeSteelmanReading,
   canProposeSteelmanTile,
-  canProposeTopicRevision,
   canRemoveTile,
   canReviseTile,
   canThrowCard,
@@ -78,7 +78,6 @@ import {
   proposeRelocation,
   proposeSteelmanReading,
   proposeSteelmanTile,
-  proposeTopicRevision,
   rejectProposal,
   removeTile,
   reviseTile,
@@ -1089,7 +1088,7 @@ function Composer({
         This used to be a dropdown of every tile on the board, which asked a
         player to find the reason they were answering in a list of truncated
         strings. The board above is where that choice belongs now: hover a
-        diamond, click one of its open diagonals. All this has to do is say
+        tile, click one of its open diagonals. All this has to do is say
         which one you picked and let you back out of it.
       */}
       <div className="text-p-sm flex flex-wrap items-baseline gap-2">
@@ -1171,57 +1170,12 @@ function Composer({
 }
 
 /**
- * The anchor the minimap's pencil scrolls to. The two ways to win are drawn
- * at the top of the page and only one of them is actionable there, so the
- * pencil has to be able to take you to the form rather than just naming it.
+ * The anchor the Ways-to-win pencil scrolls to. The two ways to win are drawn
+ * at the top of the page, above the board, and rewriting the topic now happens
+ * on the topic tile itself, so the pencil opens that editor and then brings the
+ * board into view rather than sending you to a form somewhere else.
  */
-const TOPIC_REVISION_SECTION_ID = "rewriting-the-topic";
-
-function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardState }) {
-  const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const verdict = canProposeTopicRevision(board, text);
-  const blocked =
-    text.trim().length > 0 ? verdict : canProposeTopicRevision(board, "a revised topic");
-
-  const submit = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await proposeTopicRevision(gameId, { text });
-      if (!result.ok) setError(result.error);
-      else setText("");
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-p-sm">
-        Propose a revised topic
-        <textarea
-          className="w-full border border-current/30 p-1 text-p-sm"
-          value={text}
-          maxLength={300}
-          disabled={pending}
-          placeholder="A statement both sides could sign."
-          onChange={(event) => setText(event.target.value)}
-        />
-      </label>
-      <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Propose
-      </button>
-      <ErrorLine error={error} />
-    </div>
-  );
-}
+const BOARD_SECTION_ID = "the-board";
 
 /**
  * Reading their reason back in your own words, for them to judge.
@@ -1238,6 +1192,9 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
  * saying the other side back, or that every one of them is a proposal the other
  * player has to accept before anything happens.
  */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Move({
   title,
   hint,
@@ -1258,6 +1215,9 @@ function Move({
   );
 }
 
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ReadingHandbackForm({
   gameId,
   board,
@@ -1342,6 +1302,9 @@ function ReadingHandbackForm({
 
 /** Their whole side, said for them. Aimed at nothing on the board, so it can be
     offered before either of you has placed much. */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardState }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1392,6 +1355,9 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
  * Which side it goes on is never sent from here. The server derives it, so this
  * form has no field for it and no way to be wrong about it.
  */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState }) {
   const [parent, setParent] = useState("");
   const [text, setText] = useState("");
@@ -1455,6 +1421,9 @@ function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState
 }
 
 /** A word one of you keeps using and the other keeps hearing differently. */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }) {
   const [term, setTerm] = useState("");
   const [text, setText] = useState("");
@@ -1637,7 +1606,7 @@ function ThreadBlock({
  * How close this game is to ending, in both of the ways it can end.
  *
  * Both win conditions are cooperative and both were invisible here. The topic
- * route was described in prose at the bottom of the page; the thread route was
+ * route was described in prose far below the board; the thread route was
  * described nowhere at all, and its two numbers were enforced silently. A
  * player could resolve every thread on the board and have nothing happen,
  * because the floor is four and they had three, with nothing on the screen that
@@ -1651,10 +1620,10 @@ function HowThisEnds({ board }: { board: BoardState }) {
   const resolved = threads.filter(isResolved).length;
   const unresolved = threads.length - resolved;
   const shortBy = Math.max(0, MIN_THREADS_TO_END - threads.length);
-  // Same denominator the Ways to win card uses, for the same reason: this
-  // panel used to count against the threads that exist while the card counted
-  // against the floor, so one screen showed "1 of 2" and "1 of 4" at once.
-  const target = Math.max(threads.length, MIN_THREADS_TO_END);
+  // Same denominator the Ways to win card uses: the threads that actually
+  // exist. Winning is resolving all of them, not reaching a number (Steve,
+  // 2026-09-01). MIN_THREADS_TO_END still gates the ending in the engine, so
+  // this panel is where that floor gets explained, in the sentence below.
 
   const threadRoute =
     shortBy > 0
@@ -1688,14 +1657,15 @@ function HowThisEnds({ board }: { board: BoardState }) {
       <p className="text-p-sm">
         {threads.length === 0
           ? "No threads yet."
-          : `${resolved} of ${target} threads resolved.`}
+          : `${resolved} of ${threads.length} threads resolved.`}
         {threadRoute ? ` ${threadRoute}` : null}
       </p>
       {ceiling ? <p className="text-p-sm text-gray">{ceiling}</p> : null}
       {topicAgreementEndsGame(board) ? (
         <p className="text-p-sm text-gray">
-          The other way out is agreeing on a rewritten topic, at the bottom of this page.
-          Either ending is a win, and it is the same win for both of you.
+          The other way out is agreeing on a rewritten topic. Click the topic in the
+          middle of the board and write the version you would both sign. Either ending is
+          a win, and it is the same win for both of you.
         </p>
       ) : null}
     </section>
@@ -1713,10 +1683,10 @@ export function LiveBoard({
   const definitions = agreedDefinitions(board);
 
   // Which tile the next one will hang off. It lives up here rather than in
-  // the composer because the board picks it: a player hovers a diamond and
+  // the composer because the board picks it: a player hovers a tile and
   // clicks one of its open diagonals, and the composer only reports back
   // what that click chose. "" means a new thread, which is what the four
-  // slots around the topic diamond mean.
+  // slots around the topic tile mean.
   const [replyTarget, setReplyTarget] = useState("");
 
   // Placement is offered per parent, because the rules answer per parent: a
@@ -1758,6 +1728,10 @@ export function LiveBoard({
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
   const [onboardingOpen, setOnboardingOpen] = useState(true);
+  // The topic editor opens from two places (the tile itself and the Ways to
+  // win pencil), so the board owns whether it is open, not the tile.
+  const [topicEditing, setTopicEditing] = useState(false);
+  const topicPending = pendingTopicRevision(board) !== null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
@@ -1874,8 +1848,9 @@ export function LiveBoard({
             threads={miniThreads}
             resolvedCount={resolvedCount}
             onRevise={() => {
+              setTopicEditing(true);
               document
-                .getElementById(TOPIC_REVISION_SECTION_ID)
+                .getElementById(BOARD_SECTION_ID)
                 ?.scrollIntoView({ behavior: "smooth", block: "center" });
             }}
           />
@@ -1889,10 +1864,10 @@ export function LiveBoard({
         {/*
           The board is drawn from the first moment, before anybody has placed
           anything, because the empty board is how the first tile gets placed:
-          the topic diamond sits alone in the middle with four open slots
+          the topic tile sits alone in the middle with four open slots
           around it, and clicking one starts a thread.
         */}
-        <section className="flex flex-col gap-2">
+        <section id={BOARD_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
           <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
             The board
           </h2>
@@ -1902,7 +1877,10 @@ export function LiveBoard({
               : "Every reason in play, hung off the one it answers. Hover a reason to see where a new one can go. Drag the background to move around."}
           </p>
           <SpatialBoard
-            placementEnabled={placementEnabled}
+            // A rewrite of the topic is a negotiation about the whole board,
+            // so the board stops offering places to put a new reason while one
+            // is open or waiting for an answer.
+            placementEnabled={placementEnabled && !topicEditing && !topicPending}
             canPlaceOn={canPlaceUnder}
             onPlace={(parentId) => {
               setReplyTarget(parentId === TOPIC_CELL_ID ? "" : parentId);
@@ -1912,18 +1890,27 @@ export function LiveBoard({
             }}
             tiles={allTargets(board)}
             topic={
-              <TileShape side="neutral" size={14} watermark="topic">
-                <p className="font-tiles text-p-sm px-2 text-center">
-                  {board.currentTopicText ?? "No topic was set."}
-                </p>
-              </TileShape>
+              <TopicCell
+                gameId={gameId}
+                board={board}
+                me={me}
+                size={14}
+                editing={topicEditing}
+                onEdit={() => setTopicEditing(true)}
+                onEditEnd={() => setTopicEditing(false)}
+              />
             }
             renderTile={(tile) => (
               <TileShape
                 side={tile.side}
                 size={14}
                 watermark={tile.isOpeningReason ? "thread" : "reason"}
-                dimmed={tile.removed}
+                // Everything else fades while the topic is being rewritten,
+                // the same move the retired client makes for an emoji
+                // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
+                // a negotiation on one tile should not look like it belongs
+                // to the whole board.
+                dimmed={tile.removed || topicEditing || topicPending}
               >
                 <p className="font-tiles text-p-sm px-2 text-center">
                   <TileText tile={tile} />
@@ -1991,51 +1978,26 @@ export function LiveBoard({
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Understanding each other
-        </h2>
-        <p className="text-p-sm text-gray">
-          Four moves that are not arguments. Each one is a proposal: nothing lands on the
-          board until the other player accepts it.
-        </p>
-        <Move
-          title="Say one of their reasons back"
-          hint="Put something they wrote into your own words. They tell you whether you got it."
-        >
-          <ReadingHandbackForm gameId={gameId} board={board} me={me} />
-        </Move>
-        <Move
-          title="Say their whole side for them"
-          hint="Not one reason, the whole position, put as strongly as you can. You can offer this before either of you has written much."
-        >
-          <SteelmanReadingForm gameId={gameId} board={board} />
-        </Move>
-        <Move
-          title="Offer them a reason"
-          hint="A reason for their side that you think they missed. If they take it, it lands on their half of the board."
-        >
-          <SteelmanTileForm gameId={gameId} board={board} />
-        </Move>
-        <Move
-          title="Pin down a word"
-          hint="A word the two of you keep using differently. Agree what it means for the rest of this game."
-        >
-          <DefinitionForm gameId={gameId} board={board} />
-        </Move>
-      </section>
+      {/*
+        "Understanding each other" stood here: four labelled forms, one per
+        non-argument move, in a scrolling column of prose. Removed 2026-09-01
+        on Steve's call.
 
-      <section id={TOPIC_REVISION_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Rewriting the topic
-        </h2>
-        <p className="text-p-sm text-gray">
-          One of the two ways this game ends well. If the argument has taught you both
-          what the real question was, write that question down: a version of the topic you
-          would both sign. The other way out is resolving every thread.
-        </p>
-        <TopicRevisionForm gameId={gameId} board={board} />
-      </section>
+        The mechanics behind them are real and stay in the event log. They are
+        rule cards, and they were built before there was a hand to put them in.
+        `roadmap.md:54` rules that tile relocation, the Help Me Understand
+        handback, all three Steel Man rungs and revise-topic are one
+        propose-and-approve interaction, so the primitive got built once and
+        every kind of it got a form. The forms were the wrong doorway: a card
+        is played off the hand onto a tile, not chosen from a list of headings.
+
+        Where each one lands when the hand exists: "say a reason back" is 💬
+        Help Me Understand, "pin down a word" is rung 2 of that same card
+        (`roadmap.md:174`, 📖 Define That is explicitly not its own card), and
+        the two Steel Man moves are track F, which is deferred past the first
+        release. The components are still in this file, unrendered, so the
+        card work has something to move rather than something to rewrite.
+      */}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">

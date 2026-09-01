@@ -282,12 +282,16 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
         </p>
 
         {/*
-          The board's own topic tile (TopicTile, via TileShape) is a diamond,
-          not the octagon Rannie draws, but it is the one topic shape this
-          codebase actually has, right down to carrying the same "TOPIC"
-          watermark hers does. Reusing it means a player meets this shape once
-          here and recognises it again the moment the game starts, which
-          matters more than matching her silhouette exactly.
+          The same octagon the board draws (TopicTile, via TileShape), right
+          down to the "TOPIC" watermark, so a player meets the shape once here
+          and recognises it the moment the game starts.
+
+          This comment used to say the tile was "a diamond, not the octagon
+          Rannie draws" and argued that reusing the wrong shape mattered more
+          than matching her silhouette. The mismatch was real and the argument
+          was wrong: the octagon is what production has shipped for a year.
+          Left as a marker, because a comment that rationalises a discrepancy
+          is how this one stayed off the delta tables for as long as it did.
         */}
         <TileShape side="neutral" size={16} watermark="topic">
           <textarea

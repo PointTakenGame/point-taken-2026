@@ -1,13 +1,24 @@
 import type { CSSProperties, ReactNode } from "react";
 
+import { INNER_FRAME_RATIO } from "@/components/board/geometry";
+
 /**
- * The diamond: a rotated-square double border, built from two absolutely
- * positioned squares (a thin outer frame, a thick inner frame) with upright
- * content laid on top in a third, non-rotated layer. This is the retired
- * client's core tile construction (`Tile.vue` / `TileShape.vue` /
- * `TopicTile.vue`), ported without its `:before` pseudo-element trick: here
- * the content overlay sits above both diamonds instead, which reads
- * identically and needs no scoped CSS.
+ * The tile: a regular octagon with a double border, built exactly the way the
+ * retired client builds it, plus an upright content layer on top.
+ *
+ * The construction looks like two rotations and is really an intersection. A
+ * wrapper clips to an axis-aligned square; inside it a child is rotated 45
+ * degrees, and that child clips its own `::before`, which is rotated a further
+ * 45 degrees back to upright. Square meets rotated square, and the overlap is
+ * a regular octagon: the rotated square contributes the four diagonal edges,
+ * the `::before` contributes the four orthogonal ones. Neither element is
+ * decorative and neither can be dropped. See `components/board/geometry.ts`
+ * for the arithmetic and for what happened the last time one was.
+ *
+ * This is `Tile.vue` / `TileShape.vue` / `TopicTile.vue` ported whole, down to
+ * the 18.5rem-to-17rem ratio between the two frames. It is not a redesign, and
+ * a rewrite that "simplifies" it to a `clip-path` loses the box-shadow and the
+ * selected-state border, both of which are visible in Rannie's render.
  *
  * Deliberately self-contained: unlike the retired app's CSS-Grid board, this
  * has no absolute spatial dependency and composes fine inside an ordinary
@@ -28,10 +39,13 @@ const SIDE_TEXT: Record<TileSide, string> = {
   neutral: "text-neutral-black",
 };
 
-const SIDE_RING: Record<TileSide, string> = {
-  plus: "ring-green",
-  minus: "ring-orange",
-  neutral: "ring-neutral-black",
+/** The outer ring is a tint, not a second full-strength line: measured at a
+ * light wash of the side colour in Rannie's render, ~10px outside the main
+ * border. `border: inherit` on the `::before` carries the alpha with it. */
+const SIDE_BORDER_SOFT: Record<TileSide, string> = {
+  plus: "border-green/40",
+  minus: "border-orange/40",
+  neutral: "border-neutral-black/30",
 };
 
 /**
@@ -77,37 +91,32 @@ export function TileShape({
   children,
 }: {
   side: TileSide;
-  /** Edge length in rem. The retired client used 17 for a standalone tile, 17 for a collapsed stack, and smaller ghost sizes on its spatial grid; 13 fits this list layout without dominating it. */
+  /** Declared box in rem, outer ring included. The retired client's board tile is 18.5 here; 13 fits this list layout without dominating it. */
   size?: number;
   /** The stroked corner watermark word, e.g. "reason" or "topic". */
   watermark?: string;
   /** Resolution-thread dimming (retired `resolvingThreadRoot`): fades everything but the thread being resolved. No engine state drives this yet; wired for the day one exists. */
   dimmed?: boolean;
-  /** Retired client's selected/active tile highlight: a stronger, side-coloured ring. */
+  /** Retired client's selected/active tile highlight. A CSS ring would be clipped away by the octagon wrappers, so the outer frame goes to full strength instead. */
   selected?: boolean;
   className?: string;
   /** Extra inline style, merged after the size. Lets callers (e.g. the collapsed-thread fan) position instances absolutely without a bespoke size prop. */
   style?: CSSProperties;
   children: ReactNode;
 }) {
-  // A square rotated 45deg has a diagonal of edge*sqrt(2), so a diamond drawn
-  // with edge length equal to the container's own size overflows that
-  // container on all four sides. Size the diamonds down so the outer
-  // (thinner-bordered) one lands exactly on the container's edges instead,
-  // and keep the inner one a touch smaller for the double-border reveal.
-  // Callers (ThreadBlock, CollapsedThread's fan spacing) size and position
-  // this component by its declared box, so that box has to be the true
-  // visual bound, not an underestimate of it.
-  const outerEdge = size / Math.SQRT2;
-  const outerInset = (size - outerEdge) / 2;
-  const innerEdge = outerEdge - 0.75;
-  const innerInset = (size - innerEdge) / 2;
+  // Callers (ThreadBlock, CollapsedThread's fan spacing, the spatial grid)
+  // size and position this component by its declared box, so that box is the
+  // outer ring, the true visual bound. The inner frame sits inside it at the
+  // retired client's 17-to-18.5 ratio. Both octagons fill their own box
+  // exactly, because the intersection that makes the shape is inscribed in
+  // the square rather than overflowing it.
+  const innerInset = (size * (1 - INNER_FRAME_RATIO)) / 2;
 
   const sideIcon = side === "plus" ? "/icons/plus.svg" : "/icons/minus.svg";
 
   return (
     <div
-      className={`group shrink-0 ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
+      className={`group shrink-0 transition-[filter] duration-150 [filter:drop-shadow(0_1px_2px_rgb(0_0_0_/_0.10))] hover:[filter:drop-shadow(0_3px_6px_rgb(0_0_0_/_0.16))] ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
       style={{
         position: "relative",
         width: `${size}rem`,
@@ -115,16 +124,22 @@ export function TileShape({
         ...style,
       }}
     >
+      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div
+          className={`absolute inset-0 overflow-hidden rotate-45 border bg-offwhite before:absolute before:[inset:-1px] before:rotate-45 before:[border:inherit] before:content-[''] ${
+            selected ? SIDE_BORDER[side] : SIDE_BORDER_SOFT[side]
+          }`}
+        />
+      </div>
       <div
-        className={`absolute rotate-45 border bg-offwhite shadow-sm transition-shadow duration-150 group-hover:shadow-md ${SIDE_BORDER[side]} ${selected ? `ring-2 ring-offset-2 ${SIDE_RING[side]}` : ""}`}
-        style={{ inset: `${outerInset}rem` }}
-        aria-hidden="true"
-      />
-      <div
-        className={`absolute rotate-45 border-[3px] bg-offwhite ${SIDE_BORDER[side]}`}
+        className="absolute overflow-hidden"
         style={{ inset: `${innerInset}rem` }}
         aria-hidden="true"
-      />
+      >
+        <div
+          className={`absolute inset-0 overflow-hidden rotate-45 border-[3px] bg-offwhite before:absolute before:[inset:-3px] before:rotate-45 before:[border:inherit] before:content-[''] ${SIDE_BORDER[side]}`}
+        />
+      </div>
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-6 text-center">
         {side !== "neutral" && (
           // eslint-disable-next-line @next/next/no-img-element -- decorative watermark, no intrinsic size needed

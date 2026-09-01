@@ -11,7 +11,7 @@ import { SIDE_MARK } from "./side-label";
  * back to them, and hang a steelman under something. A dropdown is the wrong
  * instrument for all three. It hides every option until it is opened, it
  * truncates the ones it does show to the width of the control, and it asks the
- * player to match a line of text against a diamond they are looking at three
+ * player to match a line of text against a tile they are looking at three
  * inches away. The board itself had the same problem for tile placement and it
  * was solved by making the board clickable; this is the same answer for the
  * three forms that were left behind, at the scale a sidebar can hold.

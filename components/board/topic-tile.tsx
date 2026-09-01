@@ -1,8 +1,12 @@
 import { TileShape } from "@/components/board/tile-shape";
 
 /**
- * Neutral topic diamond, ported from the retired `TopicTile.vue`: same
+ * Neutral topic octagon, ported from the retired `TopicTile.vue`: same
  * `font-tiles` typeface, and an optional `onClick` for a revision affordance.
+ *
+ * Standalone only. On the board the topic is a cell like any other and is
+ * drawn at the same size as a reason tile, which is what Rannie's render
+ * shows: her topic and her reasons both measure 234px square.
  */
 export function TopicTile({
   text,

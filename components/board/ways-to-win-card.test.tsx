@@ -11,7 +11,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MIN_THREADS_TO_END } from "@/lib/board/rules";
 import { WaysToWinCard, type MiniThread } from "./ways-to-win-card";
 
 afterEach(cleanup);
@@ -31,29 +30,36 @@ describe("WaysToWinCard: reading the win conditions", () => {
     expect(screen.getByText("Revise the topic")).toBeTruthy();
   });
 
-  it("shows how many of the required threads are resolved", () => {
+  it("shows how many of the threads on the board are resolved", () => {
     render(<WaysToWinCard threads={THREADS} resolvedCount={1} />);
 
     const resolvedLine = screen.getByText(
       (_, element) =>
         element?.tagName.toLowerCase() === "p" &&
-        element.textContent === `1 of ${MIN_THREADS_TO_END} resolved`,
+        element.textContent === "1 of 4 resolved",
     );
     expect(resolvedLine).toBeTruthy();
   });
 
-  it("counts a short board against the floor, not against the threads it has", () => {
+  it("counts a short board against the threads it has, not against any floor", () => {
     render(<WaysToWinCard threads={THREADS.slice(0, 2)} resolvedCount={1} />);
 
     const resolvedLine = screen.getByText(
       (_, element) =>
         element?.tagName.toLowerCase() === "p" &&
-        element.textContent === `1 of ${MIN_THREADS_TO_END} resolved`,
+        element.textContent === "1 of 2 resolved",
     );
     expect(resolvedLine).toBeTruthy();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "span" &&
+          element.textContent === "Resolve all2 threads",
+      ),
+    ).toBeTruthy();
   });
 
-  it("counts a board above the floor against every thread on it", () => {
+  it("counts a wide board against every thread on it", () => {
     const wide: MiniThread[] = [
       ...THREADS,
       { tileId: "t5", side: "plus", parentEdge: null, resolved: false, token: null },

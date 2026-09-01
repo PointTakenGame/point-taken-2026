@@ -5,7 +5,7 @@ import type { BoardTile } from "@/lib/board/project";
 import { TileShape, type TileSide } from "@/components/board/tile-shape";
 
 /**
- * A resolved thread, fanned into a stack of diamonds the way the retired
+ * A resolved thread, fanned into a stack of tiles the way the retired
  * client's `CollapsedThread.vue` fanned a resolved thread's tiles: overlapping,
  * spaced apart on hover, most-recent tile on top.
  *
