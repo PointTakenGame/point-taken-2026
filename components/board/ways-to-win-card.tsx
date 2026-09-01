@@ -90,6 +90,16 @@ export function WaysToWinCard({
     }));
   }, [threads]);
 
+  // One denominator, shared with the "How this game ends" panel below the
+  // board, because two panels on one screen counting the same thing against
+  // different totals reads as a bug. Four is a floor, not a target: a board
+  // with two threads still needs four before resolving them all ends anything,
+  // and a board with six needs all six resolved. So the number of resolutions
+  // a win actually costs is whichever of those two is larger. This does not
+  // decide MIN_THREADS_TO_END, which is still carried forward unratified in
+  // lib/board/rules.ts; it only stops the screen contradicting itself.
+  const target = Math.max(threads.length, MIN_THREADS_TO_END);
+
   return (
     <div className="border-gray/30 bg-offwhite w-full rounded-2xl border p-4 shadow-md select-none">
       <h4 className="text-gold mb-3 text-center text-[11px] font-extrabold tracking-[0.13em] uppercase">
@@ -103,12 +113,12 @@ export function WaysToWinCard({
         <span className="text-neutral-black text-p-sm leading-tight font-bold">
           Resolve all
           <br />
-          {MIN_THREADS_TO_END} threads
+          {target} threads
         </span>
       </div>
       <p className="text-gray mt-1 mb-1 text-center text-xs font-semibold">
         <span className="text-neutral-black font-extrabold">{resolvedCount}</span> of{" "}
-        {MIN_THREADS_TO_END} resolved
+        {target} resolved
       </p>
 
       <div className="relative mx-auto my-1 aspect-square w-[74%]">

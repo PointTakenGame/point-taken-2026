@@ -1663,6 +1663,10 @@ function HowThisEnds({ board }: { board: BoardState }) {
   const resolved = threads.filter(isResolved).length;
   const unresolved = threads.length - resolved;
   const shortBy = Math.max(0, MIN_THREADS_TO_END - threads.length);
+  // Same denominator the Ways to win card uses, for the same reason: this
+  // panel used to count against the threads that exist while the card counted
+  // against the floor, so one screen showed "1 of 2" and "1 of 4" at once.
+  const target = Math.max(threads.length, MIN_THREADS_TO_END);
 
   const threadRoute =
     shortBy > 0
@@ -1696,9 +1700,7 @@ function HowThisEnds({ board }: { board: BoardState }) {
       <p className="text-p-sm">
         {threads.length === 0
           ? "No threads yet."
-          : `${resolved} of ${threads.length} ${
-              threads.length === 1 ? "thread" : "threads"
-            } resolved.`}
+          : `${resolved} of ${target} threads resolved.`}
         {threadRoute ? ` ${threadRoute}` : null}
       </p>
       {ceiling ? <p className="text-p-sm text-gray">{ceiling}</p> : null}

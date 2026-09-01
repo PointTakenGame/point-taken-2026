@@ -41,6 +41,33 @@ describe("WaysToWinCard: reading the win conditions", () => {
     );
     expect(resolvedLine).toBeTruthy();
   });
+
+  it("counts a short board against the floor, not against the threads it has", () => {
+    render(<WaysToWinCard threads={THREADS.slice(0, 2)} resolvedCount={1} />);
+
+    const resolvedLine = screen.getByText(
+      (_, element) =>
+        element?.tagName.toLowerCase() === "p" &&
+        element.textContent === `1 of ${MIN_THREADS_TO_END} resolved`,
+    );
+    expect(resolvedLine).toBeTruthy();
+  });
+
+  it("counts a board above the floor against every thread on it", () => {
+    const wide: MiniThread[] = [
+      ...THREADS,
+      { tileId: "t5", side: "plus", parentEdge: null, resolved: false, token: null },
+      { tileId: "t6", side: "minus", parentEdge: null, resolved: false, token: null },
+    ];
+    render(<WaysToWinCard threads={wide} resolvedCount={1} />);
+
+    const resolvedLine = screen.getByText(
+      (_, element) =>
+        element?.tagName.toLowerCase() === "p" &&
+        element.textContent === "1 of 6 resolved",
+    );
+    expect(resolvedLine).toBeTruthy();
+  });
 });
 
 describe("WaysToWinCard: hovering", () => {
