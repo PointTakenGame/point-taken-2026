@@ -37,7 +37,12 @@ export function PlayerAgreement({
   onSign,
 }: PlayerAgreementProps) {
   return (
-    <div className="bg-offwhite mx-auto flex max-w-[700px] flex-col gap-1 rounded-xl px-8 py-2">
+    /*
+      No bg/border/padding of its own: BRAIN-T260831-76 nests this inside a
+      white card in game-setup.tsx, and doubling the box here just draws a
+      second border around the first for no reason.
+    */
+    <div className="mx-auto flex w-full max-w-[700px] flex-col gap-1">
       {lines.map((line) => (
         <div key={line.id} className="flex items-center gap-3 py-1.5">
           <span
