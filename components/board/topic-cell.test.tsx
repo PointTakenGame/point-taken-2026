@@ -239,8 +239,8 @@ describe("TopicCell: writing the rewrite", () => {
 });
 
 describe("TopicCell: answering on the tile", () => {
-  it("gives the other player the rewrite and both answers", async () => {
-    render(
+  function answering() {
+    return render(
       <TopicCell
         gameId={GAME}
         board={boardWithProposalFromMinus()}
@@ -251,16 +251,51 @@ describe("TopicCell: answering on the tile", () => {
         onEditEnd={noop}
       />,
     );
+  }
+
+  it("gives the other player the rewrite, and takes yes straight away", async () => {
+    answering();
 
     expect(screen.getByText(REWRITE)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Accept" }));
     expect(acceptProposal).toHaveBeenCalledWith(GAME, { proposalId: PROPOSAL });
+  });
+
+  it("asks why before it sends a no, and sends what was typed", async () => {
+    answering();
 
     await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(rejectProposal).not.toHaveBeenCalled();
+    expect(screen.getByText("Not this wording?")).toBeTruthy();
+
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "Why you are rejecting this topic" }),
+      "  It drops the part we disagree about.  ",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "REJECT IT" }));
+    expect(rejectProposal).toHaveBeenCalledWith(GAME, {
+      proposalId: PROPOSAL,
+      reason: "It drops the part we disagree about.",
+    });
+  });
+
+  it("still lets a no go without a reason", async () => {
+    answering();
+
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await userEvent.click(screen.getByRole("button", { name: "REJECT IT" }));
     expect(rejectProposal).toHaveBeenCalledWith(GAME, {
       proposalId: PROPOSAL,
       reason: null,
     });
+  });
+
+  it("sends nothing when the rejection is backed out of", async () => {
+    answering();
+
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await userEvent.click(screen.getByRole("button", { name: "BACK" }));
+    expect(rejectProposal).not.toHaveBeenCalled();
   });
 
   it("shows the proposer their own words and nothing to press", () => {

@@ -9,13 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type {
-  BoardProposal,
-  BoardState,
-  BoardThread,
-  BoardThrow,
-  BoardTile,
-} from "@/lib/board/project";
+import type { BoardState, BoardThread, BoardThrow, BoardTile } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideGlyph } from "@/components/board/tile-shape";
@@ -51,8 +45,6 @@ import {
   canThrowCard,
   cardsInPlay,
   isResolved,
-  proposalsAwaiting,
-  proposalsFrom,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
 import { coachCard } from "@/lib/coach/cards";
@@ -64,7 +56,6 @@ import { SIDE_LABEL, SIDE_MARK } from "./side-label";
 import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
-  acceptProposal,
   clearResolutionToken,
   declineThrow,
   editTile,
@@ -77,12 +68,11 @@ import {
   proposeRelocation,
   proposeSteelmanReading,
   proposeSteelmanTile,
-  rejectProposal,
   removeTile,
   reviseTile,
   throwCard,
 } from "@/app/game/[gameId]/actions";
-import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
+import type { Side, Uuid } from "@/lib/events/types";
 
 /**
  * The live board: everything a player can see and do while a game is in
@@ -895,130 +885,6 @@ function Placed({ who, token }: { who: string; token: string | null | undefined 
 }
 
 /**
- * What each proposal kind is called out loud.
- *
- * The log's own names are snake_case identifiers and were leaking straight onto
- * the board, so a player was being asked to accept or reject a "topic_revision".
- * An unknown kind falls back to the identifier with its underscores opened up,
- * which is ugly but readable, and never blank.
- */
-const PROPOSAL_KIND_LABEL: Record<ProposalKind, string> = {
-  topic_revision: "A new wording for the topic",
-  tile_relocation: "Move a reason",
-  reading_handback: "Hand the reading back",
-  steelman_reading: "Say their side for them",
-  steelman_tile: "A reason for their side",
-  definition: "Pin down a word",
-};
-
-function proposalKindLabel(kind: string): string {
-  return PROPOSAL_KIND_LABEL[kind as ProposalKind] ?? kind.replaceAll("_", " ");
-}
-
-function proposalSummary(proposal: BoardProposal, board: BoardState): string {
-  const content = proposal.content;
-  if (proposal.kind === "topic_revision" && "text" in content) {
-    return `New topic: "${content.text}"`;
-  }
-  if (proposal.kind === "tile_relocation" && "new_thread_root_id" in content) {
-    // Named in words, not in ids: the player answering this has to be able to
-    // picture the move without looking anything up.
-    const moved = shortText(board, proposal.targetTileId);
-    const under = content.new_parent_tile_id
-      ? `under "${shortText(board, content.new_parent_tile_id)}"`
-      : "into a thread of its own";
-    return `Move "${moved}" ${under}`;
-  }
-  if (
-    (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
-    "text" in content
-  ) {
-    return `"${content.text}"`;
-  }
-  if (proposal.kind === "reading_handback" && "text" in content) {
-    // Both halves, because judging a handback means comparing the words offered
-    // against the reason they claim to say back. One of the two is not enough.
-    return `Reads "${shortText(board, proposal.targetTileId)}" as: "${content.text}"`;
-  }
-  if (proposal.kind === "definition" && "term" in content) {
-    return `Define "${content.term}": ${content.text}`;
-  }
-  return proposalKindLabel(proposal.kind);
-}
-
-function ProposalRow({
-  gameId,
-  proposal,
-  board,
-  awaitingMe,
-}: {
-  gameId: string;
-  proposal: BoardProposal;
-  board: BoardState;
-  awaitingMe: boolean;
-}) {
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const accept = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await acceptProposal(gameId, { proposalId: proposal.id });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  const reject = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await rejectProposal(gameId, {
-        proposalId: proposal.id,
-        reason: reason.trim().length > 0 ? reason.trim() : null,
-      });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  return (
-    <li className="flex flex-col gap-1 border border-current/15 p-2 text-p-sm">
-      <span className="opacity-60">{proposalKindLabel(proposal.kind)}</span>
-      <span>{proposalSummary(proposal, board)}</span>
-      {awaitingMe ? (
-        <span className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="border border-current/30 px-2 py-0.5 text-xs"
-            disabled={pending}
-            onClick={accept}
-          >
-            Accept
-          </button>
-          <input
-            className="border border-current/30 px-1 py-0.5 text-xs"
-            placeholder="reason (optional)"
-            value={reason}
-            disabled={pending}
-            onChange={(event) => setReason(event.target.value)}
-          />
-          <button
-            type="button"
-            className="border border-current/30 px-2 py-0.5 text-xs"
-            disabled={pending}
-            onClick={reject}
-          >
-            Reject
-          </button>
-        </span>
-      ) : (
-        <span className="text-xs opacity-50">waiting on the other side</span>
-      )}
-      <ErrorLine error={error} />
-    </li>
-  );
-}
-
-/**
  * The anchor the board's ghost slots scroll to. Clicking an open diagonal
  * picks the parent, and the box you then type in is somewhere further down
  * the page, so the click has to take you there or it looks like it did
@@ -1691,8 +1557,6 @@ export function LiveBoard({
   );
   const placementEnabled =
     canPlaceUnder(TOPIC_CELL_ID) || allTargets(board).some((t) => canPlaceUnder(t.id));
-  const awaiting = proposalsAwaiting(board, me.role);
-  const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
   const { connected } = useGameFeed(gameId);
   // Toasts what the other player did between one projection and the next.
@@ -1927,49 +1791,19 @@ export function LiveBoard({
         )}
       </div>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Proposals waiting on you
-        </h2>
-        {awaiting.length === 0 ? (
-          <p className="text-p-sm opacity-50">None right now.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {awaiting.map((proposal) => (
-              <ProposalRow
-                key={proposal.id}
-                gameId={gameId}
-                proposal={proposal}
-                board={board}
-                awaitingMe
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Proposals you asked
-        </h2>
-        {asked.length === 0 ? (
-          <p className="text-p-sm opacity-50">None right now.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {asked.map((proposal) => (
-              <ProposalRow
-                key={proposal.id}
-                gameId={gameId}
-                proposal={proposal}
-                board={board}
-                awaitingMe={false}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
       {/*
+        Two lists stood here, "Proposals waiting on you" and "Proposals you
+        asked", a dedicated area of the screen that collected every pending
+        proposal of every kind and offered Accept and Reject on each. Removed
+        2026-09-01 on Steve's call: "I think that was an ideation at some
+        point. Proposals are little UI elements that pop up next to tiles."
+
+        A proposal is always about a particular tile, so the tile is where it
+        gets answered. The topic rewrite already works that way, on the centre
+        cell (`topic-cell.tsx`). The other five kinds have no tile-side answer
+        yet and so cannot be answered at all until they get one; they are card
+        moves and they arrive with the cards, per the note below.
+
         "Understanding each other" stood here: four labelled forms, one per
         non-argument move, in a scrolling column of prose. Removed 2026-09-01
         on Steve's call.

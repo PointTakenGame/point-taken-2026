@@ -24,9 +24,18 @@
  *      `topicProposal` skips your own echo, so the proposer's tile snapped
  *      back to the old topic and a toast was the only trace. Our proposals
  *      live in the event log, so the tile can stay honest about what is out.
- *   2. Rejecting is a plain no. The engine accepts a reason string and the
- *      old proposals list offered one; the retired topic flow never did, and
- *      a tile is not the place to type an explanation.
+ *   2. Rejecting asks why. The retired topic flow never did, and an earlier
+ *      draft of this file did not either. Steve overruled that on 2026-09-01:
+ *      "Whenever you agree or disagree to something, you should have a chance
+ *      to say why. That's great data to capture." The box is offered, not
+ *      required, so a no still only costs one more click.
+ *
+ * Accepting does NOT yet ask why, and the asymmetry is not a design choice.
+ * `ProposalAcceptedPayload` carries `proposal_id` and nothing else, while
+ * `ProposalRejectedPayload` already carries `reason`, so the yes has nowhere
+ * to put the words. Widening that payload is a core change under the repo's
+ * own rule and is waiting on Steve (BRAIN-T260901-08). Do not add the box to
+ * Accept before the field exists: it would throw the player's answer away.
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -88,6 +97,11 @@ export function TopicCell({
 }) {
   const [draft, setDraft] = useState("");
   const [confirming, setConfirming] = useState(false);
+  /** The rejection is a two-step: press Reject, then say why (or do not) and
+   * press it again. Held here rather than in the popover so pressing Reject
+   * twice cannot send twice. */
+  const [rejecting, setRejecting] = useState(false);
+  const [why, setWhy] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -103,6 +117,11 @@ export function TopicCell({
     setConfirming(false);
     setError(null);
     onEditEnd();
+  };
+
+  const closeReject = () => {
+    setRejecting(false);
+    setWhy("");
   };
 
   // Escape is Cancel, same as the retired client's window listener: the
@@ -129,14 +148,26 @@ export function TopicCell({
     });
   };
 
-  const answer = (accept: boolean) => {
+  const accept = () => {
     if (!proposal) return;
     setError(null);
     startTransition(async () => {
-      const result = accept
-        ? await acceptProposal(gameId, { proposalId: proposal.id })
-        : await rejectProposal(gameId, { proposalId: proposal.id, reason: null });
+      const result = await acceptProposal(gameId, { proposalId: proposal.id });
       if (!result.ok) setError(result.error);
+    });
+  };
+
+  const reject = () => {
+    if (!proposal) return;
+    setError(null);
+    const said = why.trim();
+    startTransition(async () => {
+      const result = await rejectProposal(gameId, {
+        proposalId: proposal.id,
+        reason: said.length > 0 ? said : null,
+      });
+      if (!result.ok) setError(result.error);
+      else closeReject();
     });
   };
 
@@ -152,7 +183,7 @@ export function TopicCell({
               type="button"
               className={TILE_BTN}
               disabled={pending}
-              onClick={() => answer(false)}
+              onClick={() => setRejecting(true)}
             >
               Reject
             </button>
@@ -160,7 +191,7 @@ export function TopicCell({
               type="button"
               className={TILE_BTN_PRIMARY}
               disabled={pending}
-              onClick={() => answer(true)}
+              onClick={accept}
             >
               Accept
             </button>
@@ -272,6 +303,45 @@ export function TopicCell({
         cancelLabel="BACK"
         onCancel={() => setConfirming(false)}
         onConfirm={propose}
+        accent="neutral"
+      />
+
+      {/* Saying no to a rewrite is the one answer the other player cannot
+          read anything into, so it gets a box for the reason. Optional:
+          `minLength: 0` turns off the popover's own filled-in gate, and the
+          action takes `null` for an empty one. */}
+      <TilePopover
+        open={rejecting}
+        onClose={closeReject}
+        anchorRef={anchorRef}
+        heading="Not this wording?"
+        subtitle="Tell them what is wrong with it, so their next try is closer."
+        body={{
+          kind: "text",
+          fields: [
+            {
+              id: "why",
+              placeholder: "Optional. What would you not sign?",
+              ariaLabel: "Why you are rejecting this topic",
+              minLength: 0,
+              maxLength: 300,
+              rows: 3,
+              autoFocus: true,
+            },
+          ],
+          value: { why },
+          onChange: (next) => setWhy(next.why ?? ""),
+        }}
+        footnote={
+          <span className="font-tiles text-p-sm">
+            &ldquo;{proposal ? proposedText(proposal) : ""}&rdquo;
+          </span>
+        }
+        confirmLabel="REJECT IT"
+        cancelLabel="BACK"
+        confirmDisabled={pending}
+        onCancel={closeReject}
+        onConfirm={reject}
         accent="neutral"
       />
     </div>
