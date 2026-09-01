@@ -208,7 +208,7 @@ Two ways, and both are agreements [unratified: lib/board/rules.ts, app/how-to-pl
 
 The board stays readable afterwards, with every thread and the token it landed on.
 
-`GAP: BRAIN-T260823-10, still open: MIN_THREADS_TO_END is 4, carried forward from the deployed 2024 server and never ratified. Is 4 the right minimum for live play, and does it become a per-game value so a two-thread Gym level can be won?`
+`BRAIN-T260823-10, ruled, not built: MIN_THREADS_TO_END is 4 in the code, carried forward from the deployed 2024 server. It becomes a per-game value, with level 1 setting its own to 2 so the two-thread Gym level can be won [ruled BIZ-T260824-11]. Section 13 below says the same thing; this line said "still open" until 2026-08-31, which was stale. Whether 4 is the right minimum for live play specifically is the part nobody has ruled.`
 
 Designed, unbuilt: the Certificate of Agreeable Disagreement, filled in with the topic, the counts of each token, the common ground found, and what each player now appreciates about the other's view, meant to be photographed [unratified: GAME_MECHANICS.md]. Nothing in the rebuild produces one.
 
