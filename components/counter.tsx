@@ -21,7 +21,12 @@ export function Counter({
 }) {
   return (
     <div className="flex flex-col gap-1 rounded-2xl border-2 border-neutral-black bg-neutral-white p-4 shadow-sm">
-      <div className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+      {/*
+        Two lines' worth of room whether or not the label needs it. "Threads
+        resolved" wraps where "Games played" does not, and without a floor the
+        numbers in one row of tiles sit at different heights.
+      */}
+      <div className="font-secondary min-h-[2lh] text-p-sm text-gray uppercase tracking-wide">
         {label}
       </div>
       <div className="font-primary text-3xl tracking-wide tabular-nums">
