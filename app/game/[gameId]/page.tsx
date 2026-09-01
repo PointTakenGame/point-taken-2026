@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LeaveLinks } from "@/components/board/leave-links";
 import { notFound } from "next/navigation";
 
 import { Ending } from "@/components/board/ending";
@@ -74,6 +75,9 @@ export default async function GamePage({
           <Link href="/account" className="underline">
             Your games
           </Link>
+          <Link href="/leaderboard" className="underline">
+            Leaderboard
+          </Link>
           <Link href="/" className="underline">
             Start another room
           </Link>
@@ -92,6 +96,7 @@ export default async function GamePage({
           joinCode={seat.seat.game.join_code}
           me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
         />
+        <LeaveLinks />
         {hotseat}
       </>
     );
@@ -108,6 +113,7 @@ export default async function GamePage({
           joinCode={seat.seat.game.join_code}
           me={{ playerId: seat.seat.playerId, role: null }}
         />
+        <LeaveLinks />
         {hotseat}
       </>
     );
@@ -122,6 +128,7 @@ export default async function GamePage({
         coachEnabled={player?.coach_enabled ?? false}
         joinCode={seat.seat.game.join_code}
       />
+      <LeaveLinks />
       {hotseat}
     </>
   );

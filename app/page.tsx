@@ -4,6 +4,7 @@ import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { HomeLinks } from "@/components/home/home-links";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
+import { listDemoPlayers } from "@/lib/dev/demo-players";
 import { currentPlayerId } from "@/lib/supabase/session";
 
 /**
@@ -27,6 +28,9 @@ export default async function Home() {
   // hot seat you cannot get out of is worse than no hot seat.
   const dev = hotseatAllowed();
   const me = await currentPlayerId();
+  // The seeded history belongs to invented players, so without this the front
+  // door is the one place you cannot reach it from. See lib/dev/demo-players.ts.
+  const demoPlayers = dev ? await listDemoPlayers() : [];
 
   return (
     <>
@@ -49,7 +53,7 @@ export default async function Home() {
 
         <HomeLinks signedIn={me !== null} />
       </main>
-      {dev ? <HotseatBar me={me} /> : null}
+      {dev ? <HotseatBar me={me} players={demoPlayers} /> : null}
     </>
   );
 }
