@@ -256,13 +256,18 @@ Settled, and not up for redesign in a surface pull request:
 - the tile tree, and tokens as the way a thread ends
 - both win conditions being cooperative
 - permanent ids
+- the signing ritual is three lines, signed as one act, not four checkboxes. Ruled on the
+  2026-08-31 call; the Figma still draws four, and the Figma is the stale one here.
+- the level ladder for levels 1 to 4, which is
+  `spec/2026-08-22_gym-levels-1-4-implementation-guide.md` in the brain repo
 
 Still moving, and known to be inconsistent between the code and the design documents:
 
-- the number of agreement lines in the signing ritual, three in the brief and four in the Figma
-- the level and badge taxonomy, and the name of every level
+- the badge taxonomy, and the name of every level above 4. A second, undecided naming ladder
+  is drawn throughout the Figma; whether level 5 splits into 5A and 5B was deferred explicitly.
 - the shape of the coach's turn
-- how many threads a game must have before it can end (the code says four, carried forward from
-  the old server rather than ratified, and says so in a comment)
+- how many threads a game must have before it can end. `rules.md:273` says six is the ceiling,
+  the 2026-08-31 geometry ruling caps the tile board at four and defers six to compact mode,
+  and `MAX_THREADS` in `lib/board/rules.ts` still says six. Tracked as `BRAIN-T260831-12`.
 
 **Do not resolve any of these by choosing one. Flag it.**
