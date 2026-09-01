@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useMemo,
   useState,
   useTransition,
@@ -20,6 +21,8 @@ import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicTile } from "@/components/board/topic-tile";
+import { SpatialBoard } from "@/components/board/spatial-board";
+import { TOPIC_CELL_ID } from "@/components/board/layout";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
 import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
@@ -1020,14 +1023,40 @@ function ProposalRow({
   );
 }
 
-function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
+/**
+ * The anchor the board's ghost slots scroll to. Clicking an open diagonal
+ * picks the parent, and the box you then type in is somewhere further down
+ * the page, so the click has to take you there or it looks like it did
+ * nothing.
+ */
+const COMPOSER_SECTION_ID = "place-a-tile";
+
+function Composer({
+  gameId,
+  board,
+  target,
+  onTargetChange,
+}: {
+  gameId: string;
+  board: BoardState;
+  /** Id of the tile being answered, or "" for a new thread. Owned by LiveBoard
+   * because the board above picks it by click and the composer only reports
+   * it back. */
+  target: string;
+  onTargetChange: (next: string) => void;
+}) {
   const [text, setText] = useState("");
-  const [target, setTarget] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const targets = useMemo(() => allTargets(board), [board]);
   const parentTileId = target.length > 0 ? target : null;
+  // A tile the board no longer shows (removed, or a stale id after a
+  // relocation) must not leave the composer claiming to answer it.
+  const answering = useMemo(
+    () => targets.find((tile) => tile.id === parentTileId) ?? null,
+    [targets, parentTileId],
+  );
   const verdict = canPlaceTile(board, text, parentTileId);
 
   // Gym level 3 ("Claim size") teaches No Exaggeration. Two pre-written root
@@ -1050,29 +1079,46 @@ function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
     startTransition(async () => {
       const result = await placeTile(gameId, { text, parentTileId });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else {
+        setText("");
+        onTargetChange("");
+      }
     });
   };
 
   return (
     <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-p-sm">
-        Reply to
-        <select
-          className="border border-current/30 p-1"
-          value={target}
-          disabled={pending}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="">Start a new thread</option>
-          {targets.map((tile) => (
-            <option key={tile.id} value={tile.id}>
-              {SIDE_MARK[tile.side]}{" "}
-              {tile.redacted ? REDACTED_TEXT : tile.text.slice(0, 40)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/*
+        This used to be a dropdown of every tile on the board, which asked a
+        player to find the reason they were answering in a list of truncated
+        strings. The board above is where that choice belongs now: hover a
+        diamond, click one of its open diagonals. All this has to do is say
+        which one you picked and let you back out of it.
+      */}
+      <div className="text-p-sm flex flex-wrap items-baseline gap-2">
+        {answering === null ? (
+          <span>
+            Starting a new thread. Click an open slot around a reason on the board to
+            answer it instead.
+          </span>
+        ) : (
+          <>
+            <span className="opacity-60">Answering</span>
+            <span>
+              {SIDE_MARK[answering.side]}{" "}
+              {answering.redacted ? REDACTED_TEXT : answering.text.slice(0, 60)}
+            </span>
+            <button
+              type="button"
+              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              disabled={pending}
+              onClick={() => onTargetChange("")}
+            >
+              start a new thread instead
+            </button>
+          </>
+        )}
+      </div>
       {showRootSuggestions && (
         <div className="flex flex-col gap-2 border border-current/20 p-2 text-xs">
           <p className="opacity-60">
@@ -1675,6 +1721,25 @@ export function LiveBoard({
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
   const definitions = agreedDefinitions(board);
+
+  // Which tile the next one will hang off. It lives up here rather than in
+  // the composer because the board picks it: a player hovers a diamond and
+  // clicks one of its open diagonals, and the composer only reports back
+  // what that click chose. "" means a new thread, which is what the four
+  // slots around the topic diamond mean.
+  const [replyTarget, setReplyTarget] = useState("");
+
+  // Placement is offered per parent, because the rules answer per parent: a
+  // resolved thread takes no more replies, and the topic stops offering new
+  // threads at the cap. TOPIC_CELL_ID is not a tile, so it asks the
+  // new-thread question instead.
+  const canPlaceUnder = useCallback(
+    (parentId: string) =>
+      canPlaceTile(board, "a reason", parentId === TOPIC_CELL_ID ? null : parentId).ok,
+    [board],
+  );
+  const placementEnabled =
+    canPlaceUnder(TOPIC_CELL_ID) || allTargets(board).some((t) => canPlaceUnder(t.id));
   const awaiting = proposalsAwaiting(board, me.role);
   const asked = proposalsFrom(board, me.role);
   // Refetches the server projection when the other player appends.
@@ -1783,11 +1848,16 @@ export function LiveBoard({
         <GenerosityButton gameId={gameId} />
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section id={COMPOSER_SECTION_ID} className="flex flex-col gap-2">
         <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
           Place a tile
         </h2>
-        <Composer gameId={gameId} board={board} />
+        <Composer
+          gameId={gameId}
+          board={board}
+          target={replyTarget}
+          onTargetChange={setReplyTarget}
+        />
       </section>
 
       <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
@@ -1825,22 +1895,69 @@ export function LiveBoard({
         </div>
       </div>
 
-      {threads.length === 0 ? (
-        <p className="text-gray">Place the first tile above.</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {threads.map((thread, index) => (
-            <ThreadBlock
-              key={thread.rootId}
-              gameId={gameId}
-              thread={thread}
-              index={index}
-              me={me}
-              board={board}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-4">
+        {/*
+          The board is drawn from the first moment, before anybody has placed
+          anything, because the empty board is how the first tile gets placed:
+          the topic diamond sits alone in the middle with four open slots
+          around it, and clicking one starts a thread.
+        */}
+        <section className="flex flex-col gap-2">
+          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
+            The board
+          </h2>
+          <p className="text-p-sm text-gray">
+            {threads.length === 0
+              ? "Click one of the open slots around the topic to start your first thread."
+              : "Every reason in play, hung off the one it answers. Hover a reason to see where a new one can go. Drag the background to move around."}
+          </p>
+          <SpatialBoard
+            placementEnabled={placementEnabled}
+            canPlaceOn={canPlaceUnder}
+            onPlace={(parentId) => {
+              setReplyTarget(parentId === TOPIC_CELL_ID ? "" : parentId);
+              document
+                .getElementById(COMPOSER_SECTION_ID)
+                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+            tiles={allTargets(board)}
+            topic={
+              <TileShape side="neutral" size={14} watermark="topic">
+                <p className="font-tiles text-p-sm px-2 text-center">
+                  {board.currentTopicText ?? "No topic was set."}
+                </p>
+              </TileShape>
+            }
+            renderTile={(tile) => (
+              <TileShape
+                side={tile.side}
+                size={14}
+                watermark={tile.isOpeningReason ? "thread" : "reason"}
+                dimmed={tile.removed}
+              >
+                <p className="font-tiles text-p-sm px-2 text-center">
+                  <TileText tile={tile} />
+                </p>
+              </TileShape>
+            )}
+          />
+        </section>
+
+        {threads.length === 0 ? null : (
+          <>
+            {threads.map((thread, index) => (
+              <ThreadBlock
+                key={thread.rootId}
+                gameId={gameId}
+                thread={thread}
+                index={index}
+                me={me}
+                board={board}
+              />
+            ))}
+          </>
+        )}
+      </div>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
