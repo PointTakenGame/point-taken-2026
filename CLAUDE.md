@@ -39,10 +39,15 @@ by name:
 - `2026-08-22_skill-ladder-levels-1-4.md`, what each level teaches and why in that order
 - `2026-08-23_account-pages-entity-list.md`, the account screens and the entities behind them
 
-Where those documents describe the practice ladder (the Gym), they describe something this
-codebase does not build. Steve's 2026-08-17 scope ruling took the scripted practice opponent
-off the critical path, because the prototype is live play against a human. Treat them as what
-the account and the coach must stay compatible with, not as a description of what runs today.
+Where those documents describe the practice ladder (the Gym), they describe what this codebase
+is building next. **The Gym, levels 1 to 4, is on the critical path** (Steve, 2026-08-28,
+reversing an earlier 2026-08-17 ruling that had taken it off). `docs/roadmap.md` is the source
+of record for what levels 1 to 4 contain.
+
+`docs/` in this repository is the canonical, present-tense specification set (soul, roadmap,
+rules, script, tech spec, UI components). `docs/README.md` explains the status markers that
+say how much authority any given value carries. Anything under `docs/` reaches `main` through
+a pull request, never a direct push.
 
 ## The one architectural fact
 
