@@ -284,7 +284,7 @@ moderator at write time, neither throwable nor earnable). **Two id conventions, 
 keeps `snake_case`, everything else including badges is `kebab-case`. The exception is the reason,
 not the category.
 
-**First release totals** `[ruled]`: 15 badges of 26, 4 rule cards of 11, 4 bosses of 9, 4
+**First release totals** `[unratified, demoted from ruled 2026-08-31]`: 15 badges of 26, 4 rule cards of 11, 4 bosses of 9, 4
 certificates. Fast-forward exists on levels 3 and 4 only; build the full level first and then scale
 back, so the short path is a strict subset of the long one.
 
