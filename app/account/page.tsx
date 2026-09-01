@@ -26,11 +26,16 @@ import { Avatar } from "@/components/avatar";
  * The page a player lands on after signing in: who they are, what they have
  * done, and every game they have been in.
  *
- * Deliberately unstyled beyond plain type. Rannie's profile frames carry a
- * level ladder, a ranked division and a cooperation score that are not decided
- * yet (BRAIN-T260817-02, BRAIN-T260816-08), so building to them now would bake
- * in numbers the game does not have. Each game in the history opens its board,
- * replayed from the log at /game/[gameId]. Registry row BRAIN-T260714-69.
+ * Styled toward Rannie's Profile frame (Figma node 1066:216757) as of
+ * BRAIN-T260831-76: the card grid, the type scale, and the colour come from
+ * there. What does not come from there is any number the game does not have.
+ * Her frame also carries a level ladder, a global ladder rank, a cooperation
+ * score, an active boss challenge card, a scheduled-events calendar and a
+ * season number in the footer, none of which are decided (BRAIN-T260817-02,
+ * BRAIN-T260816-08, BRAIN-T260831-79). Those are left out rather than faked;
+ * where leaving one out would open a hole in her grid, the grid is closed up
+ * instead of padded with an invented value. Each game in the history opens its
+ * board, replayed from the log at /game/[gameId]. Registry row BRAIN-T260714-69.
  */
 
 export const dynamic = "force-dynamic";
@@ -127,21 +132,26 @@ function ModeFilter({ modes, active }: { modes: GameMode[]; active: GameMode | n
   ];
 
   return (
-    <nav aria-label="Filter games" className="flex gap-3 text-p-sm">
-      {options.map((option) => (
-        <Link
-          key={option.label}
-          href={option.href}
-          aria-current={option.value === active ? "true" : undefined}
-          className={
-            option.value === active
-              ? "font-semibold underline"
-              : "text-gray hover:underline"
-          }
-        >
-          {option.label}
-        </Link>
-      ))}
+    <nav aria-label="Filter games" className="flex flex-wrap gap-2">
+      {options.map((option) =>
+        option.value === active ? (
+          <span
+            key={option.label}
+            aria-current="true"
+            className="rounded-md border-2 border-gold bg-sand px-3 py-1 font-secondary text-p-sm"
+          >
+            {option.label}
+          </span>
+        ) : (
+          <Link
+            key={option.label}
+            href={option.href}
+            className="rounded-md border-2 border-neutral-black px-3 py-1 font-secondary text-p-sm transition-colors hover:border-gold hover:bg-sand"
+          >
+            {option.label}
+          </Link>
+        ),
+      )}
     </nav>
   );
 }
@@ -181,7 +191,7 @@ function History({
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-current/10">
+    <ul className="flex flex-col gap-3">
       {games.map((game) => {
         const topic = topics.get(game.id);
 
@@ -208,7 +218,7 @@ function History({
           <li key={game.id}>
             <Link
               href={`/game/${game.id}`}
-              className="flex items-baseline justify-between gap-4 py-3 hover:underline"
+              className="flex items-baseline justify-between gap-4 rounded-xl border-2 border-neutral-black/15 bg-neutral-white p-4 shadow-sm transition-colors hover:border-neutral-black hover:bg-sand/30"
             >
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className={topic ? "" : "opacity-60"}>
@@ -257,13 +267,13 @@ function Signature({ stats }: { stats: PlayerStats }) {
   if (emoji.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-p-lg font-semibold">How your threads end</h2>
+    <section className="flex flex-col gap-3 rounded-2xl border-2 border-neutral-black bg-neutral-white p-5 shadow-sm">
+      <h2 className="font-primary text-p-lg tracking-wide">How your threads end</h2>
       <ul className="flex flex-wrap gap-4">
         {emoji.map(([mark, count]) => (
           <li key={mark} className="flex items-center gap-2 tabular-nums">
             <TokenGlyph token={mark} size={24} />
-            <span>
+            <span className="font-secondary">
               {tokenLabel(mark)}: {count}
             </span>
           </li>
@@ -283,7 +293,7 @@ export default async function AccountPage({
   if (!playerId) {
     return (
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
-        <h1 className="text-2xl font-semibold">Your account</h1>
+        <h1 className="font-primary text-3xl tracking-wide">Your account</h1>
         <p className="text-gray">
           You are not signed in. Starting a game gives you a name and an account, with no
           email and no password. You can attach an email later to keep it.
@@ -336,10 +346,10 @@ export default async function AccountPage({
     <>
       <SiteNav here="account" />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
-        <header className="flex items-center gap-4">
-          <Avatar playerId={playerId} name={player?.display_name ?? null} size="lg" />
+        <header className="flex items-center gap-5">
+          <Avatar playerId={playerId} name={player?.display_name ?? null} size="xl" />
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold">
+            <h1 className="font-primary text-3xl tracking-wide">
               {player?.display_name ?? "Your account"}
             </h1>
             <p className="text-p-sm text-gray">
@@ -360,7 +370,7 @@ export default async function AccountPage({
           topic={inFlight ? (topics.get(inFlight.id)?.text ?? null) : null}
         />
 
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Counter
             label="Games played"
             value={stats.games_played}
@@ -394,9 +404,9 @@ export default async function AccountPage({
 
         <Signature stats={stats} />
 
-        <section className="flex flex-col gap-2">
+        <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="text-p-lg font-semibold">Your games</h2>
+            <h2 className="font-primary text-p-lg tracking-wide">Your games</h2>
             {modes.length > 1 ? <ModeFilter modes={modes} active={mode} /> : null}
           </div>
           <History

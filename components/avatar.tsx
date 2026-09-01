@@ -11,6 +11,9 @@ import { avatarMark } from "@/lib/avatar";
 const SIZE = {
   sm: "h-8 w-8 text-xs",
   lg: "h-14 w-14 text-p-md",
+  // The profile header wants something closer to the weight of a portrait than
+  // a list row's marker, so it gets its own step rather than stretching `lg`.
+  xl: "h-20 w-20 text-xl",
 } as const;
 
 export function Avatar({

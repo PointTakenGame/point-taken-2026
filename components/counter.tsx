@@ -20,15 +20,19 @@ export function Counter({
   note?: string;
 }) {
   return (
-    <div className="rounded-lg border border-current/15 p-4">
-      <div className="text-2xl font-semibold tabular-nums">
+    <div className="flex flex-col gap-1 rounded-2xl border-2 border-neutral-black bg-neutral-white p-4 shadow-sm">
+      <div className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="font-primary text-3xl tracking-wide tabular-nums">
         {value}
         {unit ? (
-          <span className="ml-1 text-p-md font-normal text-gray">{unit}</span>
+          <span className="font-secondary ml-1 text-p-md tracking-normal text-gray normal-case">
+            {unit}
+          </span>
         ) : null}
       </div>
-      <div className="text-p-sm text-gray">{label}</div>
-      {note ? <div className="text-p-sm opacity-50">{note}</div> : null}
+      {note ? <div className="font-secondary text-p-sm text-green">{note}</div> : null}
     </div>
   );
 }
