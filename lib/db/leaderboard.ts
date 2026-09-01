@@ -1,0 +1,136 @@
+import "server-only";
+import { serviceClient } from "@/lib/supabase/server";
+import type { Uuid } from "@/lib/events/types";
+import { getPlayerStats, type PlayerStats } from "./stats";
+import type { PlayerRow } from "./types";
+
+/**
+ * The board that shows everyone, not just you.
+ *
+ * `player_stats` answers about one player at a time and there is no SQL
+ * function that answers about all of them, so this fans out: one cheap query
+ * to find who has played, then one RPC each for the leaders. That is N+1 on
+ * purpose. Writing the aggregate in TypeScript instead would mean restating
+ * the attribution rules from `0005_player_stats.sql` (acts belong to the
+ * actor, outcomes belong to every participant) in a second place, and the
+ * header of that migration is explicit that a second copy of this arithmetic
+ * is how it goes wrong. When the fan-out is measurably slow, the fix is a
+ * `leaderboard()` function beside `player_stats`, which is a core change and
+ * goes through Nathan.
+ *
+ * `LEADERBOARD_SIZE` is what bounds the cost. Everyone is counted for the
+ * ranking; only the leaders are asked for full stats.
+ */
+
+export const LEADERBOARD_SIZE = 25;
+
+/** What each metric means, in the words the page uses. */
+export type LeaderboardMetric = "wins" | "cooperation" | "sustained";
+
+export interface LeaderboardRow {
+  playerId: Uuid;
+  /** Null when a player has never been named. The page supplies a fallback. */
+  displayName: string | null;
+  gamesPlayed: number;
+  /**
+   * Games that reached one of the two cooperative win conditions. Not "games
+   * completed": a game can end by being abandoned or timing out, and counting
+   * those as wins would reward walking away.
+   */
+  wins: number;
+  /**
+   * Threads both players agreed on. A thread resolves only when both sides
+   * place the same token, so this is the closest thing the log holds to a
+   * measure of cooperating rather than of winning.
+   */
+  cooperation: number;
+  /**
+   * Tiles placed. Labelled "sustained play" on the page, and explicitly a
+   * placeholder: it was chosen over minutes elapsed because elapsed time
+   * rewards leaving a tab open, but it still rewards volume over quality.
+   */
+  sustained: number;
+}
+
+/** How the three columns sort, and what the page calls each one. */
+export const METRIC_LABELS: Record<LeaderboardMetric, string> = {
+  wins: "Wins",
+  cooperation: "Threads agreed",
+  sustained: "Sustained play",
+};
+
+function winsFrom(stats: PlayerStats): number {
+  return Object.values(stats.games_by_win_condition).reduce(
+    (total, n) => total + (n ?? 0),
+    0,
+  );
+}
+
+/**
+ * Every player who has been seated in a game, with how many games each has
+ * been in. One query, grouped here rather than in SQL because a `group by`
+ * through PostgREST needs a view, and a view is a migration.
+ */
+async function playerGameCounts(): Promise<Map<Uuid, number>> {
+  const { data, error } = await serviceClient().from("game_players").select("player_id");
+
+  if (error) throw new Error(`leaderboard roster failed: ${error.message}`);
+
+  const counts = new Map<Uuid, number>();
+  for (const row of (data ?? []) as { player_id: Uuid }[]) {
+    counts.set(row.player_id, (counts.get(row.player_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * The leaders, already sorted by `metric`. Ties break on games played, so a
+ * player who did it in fewer games sits above one who took more, and then on
+ * the player id so the order is stable between two identical reads.
+ */
+export async function readLeaderboard(
+  metric: LeaderboardMetric = "wins",
+): Promise<LeaderboardRow[]> {
+  const counts = await playerGameCounts();
+  if (counts.size === 0) return [];
+
+  const candidates = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, LEADERBOARD_SIZE)
+    .map(([playerId]) => playerId);
+
+  const { data: playerRows, error } = await serviceClient()
+    .from("players")
+    .select("id, display_name")
+    .in("id", candidates);
+
+  if (error) throw new Error(`leaderboard names failed: ${error.message}`);
+
+  const names = new Map<Uuid, string | null>(
+    ((playerRows ?? []) as Pick<PlayerRow, "id" | "display_name">[]).map((row) => [
+      row.id,
+      row.display_name,
+    ]),
+  );
+
+  const rows = await Promise.all(
+    candidates.map(async (playerId): Promise<LeaderboardRow> => {
+      const stats = await getPlayerStats(playerId);
+      return {
+        playerId,
+        displayName: names.get(playerId) ?? null,
+        gamesPlayed: stats.games_played,
+        wins: winsFrom(stats),
+        cooperation: stats.threads_resolved,
+        sustained: stats.tiles_placed,
+      };
+    }),
+  );
+
+  return rows.sort(
+    (a, b) =>
+      b[metric] - a[metric] ||
+      a.gamesPlayed - b.gamesPlayed ||
+      a.playerId.localeCompare(b.playerId),
+  );
+}
