@@ -23,7 +23,6 @@ import {
   isAbandoned,
   isResolved,
   MAX_THREADS,
-  MIN_THREADS_TO_END,
   proposalsAwaiting,
   proposalsFrom,
   READING_MAX_CHARS,
@@ -189,32 +188,32 @@ describe("isResolved", () => {
 });
 
 describe("threadsWinReached", () => {
-  it("is false when fewer than the floor of real threads exist, even resolved", () => {
+  it("is false on a board nobody has argued on yet", () => {
+    expect(threadsWinReached(projectBoard(opened().events))).toBe(false);
+  });
+
+  it("is false when one thread of several is unresolved", () => {
     const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END - 1; i++) pushResolvedThread(l, `t${i}`);
+    for (let i = 1; i <= 3; i++) pushResolvedThread(l, `t${i}`);
+    l.push("tile_placed", tile("t4", null, "t4", "Unresolved root."), ALICE);
     expect(threadsWinReached(projectBoard(l.events))).toBe(false);
   });
 
-  it("is false when the floor is met but one thread is unresolved", () => {
+  it("is true when every thread on the board is resolved, however few", () => {
     const l = opened();
-    for (let i = 1; i < MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
-    l.push(
-      "tile_placed",
-      tile(`t${MIN_THREADS_TO_END}`, null, `t${MIN_THREADS_TO_END}`, "Unresolved root."),
-      ALICE,
-    );
-    expect(threadsWinReached(projectBoard(l.events))).toBe(false);
-  });
-
-  it("is true when the floor is met and every real thread is resolved", () => {
-    const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
+    pushResolvedThread(l, "t1");
     expect(threadsWinReached(projectBoard(l.events))).toBe(true);
   });
 
-  it("does not count a thread whose tiles were all removed toward the floor", () => {
+  it("is true when every thread on a wider board is resolved", () => {
     const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
+    for (let i = 1; i <= 4; i++) pushResolvedThread(l, `t${i}`);
+    expect(threadsWinReached(projectBoard(l.events))).toBe(true);
+  });
+
+  it("does not count a thread whose tiles were all removed", () => {
+    const l = opened();
+    for (let i = 1; i <= 4; i++) pushResolvedThread(l, `t${i}`);
     l.push("tile_placed", tile("empty", null, "empty", "Removed root."), BOB);
     l.push("tile_removed", { tile_id: "empty" }, BOB);
     expect(threadsWinReached(projectBoard(l.events))).toBe(true);

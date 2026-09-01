@@ -32,7 +32,6 @@ import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
   MAX_THREADS,
-  MIN_THREADS_TO_END,
   OTHER_SIDE,
   READING_MAX_CHARS,
   RESOLUTION_TOKENS,
@@ -1619,21 +1618,13 @@ function HowThisEnds({ board }: { board: BoardState }) {
   const threads = liveThreads(board);
   const resolved = threads.filter(isResolved).length;
   const unresolved = threads.length - resolved;
-  const shortBy = Math.max(0, MIN_THREADS_TO_END - threads.length);
   // Same denominator the Ways to win card uses: the threads that actually
   // exist. Winning is resolving all of them, not reaching a number (Steve,
-  // 2026-09-01). MIN_THREADS_TO_END still gates the ending in the engine, so
-  // this panel is where that floor gets explained, in the sentence below.
-
+  // 2026-09-01). There is no floor left to explain here, because there is no
+  // longer a board that can be fully resolved and still refuse to end.
   const threadRoute =
-    shortBy > 0
-      ? unresolved === 0 && threads.length > 0
-        ? `Every thread here is resolved, and that on its own does not end it: a game needs at least ${MIN_THREADS_TO_END} threads. ${
-            shortBy === 1
-              ? "One more argument to have."
-              : `${shortBy} more arguments to have.`
-          }`
-        : `Resolving every thread ends the game, once there are at least ${MIN_THREADS_TO_END} of them.`
+    threads.length === 0
+      ? "Resolving every thread on the board is one of the two ways this ends."
       : unresolved === 0
         ? null
         : unresolved === 1

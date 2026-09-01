@@ -92,10 +92,8 @@ export function WaysToWinCard({
   // The number is the board's own live thread count, never a fixed target:
   // winning is resolving every thread there is, however many a game happens
   // to have (Steve, 2026-09-01). A board with two threads reads "resolve all
-  // 2 threads". The engine separately refuses to end a game holding fewer
-  // than MIN_THREADS_TO_END threads, which is an unratified floor tracked as
-  // BRAIN-T260901-06; the "How this game ends" panel below the board is the
-  // one place that floor is explained, so this card does not repeat it.
+  // 2 threads", and the engine now ends that game when both are resolved: the
+  // old floor of four is gone, so this card and the rules agree.
   const target = threads.length;
 
   return (

@@ -130,12 +130,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { TOPIC_LIBRARY } from "../lib/board/setup";
 import { SIGNING_LINE_IDS } from "../lib/board/setup";
 import { FIRST_RELEASE_CARD_IDS } from "../lib/board/setup";
-import {
-  RESOLUTION_TOKENS,
-  type ResolutionToken,
-  MIN_THREADS_TO_END,
-  MAX_THREADS,
-} from "../lib/board/rules";
+import { RESOLUTION_TOKENS, type ResolutionToken, MAX_THREADS } from "../lib/board/rules";
 import { generateDisplayName, numericTail, type Picker } from "../lib/names/generate";
 import { EVENT_TYPES, type GameEventType, type Uuid } from "../lib/events/types";
 
@@ -744,7 +739,7 @@ function buildGame(
 
   // How many threads, and how many of them actually get resolved. Only
   // threads_resolved closes every thread it opened, because that is what the
-  // win condition means (MIN_THREADS_TO_END, MAX_THREADS in lib/board/rules).
+  // win condition means (MAX_THREADS in lib/board/rules).
   // Every other outcome leaves at least one open, same as a board nobody
   // finished clearing.
   let numThreads: number;
@@ -755,8 +750,10 @@ function buildGame(
   let activeTileCounts: number[] | null = null;
   switch (outcome) {
     case "threads_resolved":
-      numThreads =
-        MIN_THREADS_TO_END + pick(rngContent, MAX_THREADS - MIN_THREADS_TO_END + 1);
+      // Three to the ceiling. The engine no longer imposes a floor, but a game
+      // somebody played to the end is not a one-thread game, and invented
+      // history that reads that way teaches the wrong shape.
+      numThreads = 3 + pick(rngContent, MAX_THREADS - 3 + 1);
       resolvedCount = numThreads;
       break;
     case "topic_agreed":

@@ -5,12 +5,7 @@ import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher"
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { COACH_CARDS } from "@/lib/coach/cards";
 import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
-import {
-  MAX_THREADS,
-  MIN_THREADS_TO_END,
-  RESOLUTION_TOKENS,
-  TILE_MAX_CHARS,
-} from "@/lib/board/rules";
+import { MAX_THREADS, RESOLUTION_TOKENS, TILE_MAX_CHARS } from "@/lib/board/rules";
 
 /**
  * The rules, for somebody who has never seen this game.
@@ -174,10 +169,7 @@ export default function HowToPlay() {
         <Section title="How the game ends">
           <p className="text-p-sm text-gray">Two ways, and both are agreements.</p>
           <ul className="flex list-disc flex-col gap-1 pl-5 text-p-sm text-gray">
-            <li>
-              Every thread on the board is resolved, once there are at least{" "}
-              {MIN_THREADS_TO_END} of them.
-            </li>
+            <li>Every thread on the board is resolved, however many there are.</li>
             <li>
               You agree on a rewritten wording of the topic, one both sides could sign.
             </li>

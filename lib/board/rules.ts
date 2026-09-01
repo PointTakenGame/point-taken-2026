@@ -57,15 +57,6 @@ export function isResolutionToken(value: string): value is ResolutionToken {
 }
 
 /**
- * How many threads a game must have resolved before resolving them all ends it.
- * Without a floor, one thread resolved on the first exchange ends the game.
- * GAP: Steve ruled the ceiling on 2026-08-23 and did not restate this number,
- * so four is still carried forward from the deployed 2024 server rather than
- * ratified (BRAIN-T260823-10).
- */
-export const MIN_THREADS_TO_END = 4;
-
-/**
  * The most threads a game may hold. Steve, 2026-08-23: games end by resolving
  * every thread, up to six. The cap is what makes that ending reachable, since
  * a board people can keep widening never runs out of threads to resolve.
@@ -102,10 +93,16 @@ export function isResolved(thread: BoardThread): boolean {
  * Whether resolving every thread should end this game now. Threads with no
  * live tiles left do not count: a thread whose tiles were all removed is not
  * an argument anybody resolved.
+ *
+ * There is no floor beyond having an argument at all. The deployed 2024 server
+ * carried one of four, which meant a board could show every thread resolved and
+ * refuse to end, with nothing on the screen able to explain why. Steve ruled it
+ * out on 2026-09-01: winning is resolving the threads the game actually has,
+ * however many that turns out to be (BRAIN-T260901-06).
  */
 export function threadsWinReached(board: BoardState): boolean {
   const real = liveThreads(board);
-  return real.length >= MIN_THREADS_TO_END && real.every((thread) => isResolved(thread));
+  return real.length > 0 && real.every((thread) => isResolved(thread));
 }
 
 /**
