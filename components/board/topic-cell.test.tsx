@@ -30,7 +30,8 @@ vi.mock("@/app/game/[gameId]/actions", () => ({
   rejectProposal,
 }));
 
-const { TopicCell, pendingTopicRevision } = await import("./topic-cell");
+const { TopicCell, pendingTopicRevision, lastRejectedTopicRevision } =
+  await import("./topic-cell");
 const { projectBoard } = await import("@/lib/board/project");
 type AnyGameEvent = import("@/lib/events/types").AnyGameEvent;
 
@@ -108,6 +109,35 @@ function boardWithProposalFromMinus() {
   );
 }
 
+const WHY = "It drops the part we actually disagree about.";
+
+/** The rewrite from Minus, turned down by Plus with a reason. */
+function boardWithRejection(reason: string | null = WHY) {
+  return projectBoard(
+    buildEvents([
+      ...SETUP,
+      {
+        type: "proposal_made",
+        payload: {
+          proposal_id: PROPOSAL,
+          kind: "topic_revision",
+          target_tile_id: null,
+          target_thread_root_id: null,
+          content: { text: REWRITE },
+        },
+        actor_id: BOB,
+        actor_role: "minus",
+      },
+      {
+        type: "proposal_rejected",
+        payload: { proposal_id: PROPOSAL, reason },
+        actor_id: ALICE,
+        actor_role: "plus",
+      },
+    ]),
+  );
+}
+
 function noop() {}
 
 afterEach(() => {
@@ -124,6 +154,82 @@ describe("pendingTopicRevision", () => {
     const proposal = pendingTopicRevision(boardWithProposalFromMinus());
     expect(proposal?.kind).toBe("topic_revision");
     expect(proposal?.askedBy).toBe("minus");
+  });
+});
+
+describe("lastRejectedTopicRevision", () => {
+  it("finds nothing before anybody has been told no", () => {
+    expect(lastRejectedTopicRevision(activeBoard())).toBeNull();
+  });
+
+  it("stays quiet while a newer rewrite is still waiting on an answer", () => {
+    expect(lastRejectedTopicRevision(boardWithProposalFromMinus())).toBeNull();
+  });
+
+  it("finds the rewrite that was turned down, and the reason given", () => {
+    const rejected = lastRejectedTopicRevision(boardWithRejection());
+    expect(rejected?.askedBy).toBe("minus");
+    expect(rejected?.reason).toBe(WHY);
+  });
+});
+
+describe("TopicCell: what happened to the last rewrite", () => {
+  function seat(role: "plus" | "minus", board = boardWithRejection()) {
+    return render(
+      <TopicCell
+        gameId={GAME}
+        board={board}
+        me={{ playerId: role === "plus" ? ALICE : BOB, role }}
+        size={14}
+        editing={false}
+        onEdit={noop}
+        onEditEnd={noop}
+      />,
+    );
+  }
+
+  it("tells the proposer they were turned down, and why", () => {
+    seat("minus");
+
+    expect(screen.getByText("They turned down your wording")).toBeTruthy();
+    expect(screen.getByText(REWRITE)).toBeTruthy();
+    expect(screen.getByText(`\u201c${WHY}\u201d`)).toBeTruthy();
+    // The tile itself is back to the topic, because the rewrite was refused.
+    expect(screen.getByText(TOPIC)).toBeTruthy();
+  });
+
+  it("offers the proposer the next try, and closing the note gets out of the way", async () => {
+    const onEdit = vi.fn();
+    render(
+      <TopicCell
+        gameId={GAME}
+        board={boardWithRejection()}
+        me={{ playerId: BOB, role: "minus" }}
+        size={14}
+        editing={false}
+        onEdit={onEdit}
+        onEditEnd={noop}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Try another wording" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("They turned down your wording")).toBeNull();
+  });
+
+  it("shows the rejecter their own no, without offering them a rewrite to retry", async () => {
+    seat("plus");
+
+    expect(screen.getByText("You turned down their wording")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try another wording" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("You turned down their wording")).toBeNull();
+  });
+
+  it("says so when no reason was given, rather than leaving a gap", () => {
+    seat("minus", boardWithRejection(null));
+    expect(screen.getByText("They did not say why.")).toBeTruthy();
   });
 });
 

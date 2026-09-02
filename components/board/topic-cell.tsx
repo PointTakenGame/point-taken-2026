@@ -19,6 +19,15 @@
  *   waiting   you proposed; the words you sent, and who they are with
  *   answering they proposed; their words in gold, Reject / Accept under them
  *
+ * Both proposal states carry a label saying whose proposal it is, and the
+ * answering one also keeps the wording it would replace on screen. See
+ * `TILE_EYEBROW` for why.
+ *
+ * A fifth thing is drawn beside the tile rather than in it: a note saying the
+ * last rewrite was rejected, and why. That is not a state of the tile, which
+ * has correctly gone back to showing the topic; see `lastRejectedTopicRevision`
+ * for what was wrong without it.
+ *
  * Two deliberate departures from the retired client, both noted for Steve:
  *   1. The proposer keeps seeing their own proposal. In the retired client
  *      `topicProposal` skips your own echo, so the proposer's tile snapped
@@ -41,7 +50,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { TILE_BODY_RATIO } from "@/components/board/geometry";
+import { TOPIC_CELL_ID } from "@/components/board/layout";
 import { TileShape } from "@/components/board/tile-shape";
+import { AnchoredCard } from "@/components/ui/anchored-card";
 import { TilePopover } from "@/components/ui/tile-popover";
 import { canProposeTopicRevision } from "@/lib/board/rules";
 import type { BoardProposal, BoardState } from "@/lib/board/project";
@@ -59,6 +70,19 @@ const TILE_BTN =
 const TILE_BTN_PRIMARY =
   "border-gold bg-gold/15 text-neutral-black rounded-full border px-3 py-0.5 text-xs font-semibold disabled:opacity-40";
 
+/**
+ * The line that says a proposal is a proposal.
+ *
+ * Without it the tile is a lie in both proposal states: the octagon is
+ * watermarked TOPIC, it is the only neutral tile on the board, and it is
+ * showing a sentence nobody has agreed to. Playing it through, the recipient
+ * gets the new wording with Reject and Accept under it and no statement
+ * anywhere that this is not already the topic. Gold text is the only signal,
+ * and gold is a colour, not a sentence.
+ */
+const TILE_EYEBROW =
+  "font-secondary text-gray text-[0.6rem] tracking-widest uppercase text-center";
+
 /** The topic rewrite still waiting on an answer, if there is one. */
 export function pendingTopicRevision(board: BoardState): BoardProposal | null {
   return (
@@ -66,6 +90,34 @@ export function pendingTopicRevision(board: BoardState): BoardProposal | null {
       (proposal) => proposal.kind === "topic_revision" && proposal.status === "pending",
     ) ?? null
   );
+}
+
+/**
+ * The most recently rejected topic rewrite, if one was the last thing to
+ * happen to the topic.
+ *
+ * Without this the rejection is invisible. Playing it through: the proposer's
+ * tile silently reverts to the old wording, with no toast, no note, and no
+ * sign their rewrite was ever answered. They are left to work out from a tile
+ * that changed back that somebody said no. Worse, the rejecter is asked for a
+ * reason on Steve's own instruction, types one, and it goes into the event log
+ * and nowhere else, which turns "you get a chance to say why" into a box that
+ * eats what you wrote.
+ *
+ * Only the latest one, and only while nothing newer is pending: a rejection
+ * from three rewrites ago is history, not news, and the tile is not a log.
+ */
+export function lastRejectedTopicRevision(board: BoardState): BoardProposal | null {
+  let latest: BoardProposal | null = null;
+  for (const proposal of board.proposals) {
+    if (proposal.kind !== "topic_revision") continue;
+    if (proposal.status === "pending") return null;
+    if (proposal.status !== "rejected") continue;
+    if (latest === null || (proposal.answeredAtSeq ?? 0) > (latest.answeredAtSeq ?? 0)) {
+      latest = proposal;
+    }
+  }
+  return latest;
 }
 
 function proposedText(proposal: BoardProposal): string {
@@ -104,10 +156,17 @@ export function TopicCell({
   const [rejecting, setRejecting] = useState(false);
   const [why, setWhy] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** The `answeredAtSeq` of a rejection the player has read and closed. Kept
+   *  as the sequence number rather than a boolean so a later rejection shows
+   *  again instead of being swallowed by an earlier dismissal. */
+  const [dismissedRejection, setDismissedRejection] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const anchorRef = useRef<HTMLDivElement>(null);
 
   const proposal = pendingTopicRevision(board);
+  const rejected = lastRejectedTopicRevision(board);
+  const showRejection =
+    rejected !== null && rejected.answeredAtSeq !== dismissedRejection;
   const mine = proposal !== null && proposal.askedBy === me.role;
   const verdict = canProposeTopicRevision(board, draft);
   const canOpen =
@@ -176,9 +235,20 @@ export function TopicCell({
     if (proposal && !mine) {
       return (
         <>
-          <p className="font-tiles text-p-sm text-gold px-2 text-center">
+          <p className={TILE_EYEBROW}>They want the topic to say</p>
+          <p className="font-tiles text-p-sm text-gold mt-1 px-2 text-center">
             {proposedText(proposal)}
           </p>
+          {/* The wording it would replace, kept on screen. Judging a rewrite
+              means comparing it with what is there now, and the proposal has
+              taken over the one tile that used to show that. Clamped rather
+              than sized down further: two lines of the old topic is enough to
+              recognise it, and the octagon has to hold the buttons too. */}
+          {board.currentTopicText ? (
+            <p className="font-secondary text-gray mt-1 line-clamp-2 px-3 text-center text-[0.65rem] italic">
+              instead of &ldquo;{board.currentTopicText}&rdquo;
+            </p>
+          ) : null}
           <div className="mt-2 flex gap-2">
             <button
               type="button"
@@ -204,7 +274,8 @@ export function TopicCell({
     if (proposal && mine) {
       return (
         <>
-          <p className="font-tiles text-p-sm text-gold px-2 text-center">
+          <p className={TILE_EYEBROW}>You proposed</p>
+          <p className="font-tiles text-p-sm text-gold mt-1 px-2 text-center">
             {proposedText(proposal)}
           </p>
           <p className="text-gray mt-2 text-center text-xs">
@@ -292,6 +363,64 @@ export function TopicCell({
         <p className="text-orange absolute -bottom-6 left-0 w-full text-center text-xs">
           {error}
         </p>
+      ) : null}
+
+      {/* What happened to the last rewrite, beside the tile rather than in it.
+          The octagon has gone back to showing the topic, which is correct: the
+          rewrite was refused, so the topic is what it was. But that revert is
+          the ONLY thing either player currently sees, and a tile quietly
+          changing back is not a message. This is the message, and it carries
+          the reason the rejecter was asked for.
+
+          It has to leave the tile's own subtree to be seen at all. The board
+          cell around a tile is clipped to the octagon silhouette
+          (`clip-path: polygon(...)`), so a note positioned under the tile is
+          not merely behind something, it is cut away: painted nowhere, absent
+          from `elementsFromPoint`, while `getBoundingClientRect` still reports
+          a perfectly sensible box on screen. `AnchoredCard` portals to the
+          body and follows the tile through pan and zoom, which is the same
+          reason every other card on this board uses it. `reserveRight` keeps
+          it off Ways to win the way the tile-action card does. */}
+      {showRejection && rejected !== null ? (
+        <AnchoredCard
+          anchorSelector={`[data-tile-id="${TOPIC_CELL_ID}"]`}
+          onClose={() => setDismissedRejection(rejected.answeredAtSeq)}
+          width={20}
+          reserveRight={18}
+        >
+          <p className={TILE_EYEBROW}>
+            {rejected.askedBy === me.role
+              ? "They turned down your wording"
+              : "You turned down their wording"}
+          </p>
+          <p className="font-tiles text-p-sm mt-1 text-center line-through opacity-60">
+            {proposedText(rejected)}
+          </p>
+          {/* An empty reason is not a bug: the box is optional on purpose, so
+              a no still costs one click. Saying so beats leaving a gap that
+              reads as something failing to load. */}
+          <p className="font-secondary text-gray mt-1 text-center text-[0.7rem] italic">
+            {rejected.reason
+              ? `\u201c${rejected.reason}\u201d`
+              : rejected.askedBy === me.role
+                ? "They did not say why."
+                : "You did not give a reason."}
+          </p>
+          {rejected.askedBy === me.role && canOpen ? (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                className={TILE_BTN}
+                onClick={() => {
+                  setDismissedRejection(rejected.answeredAtSeq);
+                  onEdit();
+                }}
+              >
+                Try another wording
+              </button>
+            </div>
+          ) : null}
+        </AnchoredCard>
       ) : null}
 
       <TilePopover
