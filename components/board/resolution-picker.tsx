@@ -25,7 +25,7 @@ export function ResolutionPicker({
           card's own "Where do you two disagree?" and said nothing the tokens
           did not already say. Two drawings mean nothing cold, so the resting
           line now points at the way to read them. */}
-      <p className="text-p-md font-secondary font-bold text-gray">
+      <p className="text-p-sm font-secondary text-gray">
         {hovered ? tokenLabel(hovered) : "Point at one to read it"}
       </p>
       <div className="flex flex-row items-center gap-4">

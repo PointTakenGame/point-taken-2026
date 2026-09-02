@@ -780,11 +780,19 @@ function TileNode({
               <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
                 {tile.edited && <span>(edited)</span>}
                 {tile.revised && <span>(rewritten)</span>}
-                {mine && <span>(yours)</span>}
               </span>
-              <span className="flex flex-wrap gap-3">
+              {/* Two kinds of link sat in one undifferentiated row of grey
+                  underlines: housekeeping on a reason you wrote, and moves
+                  that put a question to the other player. "remove" reading
+                  the same as "pin down a word" is the bad half of that: one
+                  of them takes your own tile off the board and the other
+                  opens a dialog. The label and the rule say which is which,
+                  and the stray "(yours)" tag above is gone, because a row
+                  headed "yours" has already said it. */}
+              <span className="flex flex-wrap items-center gap-3">
                 {mine && (
                   <>
+                    <span className="text-p-sm text-gray">yours:</span>
                     <button
                       type="button"
                       className="text-p-sm underline text-gray disabled:opacity-30"
@@ -803,6 +811,7 @@ function TileNode({
                     >
                       remove
                     </button>
+                    <span aria-hidden="true" className="bg-gray/30 h-3.5 w-px" />
                   </>
                 )}
                 {/* Anyone may ask to move any reason: the other side answers. */}
@@ -2383,7 +2392,7 @@ export function LiveBoard({
         className="pointer-events-none fixed inset-y-0 right-0 z-20 w-[26rem]"
         style={{
           background:
-            "linear-gradient(to left, var(--color-offwhite) 66%, color-mix(in srgb, var(--color-offwhite) 55%, transparent) 85%, transparent)",
+            "linear-gradient(to left, var(--color-board-ground) 66%, color-mix(in srgb, var(--color-board-ground) 55%, transparent) 85%, transparent)",
         }}
       />
 
@@ -2658,7 +2667,11 @@ export function LiveBoard({
               played on. */}
           {threadByRoot.has(selectedTile.id) && (
             <div className="border-neutral-black/15 mt-3 flex flex-col gap-2 border-t pt-3">
-              <h4 className="font-primary text-p-sm text-gray tracking-wide uppercase">
+              {/* The card's question, so it is set like one. It used to be a
+                  small grey all-caps rule sitting above a bolder, larger line
+                  of instruction, which put the emphasis on how to work the
+                  control rather than on what it is asking. */}
+              <h4 className="font-primary text-p-md text-neutral-black">
                 Where do you two disagree?
               </h4>
               <ResolutionRow

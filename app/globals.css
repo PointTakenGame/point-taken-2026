@@ -35,6 +35,16 @@
   --color-gray: #747474;
   --color-offwhite: #fffcf5;
 
+  /* The ground under the board, and only there. Everywhere else in the app a
+     card sits on offwhite and is offwhite itself, which is fine because a
+     border or a shadow separates them. The board is the one screen made
+     almost entirely of large offwhite octagons, and on an offwhite ground
+     they lose their bodies and read as outlines drawn on the page. Rannie
+     draws them as white cards on a warm grey (`1096:252192`, ground #f5f2f0
+     against a #ffffff tile), so the tiles have weight before any border is
+     considered. This is her ground colour; the tiles keep our cream. */
+  --color-board-ground: #f5f2f0;
+
   /* Warm accents, used by buttons on hover and by the tile chrome. */
   --color-sand: #ffd979;
   --color-gold: #efae45;

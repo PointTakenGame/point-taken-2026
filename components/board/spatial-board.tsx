@@ -458,6 +458,9 @@ export function SpatialBoard<T extends SpatialTile>({
       className={`absolute inset-0 overflow-hidden ${panning ? "cursor-grabbing select-none" : "cursor-grab"}`}
       style={{
         touchAction: "none",
+        // Ground, not page. See --color-board-ground in app/globals.css for
+        // why the board is the one screen that does not sit on offwhite.
+        backgroundColor: "var(--color-board-ground)",
         backgroundImage: DOT_GROUND,
         backgroundSize: `${(pitch * remPx * zoom) / DOTS_PER_PITCH}px ${(pitch * remPx * zoom) / DOTS_PER_PITCH}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
