@@ -320,6 +320,7 @@ function CardHand({
   me,
   board,
   onBoard = false,
+  onOpenChange,
 }: {
   gameId: string;
   tile: BoardTile;
@@ -327,10 +328,23 @@ function CardHand({
   board: BoardState;
   /** True beside the reason on the board, where the hand is one menu item. */
   onBoard?: boolean;
+  /**
+   * Told when the hand opens and closes.
+   *
+   * The hand keeps its own open state, because the drawer has no use for it,
+   * but on the board the tile card needs to know: an open hand is a form like
+   * any other form, and the rest of the menu goes away while one is up.
+   */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const show = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
 
   const deck = cardsInPlay(board);
   if (deck.length === 0) return null;
@@ -343,7 +357,7 @@ function CardHand({
         cardId,
       });
       if (!result.ok) setError(result.error);
-      else setOpen(false);
+      else show(false);
     });
   };
 
@@ -353,7 +367,7 @@ function CardHand({
         <ActionItem
           label="Play a card"
           hint="Challenge this reason with one of your rule cards. They rewrite it; nobody loses anything."
-          onClick={() => setOpen(true)}
+          onClick={() => show(true)}
         />
       </div>
     ) : (
@@ -361,7 +375,7 @@ function CardHand({
         <button
           type="button"
           className="text-xs underline text-gray"
-          onClick={() => setOpen(true)}
+          onClick={() => show(true)}
         >
           play a card
         </button>
@@ -376,6 +390,46 @@ function CardHand({
   const cardVerdicts = deck.map((cardId) =>
     canThrowCard(board, tile.id, cardId, me.role, me.playerId),
   );
+
+  // Out on the reason the hand gets the room the drawer cannot spare, so each
+  // card says in a line what throwing it asks for. Four names on their own are
+  // four things to guess at, and a card is the one move here whose whole point
+  // is the sentence underneath the name.
+  if (onBoard) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+          Play a card
+        </p>
+        <div className="-mx-2 flex flex-col">
+          {deck.map((cardId, index) => {
+            const card = coachCard(cardId);
+            return (
+              <ActionItem
+                key={cardId}
+                label={cardLabel(cardId)}
+                hint={card?.plain ?? "Challenge this reason."}
+                verdict={cardVerdicts[index]}
+                disabled={pending}
+                onClick={() => run(cardId)}
+              />
+            );
+          })}
+        </div>
+        <div>
+          <button
+            type="button"
+            className={SECONDARY_BUTTON}
+            disabled={pending}
+            onClick={() => show(false)}
+          >
+            Never mind
+          </button>
+        </div>
+        <ErrorLine error={error} />
+      </div>
+    );
+  }
 
   return (
     <div className="ml-6 flex flex-col gap-1">
@@ -399,7 +453,7 @@ function CardHand({
           type="button"
           className="text-xs underline text-gray"
           disabled={pending}
-          onClick={() => setOpen(false)}
+          onClick={() => show(false)}
         >
           never mind
         </button>
@@ -490,20 +544,27 @@ function StandingThrow({
   const card = coachCard(thrown.cardId);
 
   return (
-    <div className="ml-6 flex flex-col gap-1 border-l-2 border-gold/50 pl-3">
-      <p className="text-xs">
-        <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
-        <span className="ml-2 opacity-60">
-          {answerable ? "played on this reason" : "waiting on them"}
-        </span>
+    // A card on a reason is an ask like any other ask, so it is drawn as one:
+    // the same gold-edged card a proposal gets, rather than a rule down the
+    // left of some small grey text. It used to be the quietest thing on a
+    // board it is holding up.
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
+      <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+        {answerable ? "They played" : "You played"}
       </p>
-      {card && <p className="text-xs opacity-60">{card.plain}</p>}
+      <p className="text-p-sm">
+        <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
+      </p>
+      {card && <p className="text-p-sm text-gray">{card.plain}</p>}
+      {!answerable && (
+        <p className="text-p-sm text-gray italic">Waiting for them to answer.</p>
+      )}
 
       {answerable && mode === "idle" && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="text-xs underline opacity-80"
+            className={PRIMARY_BUTTON}
             onClick={() => {
               setDraft(
                 board.tiles.find((tile) => tile.id === thrown.targetTileId)?.text ?? "",
@@ -511,14 +572,14 @@ function StandingThrow({
               setMode("revise");
             }}
           >
-            rewrite it
+            Rewrite it
           </button>
           <button
             type="button"
-            className="text-xs underline opacity-80"
+            className={SECONDARY_BUTTON}
             onClick={() => setMode("decline")}
           >
-            the card does not fit
+            It does not fit
           </button>
         </div>
       )}
@@ -539,7 +600,7 @@ function StandingThrow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending || !reviseVerdict.ok}
               title={!reviseVerdict.ok ? reviseVerdict.error : undefined}
               onClick={runRevise}
@@ -548,11 +609,11 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline text-gray"
+              className={SECONDARY_BUTTON}
               disabled={pending}
               onClick={() => setMode("idle")}
             >
-              cancel
+              Cancel
             </button>
           </div>
         </div>
@@ -572,7 +633,7 @@ function StandingThrow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending || !declineVerdict.ok}
               title={!declineVerdict.ok ? declineVerdict.error : undefined}
               onClick={runDecline}
@@ -581,11 +642,11 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline text-gray"
+              className={SECONDARY_BUTTON}
               disabled={pending}
               onClick={() => setMode("idle")}
             >
-              cancel
+              Cancel
             </button>
           </div>
         </div>
@@ -760,6 +821,7 @@ function TileNode({
 }) {
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [handOpen, setHandOpen] = useState(false);
   // The two cooperative moves that are about one particular reason. They open
   // one at a time, because both of them are you writing something in the other
   // player's voice and a card offering to do that twice at once is a card
@@ -798,17 +860,20 @@ function TileNode({
   const openProposals = board.proposals.filter(
     (proposal) => proposal.status === "pending" && proposal.targetTileId === tile.id,
   );
-  // A question on this reason that is waiting on you is the only thing on the
-  // card worth reading, so it is the only thing on the card. Under the full
-  // menu it opened five rows down and past the fold, which is where a move
-  // goes to be missed.
-  const awaitingMyAnswer = openProposals.some((proposal) => proposal.askedBy !== me.role);
   const settledProposals = board.proposals.filter(
     (proposal) => proposal.status !== "pending" && proposal.targetTileId === tile.id,
   );
   const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
   const standing = throwsHere.filter((thrown) => thrown.status === "standing");
   const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
+  // Something on this reason that is waiting on you is the only thing on the
+  // card worth reading, so it is the only thing on the card. Under the full
+  // menu it opened five rows down and past the fold, which is where a move
+  // goes to be missed. A rule card played on a reason of your own counts:
+  // it opened below Edit and Remove, which is further down still.
+  const awaitingMyAnswer =
+    openProposals.some((proposal) => proposal.askedBy !== me.role) ||
+    (mine && standing.length > 0);
 
   const runEdit = () => {
     setError(null);
@@ -908,7 +973,9 @@ function TileNode({
                   four dead rows of things you could have done instead. */}
               <div
                 className={`-mx-2 flex flex-col ${
-                  proposing !== null || moving || awaitingMyAnswer ? "hidden" : ""
+                  proposing !== null || moving || handOpen || awaitingMyAnswer
+                    ? "hidden"
+                    : ""
                 }`}
               >
                 <ActionItem
@@ -1134,7 +1201,14 @@ function TileNode({
         // The hand is another way to act on this reason, so it goes away with
         // the rest of them while one of the forms is open.
         !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
-          <CardHand gameId={gameId} tile={tile} me={me} board={board} onBoard={onBoard} />
+          <CardHand
+            gameId={gameId}
+            tile={tile}
+            me={me}
+            board={board}
+            onBoard={onBoard}
+            onOpenChange={setHandOpen}
+          />
         )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
@@ -2904,7 +2978,21 @@ export function LiveBoard({
             </p>
           </header>
           <ul className="flex flex-col gap-2">
-            <TileNode tile={selectedTile} gameId={gameId} me={me} board={board} onBoard />
+            {/* Keyed by the reason, so clicking a second tile builds a second
+                card rather than handing this one a new `tile` prop. React
+                would otherwise reuse the instance and every piece of state in
+                it: the half-typed edit, the open form, which move you were
+                part-way through. Found by playing it. Clicking one reason,
+                then another, then Edit put the first reason's text inside the
+                second reason's octagon, one Save away from overwriting it. */}
+            <TileNode
+              key={selectedTile.id}
+              tile={selectedTile}
+              gameId={gameId}
+              me={me}
+              board={board}
+              onBoard
+            />
           </ul>
           {/* Resolving belongs to the reason a thread started from, so it is
               offered on that tile and nowhere else. It used to live only in
