@@ -1364,7 +1364,7 @@ function InTileComposer({
         <div className="border-gray/30 bg-offwhite flex items-center gap-3 rounded-full border py-1 pr-4 pl-1 shadow-lg">
           <button
             type="button"
-            className="border-gray/30 bg-neutral-black text-offwhite font-primary cursor-pointer rounded-full border px-4 py-1 tracking-wide uppercase disabled:cursor-default disabled:opacity-40"
+            className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-4 py-1 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
             disabled={pending || !verdict.ok}
             title={!verdict.ok ? verdict.error : undefined}
             onClick={submit}
@@ -2249,6 +2249,10 @@ export function LiveBoard({
         // is open or waiting for an answer.
         placementEnabled={placementEnabled && !topicEditing && !topicPending}
         canPlaceOn={canPlaceUnder}
+        placeSide={me.role}
+        // The rail is `right-8 w-[15rem]`, so 15 plus its 2rem gutter. Keep
+        // this in step with the rail wrapper's classes below.
+        reserveRight={17}
         draftAt={draft?.pos ?? null}
         draft={
           draft && (

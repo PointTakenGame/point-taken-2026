@@ -22,6 +22,7 @@ import {
   type BoardLayout,
   type GridPosition,
 } from "@/components/board/layout";
+import type { TileSide } from "@/components/board/tile-shape";
 
 /**
  * The board as a plane instead of an indented list.
@@ -131,6 +132,24 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * care passes nothing.
    */
   canPlaceOn?: (parentId: string) => boolean;
+  /**
+   * The side of the player who would fill an open slot, for colouring the
+   * ghosts. Defaults to neutral for callers with no seat in play (the
+   * finished-game map, say).
+   */
+  placeSide?: TileSide;
+  /**
+   * A strip down the right of the pane the board should not centre itself
+   * under, in rem.
+   *
+   * The pane is the whole window and the caller floats a fixed rail over its
+   * last few inches, so "centred in the pane" put the middle of the argument
+   * behind Ways to win: on a two-tile board the newest tile was half under
+   * the panel the moment it landed, and on the composer it was the cell you
+   * were typing in. Nothing is clipped, it is simply centred on the wrong
+   * box. Callers with no furniture over the board pass nothing.
+   */
+  reserveRight?: number;
   /** Tile edge length in rem. */
   size?: number;
   /** Extra controls rendered inside the zoom cluster, to its right. The
@@ -204,20 +223,53 @@ const DOT_GROUND =
 const DOTS_PER_PITCH = 7;
 
 /**
- * An open diagonal slot: a dashed octagon at half opacity that fills in on
- * hover. Clipped to the same silhouette as `TileShape` so a ghost lands
- * exactly where the real tile will. A dashed border cannot be drawn by the
- * intersection trick (the two squares would each dash independently), so this
- * one uses the clip path and accepts a slightly softer outline.
+ * An open diagonal slot: a dashed octagon that fills in on hover. Clipped to
+ * the same silhouette as `TileShape` so a ghost lands exactly where the real
+ * tile will. A dashed border cannot be drawn by the intersection trick (the
+ * two squares would each dash independently), so this one uses the clip path
+ * and accepts a slightly softer outline.
+ *
+ * Drawn in the side colour of whoever is about to place, which is what Rannie
+ * does in `937:68265`: the plus marks around her clicked tile are green
+ * because a green player is holding the turn. It also stops the one thing on
+ * the board that is an invitation from being the one thing drawn in the same
+ * grey as the dot ground.
+ *
+ * It used to be grey at half opacity with a `text-2xl` plus in it, and at the
+ * 0.8 comfort zoom that plus was about eleven screen pixels of 50% grey. It
+ * read as ground texture. The affordance the whole game runs on cannot be the
+ * faintest mark on screen, so it is now the side colour, a heavier dash, and
+ * a plus sized off the cell rather than off the type scale.
  */
+const GHOST_BORDER: Record<TileSide, string> = {
+  plus: "border-green/70",
+  minus: "border-orange/70",
+  neutral: "border-gray/60",
+};
+
+const GHOST_MARK: Record<TileSide, string> = {
+  plus: "text-green/70",
+  minus: "text-orange/70",
+  neutral: "text-gray/60",
+};
+
+const GHOST_WASH: Record<TileSide, string> = {
+  plus: "group-hover:bg-green/10",
+  minus: "group-hover:bg-orange/10",
+  neutral: "group-hover:bg-gray/10",
+};
+
 function GhostSlot({
   style,
   onClick,
   label,
+  side,
 }: {
   style: CSSProperties;
   onClick: () => void;
   label: string;
+  /** Whose turn is about to be spent here. Colours the dash and the plus. */
+  side: TileSide;
 }) {
   return (
     <button
@@ -229,11 +281,16 @@ function GhostSlot({
       style={style}
     >
       <span
-        className="border-gray group-hover:border-gold group-hover:bg-gold/10 absolute inset-0 border-2 border-dashed opacity-50 transition-all duration-150 group-hover:opacity-100"
+        className={`${GHOST_BORDER[side]} ${GHOST_WASH[side]} absolute inset-0 border-3 border-dashed transition-all duration-150 group-hover:opacity-100`}
         style={{ clipPath: OCTAGON_CLIP }}
         aria-hidden="true"
       />
-      <span className="font-primary text-gray group-hover:text-gold absolute inset-0 z-10 flex items-center justify-center text-2xl opacity-50 transition-opacity duration-150 group-hover:opacity-100">
+      <span
+        className={`${GHOST_MARK[side]} font-primary absolute inset-0 z-10 flex items-center justify-center leading-none transition-opacity duration-150 group-hover:opacity-100`}
+        // Sized off the cell, not off the type scale, so it stays a mark on
+        // the board at every zoom instead of shrinking into body text.
+        style={{ fontSize: "3.5rem" }}
+      >
         +
       </span>
     </button>
@@ -273,6 +330,8 @@ export function SpatialBoard<T extends SpatialTile>({
   draft,
   placementEnabled = false,
   canPlaceOn,
+  placeSide = "neutral",
+  reserveRight = 0,
   // The declared box is the outer ring, so `size * CELL_PITCH_RATIO` is the
   // grid pitch, and at 18.5 that comes out at the retired client's 14rem
   // columns exactly. It sat at 14 for a while, which quietly drew the whole
@@ -370,8 +429,11 @@ export function SpatialBoard<T extends SpatialTile>({
       if (!pane) return;
       const w = canvasWidth * remPx;
       const h = canvasHeight * remPx;
+      // The part of the pane the board actually gets, which is the pane less
+      // whatever the caller has floating over its right edge.
+      const usable = Math.max(FIT_MARGIN + 1, pane.w - reserveRight * remPx);
       const room = Math.min(
-        (pane.w - FIT_MARGIN) / w,
+        (usable - FIT_MARGIN) / w,
         (pane.h - FIT_MARGIN) / h,
         // Never magnify past life size to fill a big screen: a two-tile board
         // blown up to 200% looks broken rather than roomy.
@@ -379,10 +441,10 @@ export function SpatialBoard<T extends SpatialTile>({
       );
       const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
       setZoom(next);
-      setPan({ x: (pane.w - w * next) / 2, y: (pane.h - h * next) / 2 });
+      setPan({ x: (usable - w * next) / 2, y: (pane.h - h * next) / 2 });
       touched.current = false;
     },
-    [pane, canvasWidth, canvasHeight, remPx],
+    [pane, canvasWidth, canvasHeight, remPx, reserveRight],
   );
 
   // Refit while the view is still the one we chose. Depends on the footprint,
@@ -517,6 +579,7 @@ export function SpatialBoard<T extends SpatialTile>({
                 ? "Start a new thread here"
                 : "Answer this reason here"
             }
+            side={placeSide}
             onClick={() => onPlace?.(parentId, pos)}
           />
         ))}
