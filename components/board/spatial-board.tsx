@@ -653,11 +653,20 @@ export function SpatialBoard<T extends SpatialTile>({
         // mode's ceiling, three a side (Steve, 2026-09-01). The two numbers
         // describe different views and are meant to differ. Winning is
         // resolving *all* threads, however many a game happens to have.
+        //
+        // The second sentence used to say "the board holds four threads" on
+        // every one of these, which is only the reason when the tile that
+        // found nowhere to go was starting a thread of its own. A reason
+        // hanging off another reason ran out of room beside its parent, and
+        // blaming the thread count for that sends the reader to count threads
+        // and find nothing wrong. So the cause is read off the tile.
         <p className="text-p-sm text-orange bg-offwhite border-orange/40 absolute bottom-8 left-1/2 z-30 -translate-x-1/2 rounded-full border px-4 py-2 shadow-md">
           {unplaced.length === 1
             ? "One reason has no room on the board and is not drawn."
             : `${unplaced.length} reasons have no room on the board and are not drawn.`}{" "}
-          The board holds four threads.
+          {unplaced.every((t) => t.parentId == null)
+            ? "The board holds four threads."
+            : "There was no free space beside the reason it answers."}
         </p>
       ) : null}
     </div>
