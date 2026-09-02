@@ -108,24 +108,25 @@ export function WaysToWinCard({
   const target = threads.length;
 
   return (
-    <div className="border-gray/30 bg-offwhite w-full rounded-2xl border p-4 shadow-md select-none">
-      <h4 className="text-gold mb-3 text-center text-[11px] font-extrabold tracking-[0.13em] uppercase">
-        Ways to win
-      </h4>
+    // Rannie's card, not a tooltip: white, generous, left aligned, and headed
+    // in the display face at reading size. It spent a while as a centred gold
+    // 11px all-caps label, which is the styling this project gives to a
+    // section marker inside a panel, and this is not a marker inside anything.
+    // It is the one card in the rail that says what the game is for.
+    <div className="border-gray/30 bg-offwhite w-full rounded-2xl border px-5 py-4 shadow-md select-none">
+      <h4 className="font-primary text-neutral-black text-p-lg mb-3">Ways to win</h4>
 
-      <div className="flex items-start gap-2 pl-2">
-        <span className="text-neutral-black bg-offwhite border-gray/30 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-extrabold">
+      <div className="flex items-center gap-2">
+        <span className="text-neutral-black bg-offwhite border-gray/40 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold">
           1
         </span>
-        <span className="text-neutral-black text-p-sm leading-tight font-bold">
-          Resolve all
-          <br />
-          {target === 0 ? "threads" : `${target} threads`}
+        <span className="text-neutral-black text-p-sm leading-tight">
+          Resolve all {target === 0 ? "threads" : `${target} threads`}
         </span>
       </div>
-      <p className="text-gray mt-1 mb-1 text-center text-xs font-semibold">
-        <span className="text-neutral-black font-extrabold">{resolvedCount}</span> of{" "}
-        {target} resolved
+      <p className="text-gray mt-1 pl-7 text-xs">
+        <span className="text-neutral-black font-bold">{resolvedCount}</span> of {target}{" "}
+        resolved
       </p>
 
       <div className="relative mx-auto my-1 aspect-square w-[74%]">
@@ -134,7 +135,12 @@ export function WaysToWinCard({
             key={thread.tileId}
             type="button"
             tabIndex={-1}
-            className={`absolute aspect-square w-[32%] cursor-help border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] hover:scale-110 ${CORNER_POSITION[thread.corner]} ${thread.resolved ? SIDE_FILL[thread.side] : "bg-gray/30"}`}
+            // The corner is drawn as a filled octagon with an offwhite one
+            // inset inside it, so an open thread reads as an outline in its
+            // own side colour and a resolved one fills in. It used to outline
+            // in grey until it closed, which made a board of live threads look
+            // like a board of dead ones.
+            className={`absolute aspect-square w-[32%] cursor-help border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] hover:scale-110 ${CORNER_POSITION[thread.corner]} ${SIDE_FILL[thread.side]}`}
             aria-label={thread.resolved ? "Thread resolved" : "Thread not yet resolved"}
             onMouseEnter={() =>
               onHover?.({
@@ -145,7 +151,7 @@ export function WaysToWinCard({
             onMouseLeave={() => onHover?.(null)}
           >
             <span
-              className={`bg-offwhite absolute inset-[2px] flex items-center justify-center [clip-path:inherit] ${thread.resolved ? SIDE_FILL[thread.side] : ""}`}
+              className={`bg-offwhite absolute inset-[3px] flex items-center justify-center [clip-path:inherit] ${thread.resolved ? SIDE_FILL[thread.side] : ""}`}
             >
               {thread.token ? <TokenGlyph token={thread.token} size={20} /> : null}
             </span>
@@ -153,26 +159,31 @@ export function WaysToWinCard({
         ))}
         <button
           type="button"
-          className="bg-neutral-black absolute top-[34%] left-[34%] aspect-square w-[32%] cursor-pointer border-none p-0 [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)]"
+          className="bg-neutral-black group/topic absolute top-[34%] left-[34%] aspect-square w-[32%] cursor-pointer border-none p-0 [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)]"
           aria-label="Revise the topic"
           onMouseEnter={() => onHover?.({ tileId: "0", kind: "topic" })}
           onMouseLeave={() => onHover?.(null)}
           onClick={() => onRevise?.()}
         >
-          <span className="bg-neutral-black text-p-sm absolute inset-[2px] flex items-center justify-center text-neutral-white [clip-path:inherit]">
-            ✎
+          {/* Labelled, not a pencil. Rannie stamps the middle of the stamp
+              "TOPIC" the same way the real centre tile is stamped, so the
+              minimap is legible as a picture of the board rather than as a
+              toolbar with an edit button in it. The pencil still appears,
+              on hover, because this is also the way to open the rewrite. */}
+          <span className="bg-neutral-black font-primary absolute inset-[3px] flex items-center justify-center text-[9px] tracking-wide text-white [clip-path:inherit]">
+            <span className="group-hover/topic:hidden">TOPIC</span>
+            <span className="hidden group-hover/topic:inline">✎</span>
           </span>
         </button>
       </div>
 
-      <div className="text-brown mt-1 text-center leading-none font-extrabold">↑</div>
-      <div className="mt-1 flex items-center gap-2 pl-2">
-        <span className="text-neutral-black bg-offwhite border-gray/30 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-extrabold">
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-neutral-black bg-offwhite border-gray/40 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold">
           2
         </span>
-        <span className="text-neutral-black text-p-sm font-bold">Revise the topic</span>
+        <span className="text-neutral-black text-p-sm">Revise the topic</span>
       </div>
-      {reviseHint ? <p className="text-gray mt-1 pl-9 text-xs">{reviseHint}</p> : null}
+      {reviseHint ? <p className="text-gray mt-1 pl-7 text-xs">{reviseHint}</p> : null}
 
       {ceilingNote ? <p className="text-gray mt-3 text-xs">{ceilingNote}</p> : null}
       {footer ? (

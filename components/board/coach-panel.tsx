@@ -178,27 +178,43 @@ export function CoachPanel({
   };
 
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-        Coach
-      </h2>
-      <label className="flex w-fit items-center gap-2 text-p-sm">
-        <input type="checkbox" checked={on} onChange={toggle} disabled={pending} />
-        Let the coach read my reasons
-      </label>
-      {error && <p className="text-p-sm text-orange">{error}</p>}
-      {!on && (
-        <p className="text-p-sm opacity-50">
-          Off. Nothing you write is sent anywhere while this is unchecked.
-        </p>
-      )}
+    // Its own card in the rail, under Ways to win, which is where Rannie draws
+    // it (`1096:252192`): a title, a switch on the same line, and one line of
+    // subtitle. It used to be a fold-away disclosure row headed "MY AI COACH",
+    // which hid the switch behind a click and made the coach look like a
+    // drawer of settings rather than the second thing on the screen.
+    <section className="border-gray/30 bg-offwhite flex w-full flex-col rounded-2xl border px-5 py-4 shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-primary text-neutral-black text-p-lg">AI Coach</h2>
+        {/* A switch, not a checkbox. Still a real checkbox underneath, so it
+            keeps the label, the focus ring, and the keyboard. */}
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={toggle}
+            disabled={pending}
+            className="peer sr-only"
+            aria-label="Let the coach read my reasons"
+          />
+          <span className="bg-gray/30 peer-checked:bg-green peer-focus-visible:ring-gold/60 h-5 w-9 rounded-full transition-colors peer-focus-visible:ring-2 peer-disabled:opacity-50" />
+          <span className="bg-offwhite pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full shadow transition-transform peer-checked:translate-x-4" />
+        </label>
+      </div>
+      <p className="text-gray mt-1 text-xs">
+        {on
+          ? "It reads your reasons and offers a note. It never blocks a move."
+          : "Off. Nothing you write is sent anywhere while this is off."}
+      </p>
+
+      {error && <p className="text-p-sm text-orange mt-2">{error}</p>}
       {on && mine.length === 0 && (
-        <p className="text-p-sm opacity-50">
+        <p className="text-gray mt-2 text-xs">
           Nothing to say so far. Silence is the usual answer.
         </p>
       )}
       {mine.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="mt-3 flex flex-col gap-2">
           {mine.map((reading) => (
             <ReadingCard
               key={reading.seq}

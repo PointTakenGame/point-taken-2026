@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Anton, Coming_Soon, Noto_Sans } from "next/font/google";
 
 import { BuildStamp } from "@/components/build-stamp";
+import { HideOnBoard } from "@/components/hide-on-board";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { AlertStack } from "@/components/alerts/alert-stack";
 import "./globals.css";
@@ -67,11 +68,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/*
           Every page, not just the account page. Reviewers comment on the
           screen in front of them, and a comment is only attributable if the
-          build id was visible from that screen.
+          build id was visible from that screen. The board is the exception,
+          and only in where rather than whether: it is a fixed full-screen
+          surface, so a footer after it collapses into its top-left corner.
+          LiveBoard prints the same stamp in its own bottom-left utility
+          stack, beside Report a bug.
         */}
-        <footer className="px-8 pt-4 pb-6">
-          <BuildStamp />
-        </footer>
+        <HideOnBoard>
+          <footer className="px-8 pt-4 pb-6">
+            <BuildStamp />
+          </footer>
+        </HideOnBoard>
       </body>
     </html>
   );

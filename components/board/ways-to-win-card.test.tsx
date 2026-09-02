@@ -54,7 +54,7 @@ describe("WaysToWinCard: reading the win conditions", () => {
       screen.getByText(
         (_, element) =>
           element?.tagName.toLowerCase() === "span" &&
-          element.textContent === "Resolve all2 threads",
+          element.textContent === "Resolve all 2 threads",
       ),
     ).toBeTruthy();
   });

@@ -105,6 +105,9 @@ export interface LiveBoardProps {
   me: { playerId: string; role: Side };
   /** Whether this player has the coach switched on. Off by default. */
   coachEnabled: boolean;
+  /** The build id line, rendered on the server and handed down. See the note
+   *  at the call site in `app/game/[gameId]/page.tsx`. */
+  buildStamp?: ReactNode;
   /** Room code, small print during play. Display only: no link, no share
    *  token, until Steve decides there should be (BRAIN-T260822-14). */
   joinCode?: string | null;
@@ -1930,6 +1933,7 @@ export function LiveBoard({
   board,
   me,
   coachEnabled,
+  buildStamp = null,
   joinCode = null,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
@@ -2223,6 +2227,10 @@ export function LiveBoard({
           button is the only exit. */}
       <div className="fixed top-14 left-8 z-30 flex items-center gap-4">
         <LeaveButton gameId={gameId} />
+        {/* Which side you are, in the corner Rannie puts it in. Your colour is
+            on every tile you have placed, but only once you have placed one,
+            and the first move of the game is the one where knowing matters. */}
+        <SideGlyph side={me.role} className="h-9 w-9 shrink-0" />
         {/* Rannie writes the room code up here as plain small print, not as a
             chip: `#Room: 83083` in `1096:252192`. It used to sit in the
             bottom-left stack with the bug reporter, which is where you look
@@ -2296,10 +2304,10 @@ export function LiveBoard({
         {/* The coach is a card in this rail in Rannie's frame, under Ways to
             win. It spent a while as a wide bar across the top centre, where
             it was the first thing on the screen and sat directly over the
-            tiles the moment anyone opened it. */}
-        <FloatingPanel title="My AI coach" defaultOpen={coachEnabled}>
-          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
-        </FloatingPanel>
+            tiles the moment anyone opened it, and then a while folded inside
+            a FloatingPanel, which hid its switch behind a click. It draws its
+            own card now, so there is no wrapper here. */}
+        <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
 
         {/*
           The threads drawer. Every thread's tiles and every per-tile action
@@ -2391,6 +2399,7 @@ export function LiveBoard({
           the board with vertical room to spare. */}
       <div className="fixed bottom-8 left-8 z-30 flex flex-col items-start gap-2">
         <FeedbackPopover variant="inline" />
+        {buildStamp}
         {/*
           The quiet way off a live board, which is not the same door as Leave
           game in the top left: walking away leaves the argument exactly where
