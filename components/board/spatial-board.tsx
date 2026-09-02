@@ -629,17 +629,53 @@ export function SpatialBoard<T extends SpatialTile>({
     [pane],
   );
 
-  const onWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect();
-      const step = event.deltaY > 0 ? 0.9 : 1.1;
-      zoomTo(zoom * step, {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      });
-    },
-    [zoom, zoomTo],
-  );
+  /**
+   * Wheel gestures, in the vocabulary every other canvas already speaks: two
+   * fingers pan, pinch zooms. A trackpad pinch reaches the page as a wheel
+   * event carrying `ctrlKey`, which is the only thing that separates it from
+   * an ordinary scroll, so that flag is the whole branch. Before this, every
+   * wheel event zoomed, so a player who tried to look at the far side of the
+   * board found the board shrinking instead of sliding.
+   *
+   * Attached by hand rather than through React's `onWheel` prop because React
+   * registers wheel listeners passively, and a passive listener cannot call
+   * `preventDefault`. Without that call the browser answers a pinch by zooming
+   * the whole page and a horizontal two-finger swipe by navigating back, both
+   * on top of whatever the board just did.
+   */
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      // Firefox reports some wheels in lines rather than pixels. A line is
+      // not a unit this board has, so give it the height of a line of text.
+      const scale = event.deltaMode === 1 ? 16 : 1;
+      if (event.ctrlKey || event.metaKey) {
+        const rect = pane.getBoundingClientRect();
+        // Exponential so a pinch feels the same at either end of the range:
+        // a fixed step is a third of the board down at 0.25 and a twentieth
+        // of it at 2. Clamped first because the two devices that send this
+        // are not on the same scale: a trackpad pinch arrives as a stream of
+        // single digits, while one notch of a mouse wheel with ctrl held is
+        // 120, which unclamped took the board from 100% to the 200% ceiling
+        // in a single click.
+        const delta = Math.max(-40, Math.min(40, event.deltaY * scale));
+        zoomTo(zoom * Math.exp(-delta / 160), {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+        return;
+      }
+      touched.current = true;
+      setPan((p) => ({
+        x: p.x - event.deltaX * scale,
+        y: p.y - event.deltaY * scale,
+      }));
+    };
+    pane.addEventListener("wheel", onWheel, { passive: false });
+    return () => pane.removeEventListener("wheel", onWheel);
+  }, [zoom, zoomTo]);
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -686,7 +722,6 @@ export function SpatialBoard<T extends SpatialTile>({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onWheel={onWheel}
     >
       <div
         style={{
@@ -760,7 +795,15 @@ export function SpatialBoard<T extends SpatialTile>({
       {/*
         The zoom cluster, bottom right, which is where the retired client
         moved it after it collided with the room code in the top left. Same
-        pill, same order, same wording.
+        pill, same order.
+
+        The percentage between the steppers is a readout and not a button: it
+        used to be a second Fit to screen, so the cluster held two controls
+        that did the same thing and neither said so. The one that does it now
+        is the small square at the end, which is the standard four-corner mark
+        rather than a word, both because it is the tiny button Steve asked for
+        and because a player who has just scrolled the board off the edge is
+        looking for a shape, not reading a label.
       */}
       <div className="border-gray/30 bg-offwhite absolute right-8 bottom-8 z-30 flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">
         <button
@@ -772,14 +815,9 @@ export function SpatialBoard<T extends SpatialTile>({
         >
           &minus;
         </button>
-        <button
-          type="button"
-          onClick={() => fit()}
-          title="Reset zoom and centre the board"
-          className="text-neutral-black hover:bg-sand text-p-sm min-w-[3.25rem] cursor-pointer rounded-full px-1 font-semibold"
-        >
+        <span className="text-neutral-black text-p-sm min-w-[3.25rem] text-center font-semibold tabular-nums">
           {Math.round(zoom * 100)}%
-        </button>
+        </span>
         <button
           type="button"
           onClick={() => zoomTo(zoom + 0.25)}
@@ -793,10 +831,24 @@ export function SpatialBoard<T extends SpatialTile>({
         <button
           type="button"
           onClick={() => fit()}
-          title="Fit the whole board on screen"
-          className="text-neutral-black hover:bg-sand text-p-sm cursor-pointer rounded-full px-2 py-1 font-semibold"
+          title="Zoom to fit: put the whole board back on screen"
+          aria-label="Zoom to fit"
+          className="text-neutral-black hover:bg-sand flex h-6 w-6 cursor-pointer items-center justify-center rounded-full"
         >
-          Fit to screen
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
+            <g
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 6.2V3h3.2" />
+              <path d="M13 6.2V3H9.8" />
+              <path d="M3 9.8V13h3.2" />
+              <path d="M13 9.8V13H9.8" />
+            </g>
+          </svg>
         </button>
         {extraControls}
       </div>
