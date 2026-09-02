@@ -165,8 +165,25 @@ export function TopicCell({
 
   const proposal = pendingTopicRevision(board);
   const rejected = lastRejectedTopicRevision(board);
+  /**
+   * The two sides need different things from a rejection, so they keep it for
+   * different lengths of time.
+   *
+   * The proposer keeps it until they close it. This card is the only place the
+   * reason exists: there is no history panel, and nothing else on the board
+   * ever says a rewrite was answered. Letting it expire on a timer or on the
+   * next tile would put us back where we started, with the reason captured and
+   * shown to nobody.
+   *
+   * The rejecter wrote it, so they need confirmation and nothing more. Theirs
+   * shows while the rejection is still the last thing that happened and then
+   * gets out of the way, because a card that sits beside the topic for the
+   * rest of the match telling you what you already did is furniture.
+   */
   const showRejection =
-    rejected !== null && rejected.answeredAtSeq !== dismissedRejection;
+    rejected !== null &&
+    rejected.answeredAtSeq !== dismissedRejection &&
+    (rejected.askedBy === me.role || rejected.answeredAtSeq === board.lastSeq);
   const mine = proposal !== null && proposal.askedBy === me.role;
   const verdict = canProposeTopicRevision(board, draft);
   const canOpen =

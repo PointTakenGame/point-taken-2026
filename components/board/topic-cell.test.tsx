@@ -227,6 +227,54 @@ describe("TopicCell: what happened to the last rewrite", () => {
     expect(screen.queryByText("You turned down their wording")).toBeNull();
   });
 
+  it("keeps the news for the proposer once play moves on, and drops it for the rejecter", () => {
+    const later = projectBoard([
+      ...buildEvents([
+        ...SETUP,
+        {
+          type: "proposal_made",
+          payload: {
+            proposal_id: PROPOSAL,
+            kind: "topic_revision",
+            target_tile_id: null,
+            target_thread_root_id: null,
+            content: { text: REWRITE },
+          },
+          actor_id: BOB,
+          actor_role: "minus",
+        },
+        {
+          type: "proposal_rejected",
+          payload: { proposal_id: PROPOSAL, reason: WHY },
+          actor_id: ALICE,
+          actor_role: "plus",
+        },
+        {
+          type: "tile_placed",
+          payload: {
+            tile_id: "44444444-4444-4444-8444-444444444444",
+            parent_tile_id: null,
+            text: "Rent is not the only cost that moved.",
+            thread_root_id: null,
+          },
+          actor_id: ALICE,
+          actor_role: "plus",
+        },
+      ]),
+    ]);
+
+    // The rejecter has moved on and does not need a card about their own no.
+    seat("plus", later);
+    expect(screen.queryByText("You turned down their wording")).toBeNull();
+    cleanup();
+
+    // The proposer still has not been told, and this card is the only place
+    // the reason exists.
+    seat("minus", later);
+    expect(screen.getByText("They turned down your wording")).toBeTruthy();
+    expect(screen.getByText(`\u201c${WHY}\u201d`)).toBeTruthy();
+  });
+
   it("says so when no reason was given, rather than leaving a gap", () => {
     seat("minus", boardWithRejection(null));
     expect(screen.getByText("They did not say why.")).toBeTruthy();
