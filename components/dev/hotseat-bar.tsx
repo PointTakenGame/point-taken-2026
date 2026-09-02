@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import type { Side, Uuid } from "@/lib/events/types";
 
@@ -34,6 +34,38 @@ export function HotseatBar({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Publish the bar's own height as `--dev-bar-h` so the board can end above
+   * it instead of running underneath it.
+   *
+   * The board is `fixed inset-0` and this bar is `fixed bottom-0`, so the bar
+   * sat on top of the bottom of the board and covered whatever was there: the
+   * Place a reason pill, the zoom cluster, the feedback link. Reserving the
+   * space is the fix rather than raising the board's own bottom padding,
+   * because the bar wraps at a narrow window and so has no height anyone can
+   * write down, which is why this measures instead of guessing.
+   *
+   * Set on the document element rather than passed down, because the thing
+   * that has to move is a fixed-position box in a different subtree.
+   */
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const root = document.documentElement;
+    const publish = () => {
+      root.style.setProperty("--dev-bar-h", `${bar.offsetHeight}px`);
+    };
+    publish();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--dev-bar-h");
+    };
+  }, []);
 
   function call(body: Record<string, string>) {
     setError(null);
@@ -53,7 +85,10 @@ export function HotseatBar({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-yellow-600 bg-yellow-100 px-4 py-2 text-sm text-yellow-950 print:hidden">
+    <div
+      ref={barRef}
+      className="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-yellow-600 bg-yellow-100 px-4 py-2 text-sm text-yellow-950 print:hidden"
+    >
       <span className="font-mono font-bold">DEV HOT SEAT</span>
 
       {/*

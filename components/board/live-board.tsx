@@ -1745,23 +1745,33 @@ function InTileComposer({
           tile are where its diagonal neighbours sit, so this lands on top of
           another octagon as often as not. */}
       <div className="text-p-sm absolute top-full left-1/2 z-20 flex w-64 -translate-x-1/2 -translate-y-4 flex-col items-center gap-1 text-center">
-        <div className="border-gray/30 bg-offwhite flex items-center gap-3 rounded-full border py-1 pr-4 pl-1 shadow-lg">
+        {/*
+          Two buttons, drawn as two buttons. They used to sit inside one shared
+          pill with the gold one filling its left half, which is the exact
+          picture of a two-position switch: it read as one control that could be
+          flipped from Place to cancel rather than as a choice between placing
+          and not placing. Separate pills with air between them, and the second
+          one outlined rather than bare text, so the pair reads as a primary
+          action and its way out.
+        */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-4 py-1 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
+            className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-5 py-1.5 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
             disabled={pending || !verdict.ok}
-            title={!verdict.ok ? verdict.error : undefined}
+            title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
             onClick={submit}
           >
             {pending ? "Placing..." : "Place"}
           </button>
           <button
             type="button"
-            className="text-gray hover:text-neutral-black cursor-pointer"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary hover:bg-sand/40 cursor-pointer rounded-full border px-5 py-1.5 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
             disabled={pending}
+            title="Discard this reason (or press Escape)"
             onClick={onDone}
           >
-            cancel
+            Cancel
           </button>
         </div>
         <ErrorLine error={error} />
@@ -1908,6 +1918,15 @@ function Composer({
           disabled={pending}
           placeholder="A reason for your side."
           onChange={(event) => setText(event.target.value)}
+          // Return places it, the same as in the composer you get by clicking
+          // an open diagonal. This box had no key handling at all, so Return
+          // put a line break into a one-sentence reason and the only way to
+          // place a tile from here was to go and find the button.
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey) return;
+            event.preventDefault();
+            if (!pending && verdict.ok) submit();
+          }}
         />
       </div>
       <span className="text-xs text-gray">
@@ -1918,7 +1937,7 @@ function Composer({
         type="button"
         className="bg-gold text-neutral-white font-primary cursor-pointer self-start rounded-full px-6 py-2 tracking-wide shadow-md disabled:cursor-default disabled:opacity-40"
         disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
+        title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
         onClick={submit}
       >
         Place tile
@@ -2637,7 +2656,11 @@ export function LiveBoard({
       (per-tile actions, thread resolution) are in the right-hand drawer until
       they get their tile popovers, which is BRAIN-T260901-09, not this pass.
     */
-    <div className="bg-offwhite fixed inset-0 overflow-hidden">
+    // Ends above the dev hot seat bar when there is one. The bar publishes its
+    // measured height as `--dev-bar-h` (components/dev/hotseat-bar.tsx); with no
+    // bar the variable is unset and the fallback puts the board back on the
+    // floor, so nothing about the real game changes.
+    <div className="bg-offwhite fixed inset-x-0 top-0 bottom-[var(--dev-bar-h,0px)] overflow-hidden">
       <SpatialBoard
         // A rewrite of the topic is a negotiation about the whole board,
         // so the board stops offering places to put a new reason while one
@@ -2895,19 +2918,19 @@ export function LiveBoard({
         <PendingAsks gameId={gameId} board={board} me={me} />
 
         {/*
-          The threads drawer. Every thread's tiles and every per-tile action
-          used to be a page-long list below the board; the actions belong on
-          the tile and will move there with the tile popovers. Until then they
-          live here, folded away, rather than being dropped on the floor.
+          Every thread's tiles and every per-tile action used to be a page-long
+          list below the board; the actions belong on the tile and will move
+          there with the tile popovers. Until then they live here, folded away,
+          rather than being dropped on the floor.
+
+          It was headed "Threads (0/1)", which named neither the drawer nor its
+          contents: the drawer also holds generosity, the words the two of you
+          have pinned down, and who is in the room, and the count duplicated the
+          one already printed on Ways to win directly above it. A closed drawer
+          has to say what opening it gets you, so it says that instead
+          (BRAIN-T260902-16).
         */}
-        <FloatingPanel
-          title={
-            threads.length === 0
-              ? "Threads"
-              : `Threads (${resolvedCount}/${threads.length})`
-          }
-          defaultOpen={false}
-        >
+        <FloatingPanel title="Match details" defaultOpen={false}>
           <div className="flex flex-col gap-4">
             {threads.length === 0 ? (
               <p className="text-p-sm text-gray">
@@ -2982,7 +3005,10 @@ export function LiveBoard({
           row here ran into the composer in the middle of the screen the
           moment the window got narrow, and this corner is the one part of
           the board with vertical room to spare. */}
-      <div className="fixed bottom-8 left-8 z-30 flex flex-col items-start gap-2">
+      {/* `fixed`, so it is measured against the viewport and not against the
+          board root, which means raising the board off the dev hot seat bar
+          does not raise this with it. It has to carry the same offset itself. */}
+      <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-30 flex flex-col items-start gap-2">
         <FeedbackPopover variant="inline" />
         {buildStamp}
         {/*
@@ -3012,7 +3038,7 @@ export function LiveBoard({
           thread without hunting for a slot, and the only place that still
           offers a target picker. The hand sits below it, where Rannie draws
           it. */}
-      <div className="fixed bottom-8 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3">
+      <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3">
         {composerOpen ? (
           <div className="w-[34rem]">
             <div className="border-gray/30 bg-offwhite rounded-2xl border p-4 shadow-lg">

@@ -239,7 +239,7 @@ describe("LiveBoard: onboarding on arrival", () => {
         "Each player writes two starting reason tiles supporting their opinion.",
       ),
     ).toBeTruthy();
-    expect(screen.getByText("Step 1 of 4")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
   });
 
   it("passes the player's own side through to the overlay's first step", () => {
@@ -299,7 +299,7 @@ describe("LiveBoard: the header's Instructions button", () => {
       />,
     );
 
-    expect(screen.queryByText("Step 1 of 4")).toBeNull();
+    expect(screen.queryByText("Step 1 of 5")).toBeNull();
     expect(screen.getByRole("button", { name: "Instructions" })).toBeTruthy();
   });
 
@@ -316,10 +316,10 @@ describe("LiveBoard: the header's Instructions button", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
-    expect(screen.queryByText("Step 1 of 4")).toBeNull();
+    expect(screen.queryByText("Step 1 of 5")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Instructions" }));
-    expect(screen.getByText("Step 1 of 4")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
   });
 });
 

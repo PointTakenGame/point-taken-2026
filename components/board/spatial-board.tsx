@@ -285,12 +285,21 @@ function GhostSlot({
   onClick,
   label,
   side,
+  mark = "+",
 }: {
   style: CSSProperties;
   onClick: () => void;
   label: string;
-  /** Whose turn is about to be spent here. Colours the dash and the plus. */
+  /** Whose turn is about to be spent here. Colours the dash and the mark. */
   side: TileSide;
+  /**
+   * The glyph in the middle of the slot. A plus everywhere except the four
+   * starters around the topic, where the sign is the side's own: the right
+   * pair are the Plus side and carry a plus, the left pair are the Minus side
+   * and carry a minus. Elsewhere a minus would read as "remove this", which
+   * is not a move this game has.
+   */
+  mark?: string;
 }) {
   return (
     <button
@@ -331,7 +340,7 @@ function GhostSlot({
         // the board at every zoom instead of shrinking into body text.
         style={{ fontSize: "3.5rem" }}
       >
-        +
+        {mark}
       </span>
     </button>
   );
@@ -435,11 +444,47 @@ export function SpatialBoard<T extends SpatialTile>({
     if (draftAt) return [];
     if (!placementEnabled || !hoveredId) return [];
     if (canPlaceOn && !canPlaceOn(hoveredId)) return [];
-    return legalPlacements(layout, hoveredId).map((pos) => ({
+    const open = legalPlacements(layout, hoveredId);
+
+    // The four thread starters around the topic have sides, and the side is
+    // the position: the two on the right belong to Plus, the two on the left
+    // belong to Minus. Everywhere else a slot belongs to whoever is placing.
+    //
+    // The retired client did not do this. It let either side start a thread
+    // on any diagonal (`GameBoard.vue`, which exempts the topic from its own
+    // same-side confirmation) and coloured every open slot by whose turn it
+    // was, so a board's left and right meant nothing and the Ways to win
+    // minimap could not be read as a picture of it. Steve asked for the
+    // convention on 2026-09-02.
+    //
+    // This is the board preferring one move, not the rules refusing another:
+    // `lib/board/rules.ts` is a core file and still accepts a root tile on any
+    // free diagonal, so nothing here can wedge a game whose history predates
+    // the convention. Filed as BRAIN-T260902-15.
+    const topic = layout.positions.get(TOPIC_CELL_ID);
+    if (hoveredId !== TOPIC_CELL_ID || !topic) {
+      return open.map((pos) => ({ pos, parentId: hoveredId, side: placeSide }));
+    }
+    const all = open.map((pos) => ({
       pos,
       parentId: hoveredId,
+      side: (pos.x > topic.x ? "plus" : "minus") as TileSide,
     }));
-  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn]);
+    // A player with a seat is offered their own two. A caller with no seat in
+    // play (the finished map) passes neutral and sees all four.
+    if (placeSide === "neutral") return all;
+    const mine = all.filter((slot) => slot.side === placeSide);
+    // Offering nothing is worse than offering the other side's corner. Until a
+    // placement records which diagonal it was aimed at (BRAIN-T260902-02), a
+    // tile can land on the far side of the topic from the slot that was
+    // clicked, so both of a player's own starters can end up occupied by the
+    // other player's tiles, and a filter with no way out would leave them
+    // unable to start a thread at all. When that happens they are offered what
+    // is left, still drawn in the colour and sign of the position rather than
+    // of the player, so the convention reads even where the board could not
+    // honour it.
+    return mine.length > 0 ? mine : all;
+  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn, placeSide]);
 
   const pitch = size * CELL_PITCH_RATIO;
   const canvasWidth = (layout.width - 1) * pitch + size;
@@ -760,16 +805,17 @@ export function SpatialBoard<T extends SpatialTile>({
           </div>
         ))}
 
-        {ghosts.map(({ pos, parentId }) => (
+        {ghosts.map(({ pos, parentId, side }) => (
           <GhostSlot
             key={`${pos.x},${pos.y}`}
             style={pixelStyle(pos, layout, size)}
             label={
               parentId === TOPIC_CELL_ID
-                ? "Start a new thread here"
+                ? `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
                 : "Answer this reason here"
             }
-            side={placeSide}
+            side={side}
+            mark={parentId === TOPIC_CELL_ID && side === "minus" ? "\u2212" : "+"}
             onClick={() => onPlace?.(parentId, pos)}
           />
         ))}

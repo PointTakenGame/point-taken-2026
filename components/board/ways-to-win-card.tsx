@@ -26,9 +26,9 @@ export interface MiniThread {
   tileId: string;
   side: Side;
   /**
-   * The board edge this thread's root tile sits on, or null when the caller
-   * has no edge geometry to give. The projection records no position for a
-   * tile, so the live board passes null and the corners fill in thread order.
+   * The board edge this thread's root tile sits on, or null when the caller has
+   * no edge geometry to give. Kept on the payload but no longer read: corners
+   * are chosen by side now, and the live board has only ever passed null.
    */
   parentEdge: number | null;
   resolved: boolean;
@@ -43,23 +43,44 @@ const SIDE_FILL: Record<Side, string> = {
   minus: "bg-orange",
 };
 
-// Board edge index -> stamp corner (1 = top-right, 3 = bottom-right, 5 =
-// bottom-left, 7 = top-left, matching the retired client's edge numbering).
-// Falls back to filling whatever corner is still free, in order, if a game
-// ever starts a thread on an edge outside that set.
-const EDGE_TO_CORNER: Record<number, "tr" | "br" | "bl" | "tl"> = {
-  1: "tr",
-  3: "br",
-  5: "bl",
-  7: "tl",
+/**
+ * The same two colours at a quarter strength, for a starter with nothing in it
+ * yet. An empty slot is a place a thread could go, so it is drawn in the colour
+ * of the side that would go there rather than in grey.
+ */
+const SIDE_FILL_EMPTY: Record<Side, string> = {
+  plus: "bg-green/25",
+  minus: "bg-orange/25",
 };
+
+const SIDE_SIGN: Record<Side, string> = { plus: "+", minus: "\u2212" };
+
 const CORNER_POSITION: Record<"tr" | "br" | "bl" | "tl", string> = {
   tl: "left-[2%] top-[2%]",
   tr: "left-[66%] top-[2%]",
   bl: "left-[2%] top-[66%]",
   br: "left-[66%] top-[66%]",
 };
-const ALL_CORNERS: Array<"tr" | "br" | "bl" | "tl"> = ["tr", "br", "bl", "tl"];
+
+/**
+ * The four starter slots, and the side that owns each.
+ *
+ * Position is side: the two on the right belong to Plus, the two on the left to
+ * Minus, which is the convention the board itself now draws around the topic
+ * tile (`spatial-board.tsx`, BRAIN-T260902-15). Without it, this stamp was four
+ * corners lighting up in whatever order threads happened to start, so it could
+ * not be read as a picture of the board it is a picture of.
+ *
+ * All four are always drawn. They used to appear only once a thread existed, so
+ * a fresh board showed an empty square around a TOPIC and gave no hint that four
+ * threads were the thing to fill in.
+ */
+const SLOTS: ReadonlyArray<{ corner: "tr" | "br" | "bl" | "tl"; side: Side }> = [
+  { corner: "tr", side: "plus" },
+  { corner: "br", side: "plus" },
+  { corner: "tl", side: "minus" },
+  { corner: "bl", side: "minus" },
+];
 
 // GAP: this layout only has four corners, one per starter thread. It does
 // not extend to a fifth or sixth thread, and `MAX_THREADS` (lib/board/rules.ts)
@@ -88,16 +109,30 @@ export function WaysToWinCard({
    *  that a player arriving from any other game does not expect. */
   footer?: string | null;
 }) {
-  const corners = useMemo(() => {
-    const cornerFor = (edge: number | null) =>
-      edge === null ? undefined : EDGE_TO_CORNER[edge];
-    const free = ALL_CORNERS.filter(
-      (corner) => !threads.some((thread) => cornerFor(thread.parentEdge) === corner),
+  // Each slot takes the next thread of its own side, so a board with one Plus
+  // thread lights the top right and leaves the other three faint.
+  //
+  // `parentEdge` is not consulted, because the live board has none to give: the
+  // projection records no position for a tile, so it passes null for every
+  // thread (BRAIN-T260902-02). Side is the one thing always known, and under the
+  // position convention side is enough to put a thread on the right half of the
+  // stamp. A thread whose own side is already full falls into whatever slot is
+  // still free rather than being dropped.
+  const slots = useMemo(() => {
+    const queue = threads.slice(0, 4);
+    const used = new Set<number>();
+    const filled = SLOTS.map((slot) => {
+      const at = queue.findIndex(
+        (thread, index) => thread.side === slot.side && !used.has(index),
+      );
+      if (at === -1) return { ...slot, thread: null as MiniThread | null };
+      used.add(at);
+      return { ...slot, thread: queue[at] as MiniThread | null };
+    });
+    const spare = queue.filter((_, index) => !used.has(index));
+    return filled.map((slot) =>
+      slot.thread ? slot : { ...slot, thread: spare.shift() ?? null },
     );
-    return threads.slice(0, 4).map((thread) => ({
-      ...thread,
-      corner: cornerFor(thread.parentEdge) ?? free.shift() ?? "tr",
-    }));
   }, [threads]);
 
   // The number is the board's own live thread count, never a fixed target:
@@ -150,30 +185,52 @@ export function WaysToWinCard({
       )}
 
       <div className="relative mx-auto my-1 aspect-square w-[74%]">
-        {corners.map((thread) => (
+        {slots.map(({ corner, side, thread }) => (
           <button
-            key={thread.tileId}
+            key={corner}
             type="button"
             tabIndex={-1}
-            // The corner is drawn as a filled octagon with an offwhite one
-            // inset inside it, so an open thread reads as an outline in its
-            // own side colour and a resolved one fills in. It used to outline
-            // in grey until it closed, which made a board of live threads look
-            // like a board of dead ones.
-            className={`absolute aspect-square w-[32%] cursor-help border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] hover:scale-110 ${CORNER_POSITION[thread.corner]} ${SIDE_FILL[thread.side]}`}
-            aria-label={thread.resolved ? "Thread resolved" : "Thread not yet resolved"}
-            onMouseEnter={() =>
-              onHover?.({
-                tileId: thread.tileId,
-                kind: thread.resolved ? "resolved" : "open",
-              })
+            // A slot with a thread in it is drawn as a filled octagon with an
+            // offwhite one inset inside, so an open thread reads as an outline
+            // in its own side colour and a resolved one fills in. An empty slot
+            // is the same shape at a quarter strength, carrying its side's sign.
+            className={`absolute aspect-square w-[32%] border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] ${CORNER_POSITION[corner]} ${
+              thread
+                ? `cursor-help hover:scale-110 ${SIDE_FILL[side]}`
+                : `cursor-default ${SIDE_FILL_EMPTY[side]}`
+            }`}
+            aria-label={
+              thread
+                ? thread.resolved
+                  ? "Thread resolved"
+                  : "Thread not yet resolved"
+                : `No thread started yet on this ${side === "plus" ? "Plus" : "Minus"} corner`
             }
-            onMouseLeave={() => onHover?.(null)}
+            onMouseEnter={
+              thread
+                ? () =>
+                    onHover?.({
+                      tileId: thread.tileId,
+                      kind: thread.resolved ? "resolved" : "open",
+                    })
+                : undefined
+            }
+            onMouseLeave={thread ? () => onHover?.(null) : undefined}
           >
             <span
-              className={`bg-offwhite absolute inset-[3px] flex items-center justify-center [clip-path:inherit] ${thread.resolved ? SIDE_FILL[thread.side] : ""}`}
+              className={`bg-offwhite absolute inset-[3px] flex items-center justify-center [clip-path:inherit] ${thread?.resolved ? SIDE_FILL[side] : ""}`}
             >
-              {thread.token ? <TokenGlyph token={thread.token} size={20} /> : null}
+              {thread ? (
+                thread.token ? (
+                  <TokenGlyph token={thread.token} size={20} />
+                ) : null
+              ) : (
+                <span
+                  className={`font-primary text-base leading-none font-bold ${side === "plus" ? "text-green/70" : "text-orange/70"}`}
+                >
+                  {SIDE_SIGN[side]}
+                </span>
+              )}
             </span>
           </button>
         ))}
