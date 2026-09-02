@@ -762,7 +762,11 @@ function MoveForm({
   };
 
   return (
-    <div className="ml-6 flex flex-col gap-1 border border-current/20 p-2">
+    // The same card the other asks are written in. This one was still the
+    // prototype's indented box with two hairline buttons, so the one move that
+    // asks a player to read four candidate reasons was the one that looked
+    // least like the game.
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
       <TilePicker
         legend="Move it under"
         value={target}
@@ -776,10 +780,10 @@ function MoveForm({
         }))}
       />
       <WhyNot verdict={verdict} />
-      <span className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+          className={PRIMARY_BUTTON}
           disabled={pending || !verdict.ok}
           title={!verdict.ok ? verdict.error : undefined}
           onClick={submit}
@@ -788,13 +792,13 @@ function MoveForm({
         </button>
         <button
           type="button"
-          className="border border-current/30 px-2 py-0.5 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={onDone}
         >
           Cancel
         </button>
-      </span>
+      </div>
       <ErrorLine error={error} />
     </div>
   );
@@ -1132,6 +1136,22 @@ function TileNode({
         />
       )}
 
+      {!mine &&
+        tile.side !== me.role &&
+        !tile.removed &&
+        // The hand is another way to act on this reason, so it goes away with
+        // the rest of them while one of the forms is open.
+        !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
+          <CardHand
+            gameId={gameId}
+            tile={tile}
+            me={me}
+            board={board}
+            onBoard={onBoard}
+            onOpenChange={setHandOpen}
+          />
+        )}
+
       {/* Open proposals about this reason, on this reason. Both directions:
           the one you are waiting on and the one waiting on you. */}
       {openProposals.map((proposal) => (
@@ -1182,9 +1202,9 @@ function TileNode({
       )}
 
       {/* The throw, from both ends. Standing cards show to both players, but
-          only the reason's author gets the two ways to answer; the other side's
-          reasons also show the hand. Settled throws stay on the board because
-          the exchange is the record, not a step on the way to one. */}
+          only the reason's author gets the two ways to answer. Settled throws
+          stay on the board because the exchange is the record, not a step on
+          the way to one. */}
       {standing.map((thrown) => (
         <StandingThrow
           key={thrown.seq}
@@ -1195,21 +1215,6 @@ function TileNode({
           answerable={mine}
         />
       ))}
-      {!mine &&
-        tile.side !== me.role &&
-        !tile.removed &&
-        // The hand is another way to act on this reason, so it goes away with
-        // the rest of them while one of the forms is open.
-        !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
-          <CardHand
-            gameId={gameId}
-            tile={tile}
-            me={me}
-            board={board}
-            onBoard={onBoard}
-            onOpenChange={setHandOpen}
-          />
-        )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
       ))}

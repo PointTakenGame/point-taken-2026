@@ -74,6 +74,35 @@ describe("layoutBoard", () => {
     expect(unplaced).toEqual([]);
   });
 
+  it("draws a tile that a move hung under a reason written after it", () => {
+    // What "move it" does: an early tile is reparented onto a later one. The
+    // list still arrives in placement order, so "moved" comes before the
+    // parent it now hangs off. Replayed literally, it lands nowhere.
+    const { positions, unplaced } = layoutBoard([
+      tile("topic", null),
+      tile("thread-one", "topic"),
+      tile("moved", "thread-one"),
+      tile("thread-two", "topic"),
+    ]);
+    const relocated = layoutBoard([
+      tile("topic", null),
+      tile("thread-one", "topic"),
+      tile("moved", "thread-two"),
+      tile("thread-two", "topic"),
+    ]);
+
+    expect(unplaced).toEqual([]);
+    expect(relocated.unplaced).toEqual([]);
+    expect(relocated.positions.has("moved")).toBe(true);
+    expect(relocated.positions.get("moved")).not.toEqual(positions.get("moved"));
+  });
+
+  it("leaves a reparenting cycle unplaced instead of looping forever", () => {
+    const { positions, unplaced } = layoutBoard([tile("a", "b"), tile("b", "a")]);
+    expect(positions.size).toBe(0);
+    expect(unplaced).toEqual(["a", "b"]);
+  });
+
   it("marks a tile unplaced if its parent never resolved to a position", () => {
     const { positions, unplaced } = layoutBoard([tile("orphan", "missing-parent")]);
     expect(positions.has("orphan")).toBe(false);
