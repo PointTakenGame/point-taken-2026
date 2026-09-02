@@ -252,16 +252,65 @@ function cardLabel(cardId: string): string {
  * A card you have already played greys out with the reason why, because a hand
  * that silently loses cards is a hand you cannot learn.
  */
+/**
+ * One move on a reason, in a card that has room to say what it is.
+ *
+ * The tile card out on the board used to carry the same row of grey underlines
+ * the thread drawer uses: "move  say it back  write one for them", every one of
+ * them the same weight, the same colour, and none of them saying what it does.
+ * That row is right in a list where every tile has one and wrong in a dialog
+ * the player opened on purpose about a single reason, where the whole point is
+ * that there is room. So the moves keep their names and get a line each.
+ *
+ * A refused move says why on its own second line rather than in a `title`, for
+ * the reasons WhyNot gives, and it says it instead of the explanation rather
+ * than under it: once a move is closed to you, what it would have done is the
+ * less useful of the two sentences.
+ */
+function ActionItem({
+  label,
+  hint,
+  verdict = null,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  verdict?: Verdict | null;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const refusal = verdict && !verdict.ok ? verdict.error : null;
+  return (
+    <button
+      type="button"
+      disabled={disabled || refusal !== null}
+      onClick={onClick}
+      className="hover:bg-sand/40 w-full cursor-pointer rounded-lg px-2 py-1.5 text-left transition-colors disabled:cursor-default disabled:opacity-45 disabled:hover:bg-transparent"
+    >
+      <span className="font-primary text-p-sm text-neutral-black block tracking-wide">
+        {label}
+      </span>
+      <span className="font-secondary text-gray block text-xs leading-snug">
+        {refusal ?? hint}
+      </span>
+    </button>
+  );
+}
+
 function CardHand({
   gameId,
   tile,
   me,
   board,
+  onBoard = false,
 }: {
   gameId: string;
   tile: BoardTile;
   me: { playerId: string; role: Side };
   board: BoardState;
+  /** True beside the reason on the board, where the hand is one menu item. */
+  onBoard?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -283,7 +332,15 @@ function CardHand({
   };
 
   if (!open) {
-    return (
+    return onBoard ? (
+      <div className="-mx-2">
+        <ActionItem
+          label="Play a card"
+          hint="Challenge this reason with one of your rule cards. They rewrite it; nobody loses anything."
+          onClick={() => setOpen(true)}
+        />
+      </div>
+    ) : (
       <div className="ml-6">
         <button
           type="button"
@@ -780,6 +837,73 @@ function TileNode({
                 </button>
               </span>
             </>
+          ) : onBoard ? (
+            <>
+              <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
+                {tile.edited && <span>(edited)</span>}
+                {tile.revised && <span>(rewritten)</span>}
+              </span>
+              {/* The same moves the drawer offers, at the density a dialog
+                  can afford. The two kinds are still two kinds and are still
+                  ruled apart: everything above the line puts a question to
+                  the other player and waits for them, everything below it is
+                  housekeeping on a reason of your own that happens the moment
+                  you click. */}
+              <div className="-mx-2 flex flex-col">
+                <ActionItem
+                  label="Move it"
+                  hint="Ask them to hang this reason under a different one."
+                  verdict={moveVerdict}
+                  disabled={pending || moving}
+                  onClick={() => setMoving(true)}
+                />
+                {readingVerdict && (
+                  <ActionItem
+                    label="Say it back"
+                    hint="Write what you think they meant. They tell you whether you have it."
+                    verdict={readingVerdict}
+                    disabled={pending || proposing !== null}
+                    onClick={() => setProposing("reading")}
+                  />
+                )}
+                <ActionItem
+                  label="Write one for them"
+                  hint="Put their point better than they did, and offer it as their reason."
+                  verdict={steelmanVerdict}
+                  disabled={pending || proposing !== null}
+                  onClick={() => setProposing("steelman")}
+                />
+                <ActionItem
+                  label="Pin down a word"
+                  hint="Ask what one word in here is doing, and agree on what it means."
+                  verdict={definitionVerdict}
+                  disabled={pending || proposing !== null}
+                  onClick={() => setProposing("definition")}
+                />
+                {mine && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="bg-neutral-black/15 mx-2 my-2 h-px"
+                    />
+                    <ActionItem
+                      label="Edit"
+                      hint="Reword your own reason. It keeps its place on the board."
+                      verdict={editBlocked}
+                      disabled={pending}
+                      onClick={() => setEditing(true)}
+                    />
+                    <ActionItem
+                      label="Remove"
+                      hint="Take your reason back off the board."
+                      verdict={removeVerdict}
+                      disabled={pending}
+                      onClick={runRemove}
+                    />
+                  </>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
@@ -873,7 +997,7 @@ function TileNode({
       <ErrorLine error={error} />
       {/* The links above go dead together and for the same reason, so the
           reason is said once under the reason it belongs to. */}
-      {editing ? null : (
+      {editing || onBoard ? null : (
         <WhyNotAll
           className="text-p-sm text-gray ml-6"
           verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
@@ -949,7 +1073,7 @@ function TileNode({
         />
       ))}
       {!mine && tile.side !== me.role && !tile.removed && (
-        <CardHand gameId={gameId} tile={tile} me={me} board={board} />
+        <CardHand gameId={gameId} tile={tile} me={me} board={board} onBoard={onBoard} />
       )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
@@ -2691,6 +2815,30 @@ export function LiveBoard({
           // to the tile's left instead of landing on the panel.
           reserveRight={18}
         >
+          {/* The card said nothing about which reason it belonged to. Out on
+              the board that is usually survivable, because the card is drawn
+              beside its tile, and it stops being survivable the moment the
+              card flips to the tile's other side or the board pans under it.
+              So it opens with the reason, in the reason's own hand and its
+              own side colour, reading as the sentence the tile reads as. */}
+          <header className="border-neutral-black/15 mb-3 flex flex-col gap-0.5 border-b pr-6 pb-3">
+            <span
+              className={`font-primary text-xs tracking-wide uppercase ${
+                selectedTile.side === "plus" ? "text-green" : "text-orange"
+              }`}
+            >
+              {tileLead(
+                selectedTile.side,
+                selectedTile.isOpeningReason || selectedTile.parentId === null,
+                selectedTile.parentId
+                  ? (sideOf.get(selectedTile.parentId) ?? null)
+                  : null,
+              )}
+            </span>
+            <p className="font-tiles text-p-sm text-neutral-black leading-snug">
+              <TileText tile={selectedTile} />
+            </p>
+          </header>
           <ul className="flex flex-col gap-2">
             <TileNode tile={selectedTile} gameId={gameId} me={me} board={board} onBoard />
           </ul>
