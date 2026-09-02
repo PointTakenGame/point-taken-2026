@@ -1925,68 +1925,6 @@ function ThreadBlock({
   );
 }
 
-/**
- * How close this game is to ending, in both of the ways it can end.
- *
- * Both win conditions are cooperative and both were invisible here. The topic
- * route was described in prose far below the board; the thread route was
- * described nowhere at all, and its two numbers were enforced silently. A
- * player could resolve every thread on the board and have nothing happen,
- * because the floor is four and they had three, with nothing on the screen that
- * would ever tell them so.
- *
- * The counts come from the same functions the rules enforce, so this cannot
- * describe a different game than the one being played.
- */
-function HowThisEnds({ board }: { board: BoardState }) {
-  const threads = liveThreads(board);
-  const resolved = threads.filter(isResolved).length;
-  const unresolved = threads.length - resolved;
-  // Same denominator the Ways to win card uses: the threads that actually
-  // exist. Winning is resolving all of them, not reaching a number (Steve,
-  // 2026-09-01). There is no floor left to explain here, because there is no
-  // longer a board that can be fully resolved and still refuse to end.
-  const threadRoute =
-    threads.length === 0
-      ? "Resolving every thread on the board is one of the two ways this ends."
-      : unresolved === 0
-        ? null
-        : unresolved === 1
-          ? "Settle the last one and the game is over."
-          : "Settle them all and the game is over.";
-
-  // Quiet until the ceiling is close enough to matter. A board with two threads
-  // on it does not need to hear about the sixth.
-  const ceiling =
-    threads.length >= MAX_THREADS
-      ? `There are ${MAX_THREADS} threads here, which is the most a board holds. A new reason has to hang off one that is already here.`
-      : threads.length === MAX_THREADS - 1
-        ? "One more new thread and the board is full."
-        : null;
-
-  return (
-    <section className="flex flex-col gap-2 border border-current/15 p-3">
-      <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-        How this game ends
-      </h2>
-      <p className="text-p-sm">
-        {threads.length === 0
-          ? "No threads yet."
-          : `${resolved} of ${threads.length} threads resolved.`}
-        {threadRoute ? ` ${threadRoute}` : null}
-      </p>
-      {ceiling ? <p className="text-p-sm text-gray">{ceiling}</p> : null}
-      {topicAgreementEndsGame(board) ? (
-        <p className="text-p-sm text-gray">
-          The other way out is agreeing on a rewritten topic. Click the topic in the
-          middle of the board and write the version you would both sign. Either ending is
-          a win, and it is the same win for both of you.
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
 export function LiveBoard({
   gameId,
   board,
@@ -2037,6 +1975,19 @@ export function LiveBoard({
     [threads],
   );
   const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
+
+  // The two lines the Ways to win card cannot draw. Both come from the same
+  // functions the rules enforce, so the card cannot describe a different game
+  // than the one being played.
+  const endsOnTopic = topicAgreementEndsGame(board);
+  // Quiet until the ceiling is close enough to matter. A board with two
+  // threads on it does not need to hear about the sixth.
+  const ceilingNote =
+    threads.length >= MAX_THREADS
+      ? `There are ${MAX_THREADS} threads here, which is the most a board holds. A new reason has to hang off one that is already here.`
+      : threads.length === MAX_THREADS - 1
+        ? "One more new thread and the board is full."
+        : null;
   // A thread is named by the reason it started from, so the tile the player
   // clicked is enough to find the thread it heads, if it heads one.
   // The other seat. `role` is nullable on a BoardPlayer because a player
@@ -2324,10 +2275,22 @@ export function LiveBoard({
           </button>
         </div>
 
+        {/* One card, not two. "Ways to win" and a "How this ends" panel under
+            it said the same two things in the same rail, one as a diagram and
+            one as a paragraph, and Rannie draws a single card. The three lines
+            the paragraph had that the diagram did not are now lines on the
+            diagram's card. */}
         <WaysToWinCard
           threads={miniThreads}
           resolvedCount={resolvedCount}
           onRevise={() => setTopicEditing(true)}
+          reviseHint={endsOnTopic ? "Write the version you would both sign." : null}
+          ceilingNote={ceilingNote}
+          footer={
+            endsOnTopic
+              ? "Either ending is a win, and it is the same win for both of you."
+              : null
+          }
         />
 
         {/* The coach is a card in this rail in Rannie's frame, under Ways to
@@ -2336,10 +2299,6 @@ export function LiveBoard({
             tiles the moment anyone opened it. */}
         <FloatingPanel title="My AI coach" defaultOpen={coachEnabled}>
           <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
-        </FloatingPanel>
-
-        <FloatingPanel title="How this ends" defaultOpen={false}>
-          <HowThisEnds board={board} />
         </FloatingPanel>
 
         {/*

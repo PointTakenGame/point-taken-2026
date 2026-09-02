@@ -71,11 +71,22 @@ export function WaysToWinCard({
   resolvedCount,
   onHover,
   onRevise,
+  reviseHint = null,
+  ceilingNote = null,
+  footer = null,
 }: {
   threads: MiniThread[];
   resolvedCount: number;
   onHover?: (payload: HoverPayload) => void;
   onRevise?: () => void;
+  /** How to take route 2, in one line. Null when the rules do not currently
+   *  allow a topic revision, so the card never explains a door that is shut. */
+  reviseHint?: string | null;
+  /** Only when the thread cap is close enough to matter. */
+  ceilingNote?: string | null;
+  /** The cooperative point, last, because it is the thing about this game
+   *  that a player arriving from any other game does not expect. */
+  footer?: string | null;
 }) {
   const corners = useMemo(() => {
     const cornerFor = (edge: number | null) =>
@@ -161,6 +172,12 @@ export function WaysToWinCard({
         </span>
         <span className="text-neutral-black text-p-sm font-bold">Revise the topic</span>
       </div>
+      {reviseHint ? <p className="text-gray mt-1 pl-9 text-xs">{reviseHint}</p> : null}
+
+      {ceilingNote ? <p className="text-gray mt-3 text-xs">{ceilingNote}</p> : null}
+      {footer ? (
+        <p className="border-gray/20 text-gray mt-3 border-t pt-2 text-xs">{footer}</p>
+      ) : null}
     </div>
   );
 }
