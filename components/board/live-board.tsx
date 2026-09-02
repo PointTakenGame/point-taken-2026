@@ -2211,7 +2211,12 @@ export function LiveBoard({
             <TileShape
               side={tile.side}
               size={OUTER_FRAME_REM}
-              watermark={tile.isOpeningReason ? "thread" : "reason"}
+              // Every tile on the board says "reason", opening tiles
+              // included: that is what Rannie stamps on all four of them in
+              // `1064:214081`. A thread is a shape on the board, not a
+              // different kind of tile, and calling the first one something
+              // else was a word the player had to learn for no gain.
+              watermark="reason"
               // Everything else fades while the topic is being rewritten,
               // the same move the retired client makes for an emoji
               // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
