@@ -250,8 +250,11 @@ export function TopicCell({
     }
 
     return (
+      // Same size as the reasons around it, which is how Rannie draws the
+      // centre tile. It is the sentence the whole board is arguing about; it
+      // should not be the smallest thing on screen.
       <p
-        className={`font-tiles text-p-sm px-2 text-center ${
+        className={`font-tiles text-p-lg px-2 text-center ${
           canOpen ? "group-hover:text-gold" : ""
         }`}
       >

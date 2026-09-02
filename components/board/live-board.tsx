@@ -58,6 +58,7 @@ import {
   isResolved,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
+import { OUTER_FRAME_REM } from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
 import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
@@ -1223,9 +1224,9 @@ function InTileComposer({
 
   return (
     <div className="relative size-full">
-      <TileShape side={side} size={14} watermark="reason" selected>
+      <TileShape side={side} size={OUTER_FRAME_REM} watermark="reason" selected>
         <p className="font-tiles w-full text-center">
-          <span className="text-p-lg block leading-tight font-semibold">
+          <span className="block text-2xl leading-tight font-semibold">
             {tileLead(side, parentTileId === null, parentSide)}
           </span>
           {/*
@@ -1237,7 +1238,7 @@ function InTileComposer({
             // The click that opened this cell was the request for a cursor
             // in it; the whole gesture is one motion.
             autoFocus
-            className="text-p-md mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            className="text-p-lg mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
             rows={3}
             value={text}
             maxLength={TILE_MAX_CHARS}
@@ -2038,6 +2039,13 @@ export function LiveBoard({
   const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
   // A thread is named by the reason it started from, so the tile the player
   // clicked is enough to find the thread it heads, if it heads one.
+  // The other seat. `role` is nullable on a BoardPlayer because a player
+  // exists from the moment they join and picks a side afterwards, so the
+  // opposite of mine is the safe fallback: there are only two sides, and by
+  // the time a board is live the other one is taken.
+  const opponent = board.players.find((player) => player.id !== me.playerId) ?? null;
+  const opponentSide: Side = opponent?.role ?? (me.role === "plus" ? "minus" : "plus");
+
   const threadByRoot = useMemo(
     () => new Map(threads.map((thread) => [thread.rootId, thread])),
     [threads],
@@ -2192,7 +2200,7 @@ export function LiveBoard({
             gameId={gameId}
             board={board}
             me={me}
-            size={14}
+            size={OUTER_FRAME_REM}
             editing={topicEditing}
             onEdit={() => setTopicEditing(true)}
             onEditEnd={() => setTopicEditing(false)}
@@ -2202,7 +2210,7 @@ export function LiveBoard({
           <div className="relative size-full">
             <TileShape
               side={tile.side}
-              size={14}
+              size={OUTER_FRAME_REM}
               watermark={tile.isOpeningReason ? "thread" : "reason"}
               // Everything else fades while the topic is being rewritten,
               // the same move the retired client makes for an emoji
@@ -2216,8 +2224,11 @@ export function LiveBoard({
                 {/* The lead line, ported from the retired Tile.vue's
                     `tilePrefix` and drawn the way Rannie draws it: a larger
                     line above the reason, so a tile reads as a sentence
-                    rather than as a text box. */}
-                <span className="text-p-lg block leading-tight font-semibold">
+                    rather than as a text box. Both lines are sized against
+                    the octagon rather than against the page, because Rannie's
+                    tiles carry text at roughly 8% of the tile's width and the
+                    shared page body size left a 17rem octagon looking empty. */}
+                <span className="block text-2xl leading-tight font-semibold">
                   {tileLead(
                     tile.side,
                     // A reason with no parent hangs off the topic, which is
@@ -2229,7 +2240,7 @@ export function LiveBoard({
                     tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
                   )}
                 </span>
-                <span className="text-p-md block leading-snug">
+                <span className="text-p-lg block leading-snug">
                   <TileText tile={tile} />
                 </span>
               </p>
@@ -2254,8 +2265,18 @@ export function LiveBoard({
       {/* Top left: the way out, and which game this is. Ported from the
           retired client, where the browser Back button is trapped and this
           button is the only exit. */}
-      <div className="fixed top-14 left-8 z-30 flex items-start gap-3">
+      <div className="fixed top-14 left-8 z-30 flex items-center gap-4">
         <LeaveButton gameId={gameId} />
+        {/* Rannie writes the room code up here as plain small print, not as a
+            chip: `#Room: 83083` in `1096:252192`. It used to sit in the
+            bottom-left stack with the bug reporter, which is where you look
+            for site furniture rather than for the thing you read aloud to the
+            person you are about to argue with. */}
+        {joinCode ? (
+          <span className="font-primary text-p-md text-gray tracking-wide">
+            #Room: <span className="text-neutral-black">{joinCode}</span>
+          </span>
+        ) : null}
         {board.mode === "gym" && board.levelId ? (
           <span className="bg-orange text-neutral-black text-p-sm font-primary rounded-full px-4 py-2 tracking-wide uppercase shadow-md">
             {board.levelId.replace(/_/g, " ")}
@@ -2263,29 +2284,28 @@ export function LiveBoard({
         ) : null}
       </div>
 
-      {/* Top centre: the coach, which is a voice in the game rather than a
-          panel of settings, so it sits where a voice would. */}
-      <div className="fixed top-8 left-1/2 z-30 w-[24rem] -translate-x-1/2">
-        <FloatingPanel title="My AI coach" defaultOpen={coachEnabled}>
-          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
-        </FloatingPanel>
-      </div>
-
       {/* Top right: who you are, help, and the two ways this ends. Same stack
           and the same 13rem column width as the retired client. */}
       <div className="fixed top-8 right-8 z-30 flex max-h-[calc(100vh-4rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
+        {/* The person on the other side of the argument, named and coloured,
+            which is what Rannie hangs in this corner. It used to say who
+            *you* are, and you already know: your own side is written on
+            every tile you have placed and on the card in the bottom centre
+            that only offers your colour. Theirs is the thing worth a
+            permanent corner. */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-end gap-2">
-            <SideGlyph side={me.role} className="h-12 w-12" />
+            <SideGlyph side={opponentSide} className="h-12 w-12" />
             <h3
               className="font-primary text-p-md tracking-wide uppercase"
               style={{
-                color: me.role === "plus" ? "var(--color-green)" : "var(--color-orange)",
+                color:
+                  opponentSide === "plus" ? "var(--color-green)" : "var(--color-orange)",
                 textShadow:
                   "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
               }}
             >
-              {SIDE_LABEL[me.role]}
+              {opponent?.displayName ?? SIDE_LABEL[opponentSide]}
             </h3>
           </div>
           <button
@@ -2304,6 +2324,14 @@ export function LiveBoard({
           resolvedCount={resolvedCount}
           onRevise={() => setTopicEditing(true)}
         />
+
+        {/* The coach is a card in this rail in Rannie's frame, under Ways to
+            win. It spent a while as a wide bar across the top centre, where
+            it was the first thing on the screen and sat directly over the
+            tiles the moment anyone opened it. */}
+        <FloatingPanel title="My AI coach" defaultOpen={coachEnabled}>
+          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+        </FloatingPanel>
 
         <FloatingPanel title="How this ends" defaultOpen={false}>
           <HowThisEnds board={board} />
@@ -2398,12 +2426,6 @@ export function LiveBoard({
           moment the window got narrow, and this corner is the one part of
           the board with vertical room to spare. */}
       <div className="fixed bottom-8 left-8 z-30 flex flex-col items-start gap-2">
-        {joinCode ? (
-          <span className="border-gray/30 bg-offwhite text-p-sm text-gray rounded-full border px-4 py-2 shadow-md">
-            Room{" "}
-            <span className="text-neutral-black font-mono font-semibold">{joinCode}</span>
-          </span>
-        ) : null}
         <FeedbackPopover variant="inline" />
         {/*
           The quiet way off a live board, which is not the same door as Leave

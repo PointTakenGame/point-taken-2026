@@ -10,7 +10,11 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { CELL_PITCH_RATIO, OCTAGON_CLIP } from "@/components/board/geometry";
+import {
+  CELL_PITCH_RATIO,
+  OCTAGON_CLIP,
+  OUTER_FRAME_REM,
+} from "@/components/board/geometry";
 import {
   TOPIC_CELL_ID,
   legalPlacements,
@@ -64,6 +68,18 @@ import {
  */
 
 const MIN_ZOOM = 0.25;
+/**
+ * The floor for the automatic refit that runs as tiles land.
+ *
+ * Fitting a growing board on screen is worth doing, but past a point it stops
+ * being a board and becomes a diagram of one. Rannie's live-board frame
+ * (`1096:252192`) draws the octagons big enough to read at a glance and simply
+ * lets the outer ones run off the bottom edge, and the retired client did the
+ * same. The Fit to screen button still fits everything, because that is what
+ * it is for; this only stops the board shrinking itself out from under the
+ * player who never asked it to.
+ */
+const COMFORT_ZOOM = 0.8;
 const MAX_ZOOM = 2;
 
 /** Breathing room, in px, left around the board when it is fitted to screen.
@@ -242,7 +258,11 @@ export function SpatialBoard<T extends SpatialTile>({
   draft,
   placementEnabled = false,
   canPlaceOn,
-  size = 14,
+  // The declared box is the outer ring, so `size * CELL_PITCH_RATIO` is the
+  // grid pitch, and at 18.5 that comes out at the retired client's 14rem
+  // columns exactly. It sat at 14 for a while, which quietly drew the whole
+  // board at 76% of the size Rannie draws it and the shipped game plays it.
+  size = OUTER_FRAME_REM,
   extraControls,
   onSelect,
 }: SpatialBoardProps<T>) {
@@ -330,28 +350,33 @@ export function SpatialBoard<T extends SpatialTile>({
    * `fitBoardToScreen` does the real thing, and so does this: scale the whole
    * footprint down until it fits the pane, then centre it.
    */
-  const fit = useCallback(() => {
-    if (!pane) return;
-    const w = canvasWidth * remPx;
-    const h = canvasHeight * remPx;
-    const room = Math.min(
-      (pane.w - FIT_MARGIN) / w,
-      (pane.h - FIT_MARGIN) / h,
-      // Never magnify past life size to fill a big screen: a two-tile board
-      // blown up to 200% looks broken rather than roomy.
-      1,
-    );
-    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, room));
-    setZoom(next);
-    setPan({ x: (pane.w - w * next) / 2, y: (pane.h - h * next) / 2 });
-    touched.current = false;
-  }, [pane, canvasWidth, canvasHeight, remPx]);
+  const fit = useCallback(
+    (floor = MIN_ZOOM) => {
+      if (!pane) return;
+      const w = canvasWidth * remPx;
+      const h = canvasHeight * remPx;
+      const room = Math.min(
+        (pane.w - FIT_MARGIN) / w,
+        (pane.h - FIT_MARGIN) / h,
+        // Never magnify past life size to fill a big screen: a two-tile board
+        // blown up to 200% looks broken rather than roomy.
+        1,
+      );
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
+      setZoom(next);
+      setPan({ x: (pane.w - w * next) / 2, y: (pane.h - h * next) / 2 });
+      touched.current = false;
+    },
+    [pane, canvasWidth, canvasHeight, remPx],
+  );
 
   // Refit while the view is still the one we chose. Depends on the footprint,
   // so it runs when a tile is placed and when the window resizes.
   useEffect(() => {
     if (touched.current) return;
-    fit();
+    // Floored: a tile landing should not shrink the whole board under the
+    // player's cursor. Pressing Fit to screen is the way to ask for that.
+    fit(COMFORT_ZOOM);
   }, [fit]);
 
   const zoomTo = useCallback(
@@ -517,7 +542,7 @@ export function SpatialBoard<T extends SpatialTile>({
         </button>
         <button
           type="button"
-          onClick={fit}
+          onClick={() => fit()}
           title="Reset zoom and centre the board"
           className="text-neutral-black hover:bg-sand text-p-sm min-w-[3.25rem] cursor-pointer rounded-full px-1 font-semibold"
         >
@@ -535,7 +560,7 @@ export function SpatialBoard<T extends SpatialTile>({
         <div className="bg-gray/30 mx-1 h-5 w-px" />
         <button
           type="button"
-          onClick={fit}
+          onClick={() => fit()}
           title="Fit the whole board on screen"
           className="text-neutral-black hover:bg-sand text-p-sm cursor-pointer rounded-full px-2 py-1 font-semibold"
         >
