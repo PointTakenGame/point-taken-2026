@@ -2463,7 +2463,12 @@ export function LiveBoard({
             type="button"
             onClick={() => setComposerOpen(true)}
             disabled={!placementEnabled}
-            className="border-gray/30 bg-neutral-black text-offwhite text-p-md font-primary cursor-pointer rounded-full px-6 py-3 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
+            // Offwhite, like every other piece of furniture on this board.
+            // It was a heavy black pill floating over whichever tile happened
+            // to be under it, and it is not the main way in any more: since
+            // clicking an open diagonal writes the reason in the cell it will
+            // occupy, this is the shortcut, not the door.
+            className="border-gray/40 bg-offwhite text-neutral-black text-p-md font-primary hover:bg-sand/40 cursor-pointer rounded-full border px-6 py-3 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
           >
             Place a reason
           </button>
