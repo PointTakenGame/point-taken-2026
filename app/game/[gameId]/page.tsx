@@ -72,15 +72,28 @@ export default async function GamePage({
           to a pill so the finished map underneath stays readable.
         */}
         <WinOverlay board={board} />
-        <nav className="mx-auto flex w-full max-w-3xl gap-4 px-8 pb-8 print:hidden">
-          <Link href="/account" className="underline">
+        {/* The three ways on from a finished game, in the board's own
+            furniture rather than three browser-default links: the one a
+            player most likely wants next is the gold pill, the other two
+            are the offwhite pill the board uses for a way out. */}
+        <nav className="mx-auto flex w-full max-w-3xl flex-wrap gap-3 px-8 pb-8 print:hidden">
+          <Link
+            href="/"
+            className="bg-gold text-neutral-white font-primary text-p-sm rounded-full px-4 py-1.5 tracking-wide shadow-md"
+          >
+            Start another room
+          </Link>
+          <Link
+            href="/account"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
             Your games
           </Link>
-          <Link href="/leaderboard" className="underline">
+          <Link
+            href="/leaderboard"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
             Leaderboard
-          </Link>
-          <Link href="/" className="underline">
-            Start another room
           </Link>
         </nav>
         {hotseat}

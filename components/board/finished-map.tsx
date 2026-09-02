@@ -34,20 +34,28 @@ function Branch({ tile }: { tile: BoardTile }) {
       <div className="flex items-baseline gap-2">
         <span
           aria-label={tile.side === "plus" ? "Agrees" : "Disagrees"}
-          className="w-4 shrink-0 text-center font-semibold tabular-nums opacity-60"
+          // The two sides are green and orange everywhere a player has seen
+          // them, including on the board they just left. Rendering them here
+          // as two grey punctuation marks throws that away on the one page
+          // they are most likely to read end to end.
+          className={`font-primary w-4 shrink-0 text-center text-lg leading-tight tabular-nums ${
+            tile.side === "plus" ? "text-green" : "text-orange"
+          }`}
         >
           {SIDE_MARK[tile.side]}
         </span>
-        <span className="flex-1">
+        <span className="font-tiles flex-1 leading-snug">
           <Text tile={tile} />
           {tile.revised && (
-            <span className="ml-2 text-xs opacity-50">revised after a card</span>
+            <span className="font-secondary text-gray ml-2 text-xs">
+              revised after a card
+            </span>
           )}
         </span>
       </div>
 
       {tile.children.length > 0 && (
-        <ul className="ml-2 flex flex-col gap-2 border-l border-current/15 pl-4">
+        <ul className="border-neutral-black/15 ml-2 flex flex-col gap-2 border-l pl-4">
           {tile.children.map((child) => (
             <Branch key={child.id} tile={child} />
           ))}
@@ -59,13 +67,16 @@ function Branch({ tile }: { tile: BoardTile }) {
 
 function Thread({ thread, index }: { thread: BoardThread; index: number }) {
   return (
-    <section className="flex break-inside-avoid flex-col gap-3 border-t border-current/15 pt-5">
+    <section className="border-neutral-black/15 flex break-inside-avoid flex-col gap-3 border-t pt-5">
       <header className="flex items-baseline justify-between gap-4">
-        <h3 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
+        <h3 className="text-p-sm font-primary text-gray tracking-wide uppercase">
           Thread {index + 1}
         </h3>
         {thread.resolution ? (
-          <p className="flex items-center justify-end gap-1.5 text-right text-p-sm">
+          // How a thread ended is the one thing on this page that is not
+          // words, so it is given the shape of the token it is: a pill, in
+          // the sand the board uses for a thing both players agreed to.
+          <p className="border-gold/50 bg-sand/30 text-p-sm flex items-center justify-end gap-1.5 rounded-full border px-3 py-1 text-right">
             <TokenGlyph token={thread.resolution.emoji} size={20} />
             <span>{tokenLabel(thread.resolution.emoji)}</span>
             {thread.resolution.note && (
@@ -73,7 +84,7 @@ function Thread({ thread, index }: { thread: BoardThread; index: number }) {
             )}
           </p>
         ) : (
-          <p className="text-p-sm opacity-50">Unresolved</p>
+          <p className="text-p-sm text-gray">Unresolved</p>
         )}
       </header>
 
@@ -87,7 +98,7 @@ function Thread({ thread, index }: { thread: BoardThread; index: number }) {
 
       {thread.orphans.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-wide opacity-50">
+          <p className="font-primary text-gray text-xs tracking-wide uppercase">
             Replies to a removed reason
           </p>
           <ul className="flex flex-col gap-2">
@@ -116,7 +127,7 @@ export function FinishedMap({
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8 print:max-w-none print:p-0">
       <header className="flex flex-col gap-2">
-        <p className="text-p-sm uppercase tracking-wide opacity-60">
+        <p className="font-primary text-gold text-p-sm tracking-widest uppercase">
           {board.mode === "gym" ? "Gym run" : "Point Taken"}
           {endedAt && (
             <>
@@ -125,7 +136,7 @@ export function FinishedMap({
             </>
           )}
         </p>
-        <h1 className="text-2xl font-semibold text-balance">
+        <h1 className="font-primary text-neutral-black text-3xl leading-tight text-balance">
           {board.currentTopicText ?? "No topic was set."}
         </h1>
         {revised && board.topic && (
@@ -155,14 +166,14 @@ export function FinishedMap({
 
       {definitions.length > 0 && (
         <section className="flex break-inside-avoid flex-col gap-3">
-          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
+          <h2 className="text-p-sm font-primary text-gray tracking-wide uppercase">
             Words you pinned down
           </h2>
           <dl className="flex flex-col gap-2 text-p-sm">
             {definitions.map((entry) => (
               <div key={entry.proposalId} className="flex flex-col">
-                <dt className="font-semibold">{entry.term}</dt>
-                <dd className="opacity-80">{entry.text}</dd>
+                <dt className="font-tiles text-neutral-black">{entry.term}</dt>
+                <dd className="text-gray">{entry.text}</dd>
               </div>
             ))}
           </dl>
