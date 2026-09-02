@@ -1389,11 +1389,14 @@ function InTileComposer({
 function Composer({
   gameId,
   board,
+  side,
   target,
   onTargetChange,
 }: {
   gameId: string;
   board: BoardState;
+  /** The composing player's side, for the lead line above the box. */
+  side: Side;
   /** Id of the tile being answered, or "" for a new thread. Owned by LiveBoard
    * because the board above picks it by click and the composer only reports
    * it back. */
@@ -1442,7 +1445,7 @@ function Composer({
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
+    <div className="flex flex-col gap-3">
       {/*
         This used to be a dropdown of every tile on the board, which asked a
         player to find the reason they were answering in a list of truncated
@@ -1450,7 +1453,7 @@ function Composer({
         tile, click one of its open diagonals. All this has to do is say
         which one you picked and let you back out of it.
       */}
-      <div className="text-p-sm flex flex-wrap items-baseline gap-2">
+      <div className="text-p-sm text-gray flex flex-wrap items-baseline gap-2">
         {answering === null ? (
           <span>
             Starting a new thread. Click an open slot around a reason on the board to
@@ -1458,14 +1461,14 @@ function Composer({
           </span>
         ) : (
           <>
-            <span className="opacity-60">Answering</span>
-            <span>
+            <span>Answering</span>
+            <span className="text-neutral-black">
               {SIDE_MARK[answering.side]}{" "}
               {answering.redacted ? REDACTED_TEXT : answering.text.slice(0, 60)}
             </span>
             <button
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              className="border-gray/40 hover:bg-sand/40 cursor-pointer rounded-full border px-3 py-0.5 text-xs disabled:opacity-40"
               disabled={pending}
               onClick={() => onTargetChange("")}
             >
@@ -1502,21 +1505,34 @@ function Composer({
           ))}
         </div>
       )}
-      <textarea
-        className="w-full border border-current/30 p-1 text-p-sm"
-        value={text}
-        maxLength={TILE_MAX_CHARS}
-        disabled={pending}
-        placeholder="A reason for your side."
-        onChange={(event) => setText(event.target.value)}
-      />
-      <span className="text-xs opacity-60">
+      {/* The words the tile will open with, shown before it is placed rather
+          than discovered after. `CellComposer`, the one you get by clicking an
+          open diagonal, writes them straight into the octagon; this card is
+          the same move made from the bottom of the screen, so it says the same
+          thing. Which lead you get is the game telling you what this reason is
+          for: answering the topic outright, adding to your own side, or
+          stopping to think at somebody else's. */}
+      <div className="border-gray/30 bg-neutral-white focus-within:border-neutral-black flex flex-col rounded-xl border p-3 transition-colors">
+        <span className="font-tiles text-p-lg text-neutral-black leading-tight">
+          {tileLead(side, parentTileId === null, answering?.side ?? null)}
+        </span>
+        <textarea
+          className="font-tiles text-p-md text-neutral-black placeholder:text-gray mt-1 w-full resize-none bg-transparent leading-snug outline-none"
+          rows={2}
+          value={text}
+          maxLength={TILE_MAX_CHARS}
+          disabled={pending}
+          placeholder="A reason for your side."
+          onChange={(event) => setText(event.target.value)}
+        />
+      </div>
+      <span className="text-xs text-gray">
         {TILE_MAX_CHARS - text.length} characters left
       </span>
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
+        className="bg-gold text-neutral-white font-primary cursor-pointer self-start rounded-full px-6 py-2 tracking-wide shadow-md disabled:cursor-default disabled:opacity-40"
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -2609,6 +2625,7 @@ export function LiveBoard({
               <Composer
                 gameId={gameId}
                 board={board}
+                side={me.role}
                 target={replyTarget}
                 onTargetChange={setReplyTarget}
               />
