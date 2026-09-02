@@ -945,6 +945,118 @@ function Placed({ who, token }: { who: string; token: string | null | undefined 
   );
 }
 
+/**
+ * Writing the reason on the board, in the cell it will occupy.
+ *
+ * This is the retired client's signature gesture and the one Rannie draws in
+ * `1064:214081`: you hover a tile, click one of its open diagonals, and the
+ * new tile is already there with a cursor in it. Nothing about the move has
+ * to be explained, because the shape of the thing you are making is the box
+ * you are typing into.
+ *
+ * It answers one parent and nothing else, so it carries none of the target
+ * picking the bottom composer needs. Enter places, Escape backs out, and
+ * Shift+Enter is a newline, which is the convention every chat box in the
+ * world has already taught.
+ */
+function InTileComposer({
+  gameId,
+  board,
+  side,
+  parentTileId,
+  parentSide,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  side: Side;
+  /** The tile being answered, or null for a new thread off the topic. */
+  parentTileId: string | null;
+  /** The answered tile's side, for the lead line. Null when answering the topic. */
+  parentSide: Side | null;
+  onDone: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const verdict = canPlaceTile(board, text, parentTileId);
+
+  const submit = () => {
+    if (!verdict.ok) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await placeTile(gameId, { text, parentTileId });
+      if (!result.ok) setError(result.error);
+      else onDone();
+    });
+  };
+
+  return (
+    <div className="relative size-full">
+      <TileShape side={side} size={14} watermark="reason" selected>
+        <p className="font-tiles w-full text-center">
+          <span className="text-p-lg block leading-tight font-semibold">
+            {tileLead(side, parentTileId === null, parentSide)}
+          </span>
+          {/*
+            No border and no background: the octagon is the box. A visible
+            field inside it would draw a second, smaller tile inside the
+            first one and undo the whole point of writing on the board.
+          */}
+          <textarea
+            // The click that opened this cell was the request for a cursor
+            // in it; the whole gesture is one motion.
+            autoFocus
+            className="text-p-md mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            rows={3}
+            value={text}
+            maxLength={TILE_MAX_CHARS}
+            disabled={pending}
+            placeholder="A reason for your side."
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onDone();
+              }
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+              }
+            }}
+          />
+        </p>
+      </TileShape>
+      {/* Under the tile rather than in it: the octagon holds the reason, and
+          only the reason. Given its own solid pill because the cells below a
+          tile are where its diagonal neighbours sit, so this lands on top of
+          another octagon as often as not. */}
+      <div className="text-p-sm absolute top-full left-1/2 z-20 flex w-64 -translate-x-1/2 -translate-y-4 flex-col items-center gap-1 text-center">
+        <div className="border-gray/30 bg-offwhite flex items-center gap-3 rounded-full border py-1 pr-4 pl-1 shadow-lg">
+          <button
+            type="button"
+            className="border-gray/30 bg-neutral-black text-offwhite font-primary cursor-pointer rounded-full border px-4 py-1 tracking-wide uppercase disabled:cursor-default disabled:opacity-40"
+            disabled={pending || !verdict.ok}
+            title={!verdict.ok ? verdict.error : undefined}
+            onClick={submit}
+          >
+            {pending ? "Placing..." : "Place"}
+          </button>
+          <button
+            type="button"
+            className="text-gray hover:text-neutral-black cursor-pointer"
+            disabled={pending}
+            onClick={onDone}
+          >
+            cancel
+          </button>
+        </div>
+        <ErrorLine error={error} />
+      </div>
+    </div>
+  );
+}
+
 function Composer({
   gameId,
   board,
@@ -1643,6 +1755,14 @@ export function LiveBoard({
   // What a reason can do belongs on the reason. Clicking one opens its actions
   // beside it rather than sending the player to a list somewhere else on the
   // screen to find the same tile a second time.
+  // Where a reason is being written on the board, if anywhere: the parent it
+  // answers and the cell it will occupy. The board reports both from the
+  // clicked slot, because it is the board that knows where its open cells
+  // are; this only remembers which one was picked.
+  const [draft, setDraft] = useState<{
+    parentId: string;
+    pos: { x: number; y: number };
+  } | null>(null);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -1712,10 +1832,30 @@ export function LiveBoard({
         // is open or waiting for an answer.
         placementEnabled={placementEnabled && !topicEditing && !topicPending}
         canPlaceOn={canPlaceUnder}
-        onPlace={(parentId) => {
-          setReplyTarget(parentId === TOPIC_CELL_ID ? "" : parentId);
-          setComposerOpen(true);
+        draftAt={draft?.pos ?? null}
+        draft={
+          draft && (
+            <InTileComposer
+              gameId={gameId}
+              board={board}
+              side={me.role}
+              parentTileId={draft.parentId === TOPIC_CELL_ID ? null : draft.parentId}
+              parentSide={
+                draft.parentId === TOPIC_CELL_ID
+                  ? null
+                  : (sideOf.get(draft.parentId) ?? null)
+              }
+              onDone={() => setDraft(null)}
+            />
+          )
+        }
+        onPlace={(parentId, pos) => {
+          // The board is where the reason gets written now, so the card
+          // parked under the board closes rather than competing with it.
+          setDraft({ parentId, pos });
+          setComposerOpen(false);
           setSelectedTileId(null);
+          setArmedCardId(null);
         }}
         onSelect={(tileId) => {
           if (armedCardId) {
@@ -1978,11 +2118,12 @@ export function LiveBoard({
 
       {/* Bottom centre, one column: what you write, and what you hold.
 
-          The composer opens when a slot on the board is clicked, which is the
-          whole gesture the retired client had: hover a tile, click a diagonal,
-          type into the tile that appears. Typing into the tile itself is still
-          to come; this is the same flow with the box parked under the board
-          instead of on it. The hand sits below it, where Rannie draws it. */}
+          Clicking an open diagonal now writes the reason on the board, in the
+          cell it will occupy, which is the retired client's whole gesture. So
+          this card is no longer the main way in: it is the way to start a
+          thread without hunting for a slot, and the only place that still
+          offers a target picker. The hand sits below it, where Rannie draws
+          it. */}
       <div className="fixed bottom-8 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3">
         {composerOpen ? (
           <div className="w-[34rem]">
@@ -2025,8 +2166,11 @@ export function LiveBoard({
             setArmedCardId(cardId);
             setThrowError(null);
             // A card and a tile's action card both want the click on a tile,
-            // so arming one closes the other.
-            if (cardId) setSelectedTileId(null);
+            // so arming one closes the other, and closes an open draft with it.
+            if (cardId) {
+              setSelectedTileId(null);
+              setDraft(null);
+            }
           }}
           hint={
             throwError ??

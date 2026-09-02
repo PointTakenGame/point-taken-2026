@@ -90,7 +90,17 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * of the tile the new one would hang off, which is what the retired
    * `<select>` was asking for and what the composer needs.
    */
-  onPlace?: (parentId: string) => void;
+  onPlace?: (parentId: string, pos: GridPosition) => void;
+  /**
+   * Where the caller is currently composing, if anywhere. The retired client
+   * wrote the reason on the board rather than in a form under it: you clicked
+   * an open diagonal and the tile appeared there with a cursor in it. The
+   * board does not know what a composer is, so the caller hands back the
+   * markup in `draft` and the board only says where it goes.
+   */
+  draftAt?: GridPosition | null;
+  /** Drawn in the `draftAt` cell in place of that cell's open slot. */
+  draft?: ReactNode;
   /**
    * Whether placement is offered at all. False during the other player's turn
    * or when the composer is closed, so the board does not advertise a move
@@ -228,6 +238,8 @@ export function SpatialBoard<T extends SpatialTile>({
   topic,
   renderTile,
   onPlace,
+  draftAt = null,
+  draft,
   placementEnabled = false,
   canPlaceOn,
   size = 14,
@@ -281,13 +293,18 @@ export function SpatialBoard<T extends SpatialTile>({
   // the board at once turns a four-thread game into sixteen plus signs and
   // reads as noise rather than as an invitation.
   const ghosts = useMemo(() => {
+    // A reason already being written is the only invitation on the board
+    // worth having. Leaving the other slots up would offer to start a second
+    // one on top of it, and the hover that put them there is gone the moment
+    // the cursor moves to the keyboard anyway.
+    if (draftAt) return [];
     if (!placementEnabled || !hoveredId) return [];
     if (canPlaceOn && !canPlaceOn(hoveredId)) return [];
     return legalPlacements(layout, hoveredId).map((pos) => ({
       pos,
       parentId: hoveredId,
     }));
-  }, [placementEnabled, hoveredId, layout, canPlaceOn]);
+  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn]);
 
   const pitch = size * CELL_PITCH_RATIO;
   const canvasWidth = (layout.width - 1) * pitch + size;
@@ -461,9 +478,26 @@ export function SpatialBoard<T extends SpatialTile>({
                 ? "Start a new thread here"
                 : "Answer this reason here"
             }
-            onClick={() => onPlace?.(parentId)}
+            onClick={() => onPlace?.(parentId, pos)}
           />
         ))}
+
+        {/* Drawn outside the ghost list on purpose. Open slots come and go
+            with the hover, and the cursor leaves the board the instant
+            typing starts; a draft that lived in that list would vanish
+            under the player's hands. */}
+        {draftAt && (
+          <div
+            className="z-20"
+            // Deliberately unclipped, unlike every other cell. The composer
+            // hangs its Place and cancel buttons below the octagon, and the
+            // octagon-shaped clip that fixes hit testing for placed tiles
+            // would cut them off.
+            style={{ ...pixelStyle(draftAt, layout, size), clipPath: undefined }}
+          >
+            {draft}
+          </div>
+        )}
       </div>
 
       {/*
