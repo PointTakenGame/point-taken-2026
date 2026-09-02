@@ -153,6 +153,20 @@ export function TileShape({
         />
       </div>
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-6 text-center">
+        {side === "neutral" && (
+          // The topic tile's own watermark, where a reason tile carries its
+          // stance glyph. Rannie draws the speech-bubble mark behind the
+          // topic sentence and the wordmark along the bottom edge
+          // (`1064:214081`), which is the one tile on the board that belongs
+          // to the game rather than to either player.
+          // eslint-disable-next-line @next/next/no-img-element -- decorative watermark, no intrinsic size needed
+          <img
+            src="/brand/logo-notext.png"
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-0 m-auto size-24 object-contain opacity-8"
+          />
+        )}
         {side !== "neutral" && (
           // eslint-disable-next-line @next/next/no-img-element -- decorative watermark, no intrinsic size needed
           <img
@@ -187,6 +201,18 @@ export function TileShape({
         <div className="font-tiles text-p-md text-neutral-black relative z-10 flex max-h-full flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {children}
         </div>
+        {side === "neutral" && (
+          <span
+            className="font-primary pointer-events-none absolute bottom-3 z-10 text-xs tracking-wide text-white uppercase"
+            aria-hidden="true"
+            style={{
+              WebkitTextStrokeWidth: "1.5px",
+              WebkitTextStrokeColor: STROKE_COLOR.neutral,
+            }}
+          >
+            PointTaken
+          </span>
+        )}
         {side !== "neutral" && (
           <div
             className="pointer-events-none absolute bottom-2 z-10 flex gap-4"
