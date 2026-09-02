@@ -41,6 +41,33 @@ describe("WaysToWinCard: reading the win conditions", () => {
     expect(resolvedLine).toBeTruthy();
   });
 
+  it("says what happens next on an empty board rather than counting zero of zero", () => {
+    render(<WaysToWinCard threads={[]} resolvedCount={0} />);
+
+    expect(
+      screen.getByText("None yet. The first reason you place starts one."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "p" &&
+          element.textContent === "0 of 0 resolved",
+      ),
+    ).toBeNull();
+  });
+
+  it("does not say 'all 1 threads' on a board with one thread", () => {
+    render(<WaysToWinCard threads={THREADS.slice(0, 1)} resolvedCount={0} />);
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "span" &&
+          element.textContent === "Resolve the one thread",
+      ),
+    ).toBeTruthy();
+  });
+
   it("counts a short board against the threads it has, not against any floor", () => {
     render(<WaysToWinCard threads={THREADS.slice(0, 2)} resolvedCount={1} />);
 

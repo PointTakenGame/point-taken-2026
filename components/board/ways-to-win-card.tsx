@@ -121,13 +121,33 @@ export function WaysToWinCard({
           1
         </span>
         <span className="text-neutral-black text-p-sm leading-tight">
-          Resolve all {target === 0 ? "threads" : `${target} threads`}
+          {/* "Resolve all 1 threads" is what the obvious version of this line
+              says on the board a player sees right after their first tile,
+              which is the worst possible moment for the game to read as
+              unfinished. One thread gets its own wording rather than a
+              bracketed plural. */}
+          {target === 0
+            ? "Resolve all threads"
+            : target === 1
+              ? "Resolve the one thread"
+              : `Resolve all ${target} threads`}
         </span>
       </div>
-      <p className="text-gray mt-1 pl-7 text-xs">
-        <span className="text-neutral-black font-bold">{resolvedCount}</span> of {target}{" "}
-        resolved
-      </p>
+      {/* An empty board has no count worth printing. "0 of 0 resolved" reads
+          either as a finished game or as a broken counter, and it is the first
+          thing a new player sees on the first screen of a real match. Say what
+          happens next instead, and start counting once there is something to
+          count. */}
+      {target === 0 ? (
+        <p className="text-gray mt-1 pl-7 text-xs">
+          None yet. The first reason you place starts one.
+        </p>
+      ) : (
+        <p className="text-gray mt-1 pl-7 text-xs">
+          <span className="text-neutral-black font-bold">{resolvedCount}</span> of{" "}
+          {target} resolved
+        </p>
+      )}
 
       <div className="relative mx-auto my-1 aspect-square w-[74%]">
         {corners.map((thread) => (
