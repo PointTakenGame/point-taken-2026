@@ -150,6 +150,15 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * box. Callers with no furniture over the board pass nothing.
    */
   reserveRight?: number;
+  /**
+   * A strip across the bottom of the pane the board should not centre itself
+   * under, in rem. Same argument as `reserveRight`, for the furniture that
+   * floats along the bottom edge: Place a reason, and the rule-card tray
+   * under it. Without it the lowest tile on the board sits behind the hand,
+   * which is the one piece of furniture a player is looking at and clicking
+   * through at the same time.
+   */
+  reserveBottom?: number;
   /** Tile edge length in rem. */
   size?: number;
   /** Extra controls rendered inside the zoom cluster, to its right. The
@@ -332,6 +341,7 @@ export function SpatialBoard<T extends SpatialTile>({
   canPlaceOn,
   placeSide = "neutral",
   reserveRight = 0,
+  reserveBottom = 0,
   // The declared box is the outer ring, so `size * CELL_PITCH_RATIO` is the
   // grid pitch, and at 18.5 that comes out at the retired client's 14rem
   // columns exactly. It sat at 14 for a while, which quietly drew the whole
@@ -404,6 +414,40 @@ export function SpatialBoard<T extends SpatialTile>({
   const canvasWidth = (layout.width - 1) * pitch + size;
   const canvasHeight = (layout.height - 1) * pitch + size;
 
+  /**
+   * The tiles' own extent inside the canvas, in rem.
+   *
+   * The canvas is deliberately bigger than the tiles: `layoutBoard` pads it by
+   * a ring of empty cells so a board can grow in any direction without the
+   * whole thing jumping, and a board that grew down one diagonal carries empty
+   * rows on the other. Fitting the canvas therefore fits mostly nothing: a
+   * two-tile board asked to fit landed at 43% with the tiles small in a large
+   * empty area, because the canvas was nearly twice as tall as the two tiles
+   * in it. Fit to the tiles instead, and the empty ring stays where it belongs,
+   * off screen and ready.
+   */
+  const content = useMemo(() => {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const pos of layout.positions.values()) {
+      minX = Math.min(minX, pos.x);
+      maxX = Math.max(maxX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxY = Math.max(maxY, pos.y);
+    }
+    if (minX === Infinity) {
+      return { left: 0, top: 0, width: canvasWidth, height: canvasHeight };
+    }
+    return {
+      left: (minX + layout.offsetX) * pitch,
+      top: (minY + layout.offsetY) * pitch,
+      width: (maxX - minX) * pitch + size,
+      height: (maxY - minY) * pitch + size,
+    };
+  }, [layout, pitch, size, canvasWidth, canvasHeight]);
+
   // The pane's own size, which is the screen. Needed to fit and to centre.
   useLayoutEffect(() => {
     const el = paneRef.current;
@@ -427,24 +471,45 @@ export function SpatialBoard<T extends SpatialTile>({
   const fit = useCallback(
     (floor = MIN_ZOOM) => {
       if (!pane) return;
-      const w = canvasWidth * remPx;
-      const h = canvasHeight * remPx;
+      const w = content.width * remPx;
+      const h = content.height * remPx;
       // The part of the pane the board actually gets, which is the pane less
-      // whatever the caller has floating over its right edge.
+      // whatever the caller has floating over its edges.
       const usable = Math.max(FIT_MARGIN + 1, pane.w - reserveRight * remPx);
+      const usableHeight = Math.max(FIT_MARGIN + 1, pane.h - reserveBottom * remPx);
       const room = Math.min(
         (usable - FIT_MARGIN) / w,
-        (pane.h - FIT_MARGIN) / h,
+        (usableHeight - FIT_MARGIN) / h,
         // Never magnify past life size to fill a big screen: a two-tile board
         // blown up to 200% looks broken rather than roomy.
         1,
       );
       const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
+
+      // Centre in the reserved area only while the board still fits there.
+      //
+      // The automatic refit is floored at COMFORT_ZOOM, so a board past a
+      // certain size overflows on purpose and runs off the edges, which is
+      // what Rannie's frame and the retired client both do. Centring an
+      // overflowing board inside the reserved area does not buy the furniture
+      // any clearance, because there is none to buy; all it does is push the
+      // overflow entirely to the opposite edge, so reserving 13rem at the
+      // bottom took the top row further off the top of the screen and left the
+      // bottom row under the hand anyway. When it does not fit, share the
+      // overflow across the whole pane, which is the behaviour reserving
+      // nothing always had.
+      const across = w * next <= usable - FIT_MARGIN ? usable : pane.w;
+      const down = h * next <= usableHeight - FIT_MARGIN ? usableHeight : pane.h;
       setZoom(next);
-      setPan({ x: (usable - w * next) / 2, y: (pane.h - h * next) / 2 });
+      setPan({
+        // `pan` positions the canvas, and we just measured the tiles inside
+        // it, so back out where the tiles sit within the canvas.
+        x: (across - w * next) / 2 - content.left * remPx * next,
+        y: (down - h * next) / 2 - content.top * remPx * next,
+      });
       touched.current = false;
     },
-    [pane, canvasWidth, canvasHeight, remPx, reserveRight],
+    [pane, content, remPx, reserveRight, reserveBottom],
   );
 
   // Refit while the view is still the one we chose. Depends on the footprint,

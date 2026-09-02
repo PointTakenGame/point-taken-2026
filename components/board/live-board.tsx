@@ -2520,6 +2520,13 @@ export function LiveBoard({
         // The rail is `right-8 w-[15rem]`, so 15 plus its 2rem gutter. Keep
         // this in step with the rail wrapper's classes below.
         reserveRight={17}
+        // The bottom cluster is `bottom-8` plus the Place a reason pill, the
+        // gap, and the rule-card tray with its tab and its hint line. Keep
+        // this in step with that column's classes below; the composer is
+        // taller than the pill it replaces, and that is allowed to overlap,
+        // because a player who opened the composer is typing in it rather
+        // than reading the tile behind it.
+        reserveBottom={13}
         draftAt={draft?.pos ?? null}
         draft={
           draft && (
