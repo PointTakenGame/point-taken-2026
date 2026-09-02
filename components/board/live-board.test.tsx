@@ -464,3 +464,29 @@ describe("LiveBoard: taking your own reason back off the board", () => {
     expect(removeTile).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("LiveBoard: the empty slot a reason can go in", () => {
+  /**
+   * The slot is drawn as a stroked polygon now. It used to be a dashed CSS
+   * border on a box clipped to the octagon, and a clip cuts the corners away,
+   * so the four straight sides were drawn and the diagonals were not: an
+   * invitation to place a reason came out as a broken rectangle.
+   */
+  it("outlines the whole octagon rather than four straight sides", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    await user.hover(container.querySelector(`[data-tile-id="${TILE}"]`)!);
+
+    const outlines = container.querySelectorAll("polygon[stroke-dasharray]");
+    expect(outlines.length).toBeGreaterThan(0);
+    expect(container.querySelectorAll(".border-dashed").length).toBe(0);
+  });
+});

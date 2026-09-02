@@ -12,7 +12,9 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import {
   CELL_PITCH_RATIO,
+  INNER_FRAME_RATIO,
   OCTAGON_CLIP,
+  OCTAGON_POINTS,
   OUTER_FRAME_REM,
 } from "@/components/board/geometry";
 import {
@@ -260,10 +262,10 @@ const DOTS_PER_PITCH = 7;
  * faintest mark on screen, so it is now the side colour, a heavier dash, and
  * a plus sized off the cell rather than off the type scale.
  */
-const GHOST_BORDER: Record<TileSide, string> = {
-  plus: "border-green/70",
-  minus: "border-orange/70",
-  neutral: "border-gray/60",
+const GHOST_STROKE: Record<TileSide, string> = {
+  plus: "stroke-green/70",
+  minus: "stroke-orange/70",
+  neutral: "stroke-gray/60",
 };
 
 const GHOST_MARK: Record<TileSide, string> = {
@@ -273,9 +275,9 @@ const GHOST_MARK: Record<TileSide, string> = {
 };
 
 const GHOST_WASH: Record<TileSide, string> = {
-  plus: "group-hover:bg-green/10",
-  minus: "group-hover:bg-orange/10",
-  neutral: "group-hover:bg-gray/10",
+  plus: "fill-transparent group-hover:fill-green/10",
+  minus: "fill-transparent group-hover:fill-orange/10",
+  neutral: "fill-transparent group-hover:fill-gray/10",
 };
 
 function GhostSlot({
@@ -299,11 +301,30 @@ function GhostSlot({
       className="group absolute cursor-pointer border-none bg-transparent p-0"
       style={style}
     >
-      <span
-        className={`${GHOST_BORDER[side]} ${GHOST_WASH[side]} absolute inset-0 border-3 border-dashed transition-all duration-150 group-hover:opacity-100`}
-        style={{ clipPath: OCTAGON_CLIP }}
+      {/* Drawn as a stroked polygon rather than as a dashed border on a
+          clipped box: the clip cuts the corners away, so a border showed the
+          four straight sides and nothing on the diagonals. Inset to the inner
+          frame so the dashes land exactly where the tile's own octagon will,
+          instead of a frame's width outside it. */}
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute"
+        style={{ inset: `${((1 - INNER_FRAME_RATIO) / 2) * 100}%` }}
         aria-hidden="true"
-      />
+      >
+        <polygon
+          points={OCTAGON_POINTS}
+          className={`${GHOST_STROKE[side]} ${GHOST_WASH[side]} transition-all duration-150`}
+          // Viewbox units, so the dash scales with the board the way the
+          // tile art does. The border this replaced was 3px and the point of
+          // it was that an empty slot had been the faintest mark on screen:
+          // a hairline that stays a hairline at every zoom would put it back.
+          strokeWidth={1.2}
+          strokeDasharray="5 4"
+          strokeLinejoin="round"
+        />
+      </svg>
       <span
         className={`${GHOST_MARK[side]} font-primary absolute inset-0 z-10 flex items-center justify-center leading-none transition-opacity duration-150 group-hover:opacity-100`}
         // Sized off the cell, not off the type scale, so it stays a mark on

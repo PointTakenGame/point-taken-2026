@@ -56,6 +56,20 @@ export const OCTAGON_CLIP =
   "polygon(29% 0%, 71% 0%, 100% 29%, 100% 71%, 71% 100%, 29% 100%, 0% 71%, 0% 29%)";
 
 /**
+ * The same eight corners, in a form an SVG can draw a line along.
+ *
+ * A clip-path cannot be stroked, and a CSS border on a clipped box draws only
+ * the four straight sides: the corners are cut away by the clip, so an empty
+ * slot outlined that way came out as four floating dashed segments with no
+ * diagonals, which reads as a broken rectangle rather than as the shape of the
+ * tile that is about to land there. Anything that needs the outline itself,
+ * rather than the silhouette to cut to, uses these points instead.
+ *
+ * Percentages of the box, so the polygon goes in a `viewBox="0 0 100 100"`.
+ */
+export const OCTAGON_POINTS = "29,0 71,0 100,29 100,71 71,100 29,100 0,71 0,29";
+
+/**
  * Tile text, sized against the tile rather than against the page.
  *
  * Measured off Rannie's live board (`1096:252192`): on a 256 px tile the lead
