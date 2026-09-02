@@ -157,6 +157,24 @@ describe("WinOverlay: buttons", () => {
     expect(link.getAttribute("href")).toBe("/");
   });
 
+  /**
+   * The finished page under this overlay is drawn in pills, and these three
+   * were drawn in the ported `form-base` chrome: a 6px-radius grey rectangle
+   * beside a gold pill, in one composited view, at the end of the game.
+   */
+  it("draws its buttons in the board's pill vocabulary", () => {
+    render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
+    for (const label of ["Play Again", "Share to LinkedIn"]) {
+      const link = screen.getByText(label);
+      expect(link.className).toContain("rounded-full");
+      expect(link.className).not.toContain("form-base");
+    }
+    // Only one of them is the gold one: going out to LinkedIn is not the
+    // thing a player most wants next.
+    expect(screen.getByText("Play Again").className).toContain("bg-gold");
+    expect(screen.getByText("Share to LinkedIn").className).not.toContain("bg-gold");
+  });
+
   it("renders the exact sidenote copy", () => {
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
     expect(

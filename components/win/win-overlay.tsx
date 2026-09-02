@@ -76,7 +76,7 @@ function ReopenPill({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="form-base btn-primary fixed right-6 bottom-6 z-40 rounded-full px-5 py-3 text-p-sm font-secondary"
+      className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md fixed right-6 bottom-6 z-40 px-5 py-3"
     >
       🎉 You both won. Show results
     </button>
@@ -204,13 +204,22 @@ export function WinOverlay({ board }: { board: BoardState }) {
           here underneath, to read back as often as you want.
         </p>
 
+        {/* The board's pill vocabulary, not the ported `form-base` chrome
+            these three used to wear. The finished page under this overlay
+            already speaks it (`app/game/[gameId]/page.tsx`: one gold pill for
+            the way on, offwhite pills for the rest), and the two were visible
+            in the same composited view: a 6px-radius grey rectangle beside a
+            gold pill, at the one moment of the game that should look
+            finished. Going out to LinkedIn is not the thing a player most
+            wants next, so those two are the quiet pair and Play Again is the
+            gold one. */}
         <div className="flex flex-wrap items-center justify-center gap-3">
           {shareMoreUrl ? (
             <a
               href={shareMoreUrl}
               target="_blank"
               rel="noreferrer"
-              className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+              className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border tracking-wide px-4 py-1.5"
             >
               Leave feedback
             </a>
@@ -219,7 +228,7 @@ export function WinOverlay({ board }: { board: BoardState }) {
             href={linkedInShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border tracking-wide px-4 py-1.5"
           >
             Share to LinkedIn
           </a>
@@ -229,7 +238,7 @@ export function WinOverlay({ board }: { board: BoardState }) {
       <Link
         href="/"
         onClick={(event) => event.stopPropagation()}
-        className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+        className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md px-4 py-1.5"
       >
         Play Again
       </Link>
