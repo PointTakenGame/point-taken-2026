@@ -119,7 +119,14 @@ export function AnchoredCard({
         left: pos ? `${pos.left}px` : "-9999px",
         top: pos ? `${pos.top}px` : "-9999px",
         width: `${width}rem`,
-        maxHeight: "70vh",
+        // Nearly the whole window, not 70vh of it. A tile's action list plus
+        // the token row runs about 590px, and on a 720px window 70vh is 504,
+        // so the card scrolled and the thing it cut off was the token row:
+        // "Where do you two disagree?" was on screen and the tokens that
+        // answer it were not, with no scrollbar and nothing to say they were
+        // there. `place` already keeps the card inside the window, so the
+        // remaining 30% was being held back for nothing.
+        maxHeight: "calc(100dvh - 3rem)",
         overflowY: "auto",
       }}
     >
