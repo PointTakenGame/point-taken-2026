@@ -171,7 +171,10 @@ function TileThrowBadges({
   const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
   if (here.length === 0) return null;
   return (
-    <div className="absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 translate-y-1/2 gap-1">
+    <div
+      style={{ bottom: EDGE_INSET }}
+      className="absolute left-1/2 z-20 flex -translate-x-1/2 gap-1"
+    >
       {here.map((thrown) => {
         const card = coachCard(thrown.cardId);
         const standing = thrown.status === "standing";
@@ -329,6 +332,41 @@ const CHIP_BUTTON =
  */
 const FIELD =
   "border-gray/30 bg-neutral-white text-p-sm focus:border-neutral-black w-full rounded-xl border p-2 outline-none transition-colors";
+
+/**
+ * How far the drawn octagon sits inside the box a tile is positioned by.
+ *
+ * A tile's declared box is the outer ring; the octagon people see is the
+ * inner frame, centred in it. So `left-0` is not the tile's left edge, it is
+ * a frame's width outside it, and the cell around every tile is clipped to
+ * the octagon, so anything placed out there is not drawn dim or half: it is
+ * not drawn at all.
+ *
+ * Every badge below hangs off an edge, and every one of them was pinned to
+ * the bounding box and then translated half its own width further out, which
+ * put roughly three quarters of each badge outside the silhouette. The gold
+ * "they are waiting on you" mark on a reason was a five-pixel crescent. It
+ * measured correct in every way a test can measure a colour, because the
+ * element is there, the right size, and the right colour; the clip takes it
+ * after all of that.
+ *
+ * So badges sit fully inside the edge now, hugging it, instead of straddling
+ * it. `docs/` calls this the clip-path trap and this is the third time it has
+ * cost an afternoon.
+ */
+const EDGE_INSET = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
+
+/**
+ * The upper corners of a tile, where a badge can sit without covering words.
+ *
+ * Inside the edge is necessary but not sufficient: a badge on the middle of
+ * the left edge is fully drawn and sits on top of the first letter of the
+ * reason, because the text block runs the width of the octagon through its
+ * middle. The two upper diagonals are the only real estate a tile does not
+ * use. The watermark word runs across the top centre and the move glyphs
+ * across the bottom, so 24% in from each upper corner clears all three.
+ */
+const CORNER_INSET = "24%";
 
 /**
  * One move on a reason, in a card that has room to say what it is.
@@ -2303,7 +2341,8 @@ function TileProposalBadge({
   const yours = open.some((proposal) => proposal.askedBy !== me.role);
   return (
     <span
-      className={`font-primary text-p-md absolute top-1/2 left-0 z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm ${
+      style={{ left: CORNER_INSET, top: CORNER_INSET }}
+      className={`font-primary text-p-md absolute z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm ${
         yours
           ? "border-gold bg-sand text-neutral-black"
           : "border-gray/30 bg-offwhite text-gray"
@@ -2332,13 +2371,8 @@ function ThreadTokenBadge({
   const theirs = thread.pending[OTHER_SIDE[me.role]];
   const token = settled ?? mine ?? theirs ?? null;
   if (!token) return null;
-  // Straddling the tile's right-hand flat edge, not the top of its bounding
-  // box. The box is the outer ring and the drawn octagon sits a frame inside
-  // it, so a badge pinned to `top-0` floated a clear dozen pixels off the
-  // tile and read as a stray marker rather than as this thread's token. The
-  // right edge is the one flat side with nothing on it: the watermark word
-  // is along the top and the three side glyphs are along the bottom.
-  const edgeInset = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
+  // The tile's upper-right corner. See EDGE_INSET and CORNER_INSET for why
+  // it is in there rather than out on the edge where it started.
   // A token they have put down and you have not matched is your move, and it
   // is the move that ends a thread, so it gets the same gold a thrown card
   // and an unanswered ask get. Before this the badge looked identical whether
@@ -2353,8 +2387,8 @@ function ThreadTokenBadge({
       : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
   return (
     <span
-      style={{ right: edgeInset }}
-      className={`absolute top-1/2 z-20 flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${
+      style={{ right: CORNER_INSET, top: CORNER_INSET }}
+      className={`absolute z-20 flex translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${
         settled
           ? "border-gray/30 bg-offwhite"
           : yours
