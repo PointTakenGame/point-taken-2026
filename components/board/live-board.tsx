@@ -1573,6 +1573,40 @@ function LeaveButton({ gameId }: { gameId: string }) {
   );
 }
 
+/**
+ * A thread's resolution, drawn on the reason the thread started from.
+ *
+ * The whole first win condition is "name where you two actually disagree", and
+ * until this existed nothing on the board said whether that had happened. The
+ * drawer knew; the board, which is what a player is looking at, did not.
+ */
+function ThreadTokenBadge({
+  thread,
+  me,
+}: {
+  thread: BoardThread | null;
+  me: { playerId: string; role: Side };
+}) {
+  if (!thread) return null;
+  const settled = thread.resolution?.emoji ?? null;
+  const mine = thread.pending[me.role];
+  const theirs = thread.pending[OTHER_SIDE[me.role]];
+  const token = settled ?? mine ?? theirs ?? null;
+  if (!token) return null;
+  return (
+    <span
+      className={`border-gray/30 bg-offwhite absolute top-0 left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${settled ? "" : "opacity-60"}`}
+      title={
+        settled
+          ? `Thread resolved: ${tokenLabel(settled)}`
+          : `${mine ? "You" : "They"} suggested: ${tokenLabel(token)}`
+      }
+    >
+      <TokenGlyph token={token} size={22} />
+    </span>
+  );
+}
+
 function ThreadBlock({
   gameId,
   thread,
@@ -1740,6 +1774,12 @@ export function LiveBoard({
     [threads],
   );
   const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
+  // A thread is named by the reason it started from, so the tile the player
+  // clicked is enough to find the thread it heads, if it heads one.
+  const threadByRoot = useMemo(
+    () => new Map(threads.map((thread) => [thread.rootId, thread])),
+    [threads],
+  );
   // Matches the retired client's isTutorialOpen: true on every arrival at the
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
@@ -1939,6 +1979,11 @@ export function LiveBoard({
               did not land. Standing throws are full strength because they are
               waiting on somebody; settled ones fade back to a record. */}
             <TileThrowBadges board={board} tileId={tile.id} />
+            {/* A settled thread says so on the reason it started from, on the
+              top edge, opposite the thrown cards. Half strength while only
+              one side has laid a token down, because a thread with one token
+              on it is a question, not an answer. */}
+            <ThreadTokenBadge thread={threadByRoot.get(tile.id) ?? null} me={me} />
           </div>
         )}
       />
@@ -2196,6 +2241,24 @@ export function LiveBoard({
           <ul className="flex flex-col gap-2">
             <TileNode tile={selectedTile} gameId={gameId} me={me} board={board} onBoard />
           </ul>
+          {/* Resolving belongs to the reason a thread started from, so it is
+              offered on that tile and nowhere else. It used to live only in
+              the folded thread drawer, which meant the game's first win
+              condition was two clicks and a scroll away from the board it is
+              played on. */}
+          {threadByRoot.has(selectedTile.id) && (
+            <div className="border-neutral-black/15 mt-3 flex flex-col gap-2 border-t pt-3">
+              <h4 className="font-primary text-p-sm text-gray tracking-wide uppercase">
+                Where do you two disagree?
+              </h4>
+              <ResolutionRow
+                gameId={gameId}
+                thread={threadByRoot.get(selectedTile.id)!}
+                me={me}
+                board={board}
+              />
+            </div>
+          )}
         </AnchoredCard>
       )}
 
