@@ -63,12 +63,13 @@ vi.mock("@/app/game/[gameId]/actions", () => ({
   proposeSteelmanTile: actionResult,
   proposeTopicRevision: actionResult,
   rejectProposal: actionResult,
-  removeTile: actionResult,
+  removeTile: vi.fn(actionResult),
   reviseTile: actionResult,
   setCoach: actionResult,
   throwCard: actionResult,
 }));
 
+const { removeTile } = await import("@/app/game/[gameId]/actions");
 const { LiveBoard } = await import("./live-board");
 const { projectBoard } = await import("@/lib/board/project");
 type AnyGameEvent = import("@/lib/events/types").AnyGameEvent;
@@ -417,5 +418,49 @@ describe("LiveBoard: whose move a resolution token is", () => {
 
     expect(screen.getByText(/You suggested.*Waiting for them/)).toBeTruthy();
     expect(container.querySelectorAll(".border-gold").length).toBe(0);
+  });
+});
+
+describe("LiveBoard: taking your own reason back off the board", () => {
+  /**
+   * Remove sits one row under Edit in the same list of moves, and nothing in
+   * the game puts a reason back. Every other move on that card either asks
+   * the other player first or can be typed over. This one used to fire on
+   * the first press.
+   */
+  const openOwnTile = async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    // The list of moves lives on a card beside the tile, and the tile is a
+    // plain positioned div rather than a button, so it is reached the way the
+    // board reaches it: by its id.
+    await user.click(container.querySelector(`[data-tile-id="${TILE}"]`)!);
+    return user;
+  };
+
+  it("arms on the first press instead of removing", async () => {
+    const user = await openOwnTile();
+
+    await user.click(screen.getByRole("button", { name: /^Remove/ }));
+
+    expect(removeTile).not.toHaveBeenCalled();
+    expect(screen.getByText(/There is no putting it back/)).toBeTruthy();
+  });
+
+  it("removes on the second press", async () => {
+    const user = await openOwnTile();
+
+    await user.click(screen.getByRole("button", { name: /^Remove/ }));
+    await user.click(screen.getByRole("button", { name: /^Remove it/ }));
+
+    expect(removeTile).toHaveBeenCalledTimes(1);
   });
 });

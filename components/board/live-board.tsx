@@ -924,6 +924,12 @@ function TileNode({
   onBoard?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  // Removing a reason takes two presses, the way leaving the game does.
+  // It sits one row under Edit in the same list, a misclick away, and there
+  // is nothing anywhere that puts a reason back. Every other move on this
+  // card either asks the other player first or can be typed over; this one
+  // just happens.
+  const [removeArmed, setRemoveArmed] = useState(false);
   const [moving, setMoving] = useState(false);
   const [handOpen, setHandOpen] = useState(false);
   // The two cooperative moves that are about one particular reason. They open
@@ -992,6 +998,10 @@ function TileNode({
   };
 
   const runRemove = () => {
+    if (!removeArmed) {
+      setRemoveArmed(true);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result: ActionResult = await removeTile(gameId, { tileId: tile.id });
@@ -1126,8 +1136,12 @@ function TileNode({
                       onClick={() => setEditing(true)}
                     />
                     <ActionItem
-                      label="Remove"
-                      hint="Take your reason back off the board."
+                      label={removeArmed ? "Remove it" : "Remove"}
+                      hint={
+                        removeArmed
+                          ? "Click again and it comes off the board. There is no putting it back."
+                          : "Take your reason back off the board."
+                      }
                       verdict={removeVerdict}
                       disabled={pending}
                       onClick={runRemove}
