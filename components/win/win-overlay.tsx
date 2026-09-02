@@ -191,9 +191,17 @@ export function WinOverlay({ board }: { board: BoardState }) {
           </div>
         )}
 
+        {/* What this used to say was "nothing stops you reading it back,
+            adding to it, or trying for the other ending too". Two thirds of
+            that is not true: reaching either ending ends the game, and the
+            live board is replaced by the read-only recap underneath this
+            overlay. There is no Place a reason to go back to and no second
+            ending left to try for. Whether a win should end the game is a
+            design question and not this component's to answer; what it can do
+            is stop promising a door that is not there. */}
         <p className="font-secondary text-p-sm text-gray text-center italic">
-          Stay as long as you like. The board is still here, and nothing stops you reading
-          it back, adding to it, or trying for the other ending too.
+          Stay as long as you like. The game is finished, and the whole board is still
+          here underneath, to read back as often as you want.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3">

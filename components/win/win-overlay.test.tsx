@@ -161,7 +161,7 @@ describe("WinOverlay: buttons", () => {
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
     expect(
       screen.getByText(
-        "Stay as long as you like. The board is still here, and nothing stops you reading it back, adding to it, or trying for the other ending too.",
+        "Stay as long as you like. The game is finished, and the whole board is still here underneath, to read back as often as you want.",
       ),
     ).toBeTruthy();
   });
