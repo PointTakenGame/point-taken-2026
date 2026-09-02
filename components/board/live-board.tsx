@@ -11,7 +11,13 @@ import {
   type ReactNode,
 } from "react";
 
-import type { BoardState, BoardThread, BoardThrow, BoardTile } from "@/lib/board/project";
+import type {
+  BoardProposal,
+  BoardState,
+  BoardThread,
+  BoardThrow,
+  BoardTile,
+} from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideGlyph } from "@/components/board/tile-shape";
@@ -35,6 +41,7 @@ import {
   RESOLUTION_TOKENS,
   TILE_MAX_CHARS,
   type Verdict,
+  canAnswerProposal,
   canDeclineThrow,
   canEditTile,
   canPlaceResolutionToken,
@@ -60,6 +67,7 @@ import { SIDE_LABEL, SIDE_MARK, tileLead } from "./side-label";
 import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
+  acceptProposal,
   clearResolutionToken,
   declineThrow,
   editTile,
@@ -72,6 +80,7 @@ import {
   proposeRelocation,
   proposeSteelmanReading,
   proposeSteelmanTile,
+  rejectProposal,
   removeTile,
   reviseTile,
   throwCard,
@@ -643,6 +652,11 @@ function TileNode({
 }) {
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
+  // The two cooperative moves that are about one particular reason. They open
+  // one at a time, because both of them are you writing something in the other
+  // player's voice and a card offering to do that twice at once is a card
+  // nobody reads.
+  const [proposing, setProposing] = useState<"reading" | "steelman" | null>(null);
   const [draft, setDraft] = useState(tile.text);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -656,6 +670,14 @@ function TileNode({
     tile.parentId,
     tile.threadRootId,
   );
+  // Saying a reason back only makes sense for a reason that is not yours to
+  // begin with; the rules say so too, and this keeps the card from offering a
+  // move it would then refuse.
+  const readingVerdict =
+    tile.side === me.role
+      ? null
+      : canProposeReadingHandback(board, tile.id, me.role, "a reading");
+  const steelmanVerdict = canProposeSteelmanTile(board, tile.id, "a reason");
   // Once the box is open the draft is what gets judged. Before that there is no
   // draft, and "a reason needs some words in it" is not why the link is dead.
   const editBlocked =
@@ -786,6 +808,29 @@ function TileNode({
                 >
                   move
                 </button>
+                {/* The two cooperative moves, on the reason they are about.
+                    Steve's call: none of these is writing in a tile, it is
+                    writing in a little dialog beside one. */}
+                {readingVerdict && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !readingVerdict.ok}
+                    title={!readingVerdict.ok ? readingVerdict.error : undefined}
+                    onClick={() => setProposing("reading")}
+                  >
+                    say it back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-p-sm underline text-gray disabled:opacity-30"
+                  disabled={pending || proposing !== null || !steelmanVerdict.ok}
+                  title={!steelmanVerdict.ok ? steelmanVerdict.error : undefined}
+                  onClick={() => setProposing("steelman")}
+                >
+                  write one for them
+                </button>
               </span>
             </>
           )}
@@ -798,6 +843,42 @@ function TileNode({
         <WhyNotAll
           className="text-p-sm text-gray ml-6"
           verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
+        />
+      )}
+
+      {/* Open proposals about this reason, on this reason. Both directions:
+          the one you are waiting on and the one waiting on you. */}
+      {board.proposals
+        .filter(
+          (proposal) =>
+            proposal.status === "pending" && proposal.targetTileId === tile.id,
+        )
+        .map((proposal) => (
+          <ProposalOnTile
+            key={proposal.id}
+            gameId={gameId}
+            proposal={proposal}
+            board={board}
+            me={me}
+          />
+        ))}
+
+      {proposing === "reading" && (
+        <ReadingHandbackForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          me={me}
+          onDone={() => setProposing(null)}
+        />
+      )}
+
+      {proposing === "steelman" && (
+        <SteelmanTileForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          onDone={() => setProposing(null)}
         />
       )}
 
@@ -840,6 +921,155 @@ function TileNode({
       )}
     </li>
   );
+}
+
+/**
+ * A proposal about this reason, said in plain English, with the two answers.
+ *
+ * Everything cooperative in this game is a proposal: you ask, they answer, and
+ * nothing moves until they do. Until now they could be made and never seen,
+ * because nothing outside the topic-revision path rendered an open one. A
+ * proposal nobody can answer is a move that does not exist.
+ *
+ * Rejecting takes a typed reason rather than a second button. Steve's call, and
+ * the right one: whenever you say no to something, you should get to say why,
+ * and that sentence is the most interesting thing either of you writes.
+ */
+function ProposalOnTile({
+  gameId,
+  proposal,
+  board,
+  me,
+}: {
+  gameId: string;
+  proposal: BoardProposal;
+  board: BoardState;
+  me: { playerId: string; role: Side };
+}) {
+  const [reason, setReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const mine = proposal.askedBy === me.role;
+  const verdict = canAnswerProposal(board, proposal.id, me.role);
+
+  const answer = (accept: boolean) => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = accept
+        ? await acceptProposal(gameId, { proposalId: proposal.id })
+        : await rejectProposal(gameId, {
+            proposalId: proposal.id,
+            reason: reason.trim().length > 0 ? reason : null,
+          });
+      if (!result.ok) setError(result.error);
+      else setRejecting(false);
+    });
+  };
+
+  return (
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
+      <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+        {mine ? "You asked" : "They asked"}
+      </p>
+      <p className="text-p-sm">{proposalSentence(proposal, board)}</p>
+      {mine ? (
+        <p className="text-p-sm text-gray italic">Waiting for them to answer.</p>
+      ) : rejecting ? (
+        <>
+          <textarea
+            className="w-full border border-current/30 p-1 text-p-sm"
+            value={reason}
+            maxLength={300}
+            disabled={pending}
+            placeholder="Why not? They will see this."
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <span className="flex gap-2">
+            <button
+              type="button"
+              className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+              disabled={pending}
+              onClick={() => answer(false)}
+            >
+              Send it
+            </button>
+            <button
+              type="button"
+              className="form-base px-3 py-1 text-xs"
+              disabled={pending}
+              onClick={() => setRejecting(false)}
+            >
+              Back
+            </button>
+          </span>
+        </>
+      ) : (
+        <>
+          <WhyNot verdict={verdict.ok ? null : verdict} />
+          <span className="flex gap-2">
+            <button
+              type="button"
+              className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+              disabled={pending || !verdict.ok}
+              onClick={() => answer(true)}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className="form-base px-3 py-1 text-xs disabled:opacity-40"
+              disabled={pending || !verdict.ok}
+              onClick={() => setRejecting(true)}
+            >
+              No, because...
+            </button>
+          </span>
+        </>
+      )}
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/**
+ * What a proposal is asking, as a sentence.
+ *
+ * One primitive carries six mechanics, so the raw content is a union of four
+ * shapes and reads as nothing at all. Every kind gets its own sentence here
+ * rather than a label plus a JSON dump.
+ */
+function proposalSentence(proposal: BoardProposal, board: BoardState): string {
+  const content = proposal.content;
+  switch (proposal.kind) {
+    case "reading_handback":
+      return "text" in content
+        ? `Have I got this right? "${content.text}"`
+        : "Have I got this right?";
+    case "steelman_tile":
+      return "text" in content
+        ? `A reason for your side, written by them: "${content.text}"`
+        : "A reason for your side, written by them.";
+    case "steelman_reading":
+      return "text" in content
+        ? `Is this your side? "${content.text}"`
+        : "Is this your side?";
+    case "definition":
+      return "term" in content
+        ? `Can we agree "${content.term}" means: ${content.text}`
+        : "Can we agree what a word means.";
+    case "topic_revision":
+      return "text" in content
+        ? `A rewritten topic: "${content.text}"`
+        : "A rewritten topic.";
+    case "tile_relocation":
+      return "new_parent_tile_id" in content
+        ? content.new_parent_tile_id === null
+          ? "Move this reason out to start its own thread."
+          : `Move this reason under: ${shortText(board, content.new_parent_tile_id)}`
+        : "Move this reason.";
+  }
 }
 
 function ResolutionRow({
@@ -1237,86 +1467,77 @@ function Move({
   );
 }
 
-// Unrendered on purpose: rule-card machinery waiting for a hand to be played
-// from. See the note where "Understanding each other" used to be rendered.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/**
+ * Saying one of their reasons back to them, in your own words, on that reason.
+ *
+ * It used to carry a dropdown of every reason the other side had placed, which
+ * asked a player to find a tile they were already looking at in a list of
+ * truncated strings. Opened from the tile itself, the question it is asking is
+ * the tile it is attached to, and there is nothing left to pick.
+ */
 function ReadingHandbackForm({
   gameId,
   board,
+  tile,
   me,
+  onDone,
 }: {
   gameId: string;
   board: BoardState;
+  tile: BoardTile;
   me: { playerId: string; role: Side };
+  onDone: () => void;
 }) {
-  const [tileId, setTileId] = useState("");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const theirs = useMemo(
-    () => allTargets(board).filter((tile) => tile.side !== me.role),
-    [board, me.role],
-  );
-
-  const verdict = canProposeReadingHandback(board, tileId, me.role, text);
-  // Nothing worth saying until a reason is picked: "that reason is not on this
-  // board" is true of the empty selection and is not what the player needs.
+  const verdict = canProposeReadingHandback(board, tile.id, me.role, text);
   const blocked =
-    tileId.length === 0
-      ? null
-      : text.trim().length > 0
-        ? verdict
-        : canProposeReadingHandback(board, tileId, me.role, "a reading");
+    text.trim().length > 0
+      ? verdict
+      : canProposeReadingHandback(board, tile.id, me.role, "a reading");
 
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const result = await proposeReadingHandback(gameId, { tileId, text });
+      const result = await proposeReadingHandback(gameId, { tileId: tile.id, text });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else onDone();
     });
   };
 
-  if (theirs.length === 0) {
-    return (
-      <p className="text-p-sm opacity-50">
-        Once they have placed a reason, you can try saying it back to them.
-      </p>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <TilePicker
-        legend="Which of their reasons"
-        value={tileId}
-        disabled={pending}
-        onChange={setTileId}
-        choices={theirs.map((tile) => ({
-          id: tile.id,
-          side: tile.side,
-          label: shortText(board, tile.id),
-        }))}
-      />
+    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+      <p className="text-p-sm text-gray">In your own words, what are they saying?</p>
       <textarea
         className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
-        placeholder="In your own words, what are they saying?"
+        placeholder="You think that..."
         onChange={(event) => setText(event.target.value)}
       />
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Ask if you have it right
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Ask if you have it right
+        </button>
+        <button
+          type="button"
+          className="form-base px-3 py-1 text-xs"
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
@@ -1371,72 +1592,74 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
 }
 
 /**
- * A reason written for the other side, which lands on their half of the board
- * if they take it.
+ * A reason written for the other side, hung under the reason you are looking
+ * at, which lands on their half of the board if they take it.
  *
  * Which side it goes on is never sent from here. The server derives it, so this
- * form has no field for it and no way to be wrong about it.
+ * form has no field for it and no way to be wrong about it. The destination is
+ * not sent either any more: it is the tile this opened from.
  */
-// Unrendered on purpose: rule-card machinery waiting for a hand to be played
-// from. See the note where "Understanding each other" used to be rendered.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState }) {
-  const [parent, setParent] = useState("");
+function SteelmanTileForm({
+  gameId,
+  board,
+  tile,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  tile: BoardTile;
+  onDone: () => void;
+}) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const destinations = useMemo(() => allTargets(board), [board]);
-  const parentTileId = parent.length > 0 ? parent : null;
-  const verdict = canProposeSteelmanTile(board, parentTileId, text);
-  // Against a stand-in this surfaces the six-thread ceiling, which is the block
-  // no amount of typing clears and the one a player hits without warning.
+  const verdict = canProposeSteelmanTile(board, tile.id, text);
   const blocked =
-    text.trim().length > 0
-      ? verdict
-      : canProposeSteelmanTile(board, parentTileId, "a reason");
+    text.trim().length > 0 ? verdict : canProposeSteelmanTile(board, tile.id, "a reason");
 
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const result = await proposeSteelmanTile(gameId, { text, parentTileId });
+      const result = await proposeSteelmanTile(gameId, { text, parentTileId: tile.id });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else onDone();
     });
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+      <p className="text-p-sm text-gray">
+        A reason for their side that you think they missed, hung under this one.
+      </p>
       <textarea
         className="w-full border border-current/30 p-1 text-p-sm"
         value={text}
         maxLength={TILE_MAX_CHARS}
         disabled={pending}
-        placeholder="A reason for their side that you think they missed."
+        placeholder="Something their side could say here."
         onChange={(event) => setText(event.target.value)}
       />
-      <TilePicker
-        legend="Hang it under"
-        value={parent}
-        disabled={pending}
-        noneLabel="Nothing: start its own thread"
-        onChange={setParent}
-        choices={destinations.map((candidate) => ({
-          id: candidate.id,
-          side: candidate.side,
-          label: shortText(board, candidate.id),
-        }))}
-      />
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Offer it to them
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Offer it to them
+        </button>
+        <button
+          type="button"
+          className="form-base px-3 py-1 text-xs"
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
@@ -1580,6 +1803,45 @@ function LeaveButton({ gameId }: { gameId: string }) {
  * until this existed nothing on the board said whether that had happened. The
  * drawer knew; the board, which is what a player is looking at, did not.
  */
+/**
+ * An unanswered proposal about this reason, on the left edge of it.
+ *
+ * A proposal is a question somebody is standing there waiting on an answer to,
+ * and the answer lives inside the tile's card. Without a mark on the tile there
+ * is nothing on the board that would ever make a player open it.
+ */
+function TileProposalBadge({
+  board,
+  tileId,
+  me,
+}: {
+  board: BoardState;
+  tileId: string;
+  me: { playerId: string; role: Side };
+}) {
+  const open = board.proposals.filter(
+    (proposal) => proposal.status === "pending" && proposal.targetTileId === tileId,
+  );
+  if (open.length === 0) return null;
+  const yours = open.some((proposal) => proposal.askedBy !== me.role);
+  return (
+    <span
+      className={`font-primary text-p-md absolute top-1/2 left-0 z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm ${
+        yours
+          ? "border-gold bg-sand text-neutral-black"
+          : "border-gray/30 bg-offwhite text-gray"
+      }`}
+      title={
+        yours
+          ? "They asked you something about this reason. Click it."
+          : "You asked them something about this reason."
+      }
+    >
+      ?
+    </span>
+  );
+}
+
 function ThreadTokenBadge({
   thread,
   me,
@@ -1984,6 +2246,7 @@ export function LiveBoard({
               one side has laid a token down, because a thread with one token
               on it is a question, not an answer. */}
             <ThreadTokenBadge thread={threadByRoot.get(tile.id) ?? null} me={me} />
+            <TileProposalBadge board={board} tileId={tile.id} me={me} />
           </div>
         )}
       />
