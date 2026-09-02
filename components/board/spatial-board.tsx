@@ -89,6 +89,16 @@ const MAX_ZOOM = 2;
  *  four-tile board below life size is throwing away the one thing on screen. */
 const FIT_MARGIN = 96;
 
+/** Slack, in px, left between an open composer and the edge it was pushed in
+ *  from. Small: this is a nudge to get the draft on screen, not a re-centring,
+ *  and moving the board further than it has to under a player who just clicked
+ *  loses them the tile they were answering. */
+const DRAFT_EDGE = 24;
+
+/** How far the composer hangs below its octagon, in rem, for its Place and
+ *  cancel buttons. Only used to decide whether the draft is on screen. */
+const DRAFT_TAIL_REM = 4;
+
 export interface SpatialTile {
   id: string;
   parentId: string | null;
@@ -509,7 +519,20 @@ export function SpatialBoard<T extends SpatialTile>({
       });
       touched.current = false;
     },
-    [pane, content, remPx, reserveRight, reserveBottom],
+    // The four numbers, not the object: `content` is rebuilt on every render,
+    // and depending on it made `fit` a new function every render, which ran
+    // the automatic refit below every render and snapped a board straight back
+    // to COMFORT_ZOOM a moment after Fit to screen had fitted it.
+    [
+      pane,
+      content.left,
+      content.top,
+      content.width,
+      content.height,
+      remPx,
+      reserveRight,
+      reserveBottom,
+    ],
   );
 
   // Refit while the view is still the one we chose. Depends on the footprint,
@@ -520,6 +543,52 @@ export function SpatialBoard<T extends SpatialTile>({
     // player's cursor. Pressing Fit to screen is the way to ask for that.
     fit(COMFORT_ZOOM);
   }, [fit]);
+
+  /**
+   * Bring an open composer into view.
+   *
+   * Clicking an open slot low on the board opens the draft there, and that is
+   * the one place a draft is most likely to be under the hand or off the
+   * bottom of the screen, because a slot is by definition further out than the
+   * tile it hangs off. A player who just clicked a slot and cannot find what
+   * they opened has no reason to guess that dragging the board would show it.
+   *
+   * Pan only, never zoom. The board is allowed to overflow past COMFORT_ZOOM,
+   * so the fix for an off-screen draft is to move the view, not to shrink
+   * everything under someone who is about to start typing. It also leaves
+   * `touched` alone: nudging is not the player choosing a view, and claiming
+   * it was would switch the automatic refit off for the rest of the game.
+   */
+  useEffect(() => {
+    if (!draftAt || !pane) return;
+    const scale = remPx * zoom;
+    const left = pan.x + (draftAt.x + layout.offsetX) * pitch * scale;
+    const top = pan.y + (draftAt.y + layout.offsetY) * pitch * scale;
+    const right = left + size * scale;
+    // The composer hangs its Place and cancel buttons below the octagon.
+    const bottom = top + (size + DRAFT_TAIL_REM) * scale;
+    const usable = Math.max(FIT_MARGIN + 1, pane.w - reserveRight * remPx);
+    const usableHeight = Math.max(FIT_MARGIN + 1, pane.h - reserveBottom * remPx);
+    // Push in from whichever edge it is past, and prefer the near edge when
+    // the draft is too big to fit between both.
+    const dx =
+      right > usable - DRAFT_EDGE
+        ? Math.max(usable - DRAFT_EDGE - right, DRAFT_EDGE - left)
+        : Math.max(0, DRAFT_EDGE - left);
+    const dy =
+      bottom > usableHeight - DRAFT_EDGE
+        ? Math.max(usableHeight - DRAFT_EDGE - bottom, DRAFT_EDGE - top)
+        : Math.max(0, DRAFT_EDGE - top);
+    if (dx === 0 && dy === 0) return;
+    // On the next frame rather than in the effect body: the composer is
+    // mounting as this runs, and a pan set synchronously here is a cascading
+    // render for a view the player has not been shown yet. It settles after
+    // one nudge, because the next pass finds the draft already in view.
+    const frame = requestAnimationFrame(() =>
+      setPan((p) => ({ x: p.x + dx, y: p.y + dy })),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [draftAt, pane, pan, zoom, remPx, layout, pitch, size, reserveRight, reserveBottom]);
 
   const zoomTo = useCallback(
     (next: number, anchor?: { x: number; y: number }) => {
