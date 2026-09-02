@@ -63,7 +63,7 @@ function ReadingCard({
   };
 
   return (
-    <li className="flex flex-col gap-1 rounded border border-current/20 p-3 text-p-sm">
+    <li className="border-gray/30 bg-neutral-white text-p-sm flex flex-col gap-1 rounded-xl border p-3">
       <p className="font-semibold">
         {card ? `${card.icon} ${card.name}` : "The coach has a note"}
       </p>
@@ -82,7 +82,7 @@ function ReadingCard({
         Only you can see this. Edit your tile above if you want to, or leave it.
       </p>
       {dare?.text && (
-        <div className="flex flex-col gap-1 border-l-2 border-current/30 pl-2">
+        <div className="border-gold/60 flex flex-col gap-1 border-l-2 pl-2">
           <p className="opacity-60">Dare you to say it this way:</p>
           <p>&ldquo;{dare.text}&rdquo;</p>
         </div>
@@ -93,7 +93,7 @@ function ReadingCard({
             type="button"
             onClick={takeDare}
             disabled={pending}
-            className="w-fit border border-current/30 px-2 py-1"
+            className="border-gray/40 hover:bg-sand/40 w-fit cursor-pointer rounded-full border px-3 py-0.5 text-xs disabled:cursor-default disabled:opacity-40"
           >
             {pending ? "..." : "Take the dare"}
           </button>
@@ -102,7 +102,7 @@ function ReadingCard({
           type="button"
           onClick={dismiss}
           disabled={pending}
-          className="w-fit border border-current/30 px-2 py-1"
+          className="border-gray/40 hover:bg-sand/40 w-fit cursor-pointer rounded-full border px-3 py-0.5 text-xs disabled:cursor-default disabled:opacity-40"
         >
           {pending ? "..." : dare?.text ? "Keep mine" : "Got it"}
         </button>

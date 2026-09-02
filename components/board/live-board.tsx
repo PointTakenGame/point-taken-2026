@@ -306,6 +306,31 @@ const SECONDARY_BUTTON =
   "border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 cursor-pointer rounded-full border px-4 py-1.5 tracking-wide disabled:cursor-default disabled:opacity-40";
 
 /**
+ * A small pill, for a row of choices rather than a decision.
+ *
+ * Same shape as the two buttons above so nothing on a card looks like it came
+ * from a different program, but sized for a list you scan: picking a rule card
+ * out of your hand, loading a suggested opening line. It was a square hairline
+ * box before, which is what an unstyled button looks like, and next to a
+ * rounded gold pill it reads as an unfinished part of the screen.
+ */
+const CHIP_BUTTON =
+  "border-gray/40 hover:bg-sand/40 cursor-pointer rounded-full border px-3 py-0.5 text-xs text-left disabled:cursor-default disabled:opacity-40";
+
+/**
+ * A box you type into, on a card beside a tile.
+ *
+ * The tile composer's own field (further down, the one with the lead-in words
+ * above it) is the full-dress version of this: rounded, white, and it darkens
+ * its border while you are in it. Every other field on the board was a square
+ * hairline rectangle, so the same act of writing a sentence looked like two
+ * different programs depending on which move you were making. This is that
+ * field at card size.
+ */
+const FIELD =
+  "border-gray/30 bg-neutral-white text-p-sm focus:border-neutral-black w-full rounded-xl border p-2 outline-none transition-colors";
+
+/**
  * One move on a reason, in a card that has room to say what it is.
  *
  * The tile card out on the board used to carry the same row of grey underlines
@@ -477,7 +502,7 @@ function CardHand({
             <button
               key={cardId}
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-30"
+              className={CHIP_BUTTON}
               disabled={pending || !verdict.ok}
               title={!verdict.ok ? verdict.error : undefined}
               onClick={() => run(cardId)}
@@ -624,7 +649,7 @@ function StandingThrow({
       {answerable && mode === "revise" && (
         <div className="flex flex-col gap-1">
           <textarea
-            className="w-full border border-current/30 p-1 text-p-sm"
+            className={FIELD}
             value={draft}
             maxLength={TILE_MAX_CHARS}
             disabled={pending}
@@ -659,7 +684,7 @@ function StandingThrow({
       {answerable && mode === "decline" && (
         <div className="flex flex-col gap-1">
           <input
-            className="w-full border border-current/30 p-1 text-p-sm"
+            className={FIELD}
             placeholder="why it does not fit (optional)"
             value={reason}
             maxLength={DECLINE_REASON_MAX_CHARS}
@@ -1260,7 +1285,7 @@ function TileNode({
       ))}
 
       {!onBoard && tile.children.length > 0 && (
-        <ul className="ml-2 flex flex-col gap-2 border-l border-current/15 pl-4">
+        <ul className="ml-2 flex flex-col gap-2 border-gray/25 border-l pl-4">
           {tile.children.map((child) => (
             <TileNode key={child.id} tile={child} gameId={gameId} me={me} board={board} />
           ))}
@@ -1330,7 +1355,7 @@ function ProposalCard({
       ) : rejecting ? (
         <>
           <textarea
-            className="w-full border border-current/30 p-1 text-p-sm"
+            className={FIELD}
             value={reason}
             maxLength={300}
             disabled={pending}
@@ -1772,7 +1797,7 @@ function Composer({
             </span>
             <button
               type="button"
-              className="border-gray/40 hover:bg-sand/40 cursor-pointer rounded-full border px-3 py-0.5 text-xs disabled:opacity-40"
+              className={CHIP_BUTTON}
               disabled={pending}
               onClick={() => onTargetChange("")}
             >
@@ -1782,7 +1807,7 @@ function Composer({
         )}
       </div>
       {showRootSuggestions && (
-        <div className="flex flex-col gap-2 border border-current/20 p-2 text-xs">
+        <div className="flex flex-col gap-2 border-gray/30 bg-offwhite rounded-xl border p-3 text-xs">
           <p className="opacity-60">
             Optional starting points for a new thread on this topic. Click one to load it
             into the box below, then edit it however you like before placing it.
@@ -1791,7 +1816,7 @@ function Composer({
             <div key={pair.id} className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
+                className={CHIP_BUTTON}
                 disabled={pending}
                 onClick={() => setText(pair.baited)}
               >
@@ -1799,7 +1824,7 @@ function Composer({
               </button>
               <button
                 type="button"
-                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
+                className={CHIP_BUTTON}
                 disabled={pending}
                 onClick={() => setText(pair.safe)}
               >
@@ -1876,7 +1901,7 @@ function Move({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
+    <div className="flex flex-col gap-2 border-gray/30 bg-offwhite rounded-xl border p-3">
       <div className="flex flex-col gap-1">
         <h3 className="text-p-sm font-semibold">{title}</h3>
         <p className="text-xs opacity-60">{hint}</p>
@@ -1927,10 +1952,10 @@ function ReadingHandbackForm({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
       <p className="text-p-sm text-gray">In your own words, what are they saying?</p>
       <textarea
-        className="w-full border border-current/30 p-1 text-p-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1988,7 +2013,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        className="w-full border border-current/30 p-1 text-p-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1998,7 +2023,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
+        className={`${SECONDARY_BUTTON} self-start`}
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -2047,12 +2072,12 @@ function SteelmanTileForm({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
       <p className="text-p-sm text-gray">
         A reason for their side that you think they missed, hung under this one.
       </p>
       <textarea
-        className="w-full border border-current/30 p-1 text-p-sm"
+        className={FIELD}
         value={text}
         maxLength={TILE_MAX_CHARS}
         disabled={pending}
@@ -2132,13 +2157,13 @@ function DefinitionForm({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
       <p className="text-p-sm text-gray">
         A word in this reason that the two of you may be hearing differently.
       </p>
       <p className="text-p-sm font-tiles text-gray">&ldquo;{tile.text}&rdquo;</p>
       <input
-        className="w-full border border-current/30 p-1 text-p-sm"
+        className={FIELD}
         value={term}
         maxLength={DEFINITION_TERM_MAX_CHARS}
         disabled={pending}
@@ -2146,7 +2171,7 @@ function DefinitionForm({
         onChange={(event) => setTerm(event.target.value)}
       />
       <textarea
-        className="w-full border border-current/30 p-1 text-p-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -2194,7 +2219,7 @@ function GenerosityButton({ gameId }: { gameId: string }) {
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
+        className={`${SECONDARY_BUTTON} self-start`}
         disabled={pending}
         onClick={give}
       >
