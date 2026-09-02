@@ -58,7 +58,7 @@ import {
   isResolved,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
-import { OUTER_FRAME_REM } from "@/components/board/geometry";
+import { OUTER_FRAME_REM, TILE_BODY_PX, TILE_LEAD_PX } from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
 import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
@@ -1229,7 +1229,7 @@ function InTileComposer({
     <div className="relative size-full">
       <TileShape side={side} size={OUTER_FRAME_REM} watermark="reason" selected>
         <p className="font-tiles w-full text-center">
-          <span className="text-p-lg block leading-tight font-semibold">
+          <span className="block leading-tight" style={{ fontSize: `${TILE_LEAD_PX}px` }}>
             {tileLead(side, parentTileId === null, parentSide)}
           </span>
           {/*
@@ -1241,7 +1241,8 @@ function InTileComposer({
             // The click that opened this cell was the request for a cursor
             // in it; the whole gesture is one motion.
             autoFocus
-            className="text-p-md mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            className="mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            style={{ fontSize: `${TILE_BODY_PX}px` }}
             rows={3}
             value={text}
             maxLength={TILE_MAX_CHARS}
@@ -2188,7 +2189,10 @@ export function LiveBoard({
                     the octagon rather than against the page, because Rannie's
                     tiles carry text at roughly 8% of the tile's width and the
                     shared page body size left a 17rem octagon looking empty. */}
-                <span className="text-p-lg block leading-tight font-semibold">
+                <span
+                  className="block leading-tight"
+                  style={{ fontSize: `${TILE_LEAD_PX}px` }}
+                >
                   {tileLead(
                     tile.side,
                     // A reason with no parent hangs off the topic, which is
@@ -2200,7 +2204,10 @@ export function LiveBoard({
                     tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
                   )}
                 </span>
-                <span className="text-p-md block leading-snug">
+                <span
+                  className="block leading-snug"
+                  style={{ fontSize: `${TILE_BODY_PX}px` }}
+                >
                   <TileText tile={tile} />
                 </span>
               </p>

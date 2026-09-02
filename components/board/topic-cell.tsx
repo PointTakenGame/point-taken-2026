@@ -40,6 +40,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { TILE_BODY_RATIO } from "@/components/board/geometry";
 import { TileShape } from "@/components/board/tile-shape";
 import { TilePopover } from "@/components/ui/tile-popover";
 import { canProposeTopicRevision } from "@/lib/board/rules";
@@ -254,9 +255,8 @@ export function TopicCell({
       // centre tile. It is the sentence the whole board is arguing about; it
       // should not be the smallest thing on screen.
       <p
-        className={`font-tiles text-p-lg px-2 text-center ${
-          canOpen ? "group-hover:text-gold" : ""
-        }`}
+        className={`font-tiles px-2 text-center ${canOpen ? "group-hover:text-gold" : ""}`}
+        style={{ fontSize: `${size * 16 * TILE_BODY_RATIO}px` }}
       >
         {board.currentTopicText ?? "No topic was set."}
       </p>

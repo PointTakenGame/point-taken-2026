@@ -54,3 +54,27 @@ export const CELL_PITCH_RATIO = CELL_REM / OUTER_FRAME_REM;
  */
 export const OCTAGON_CLIP =
   "polygon(29% 0%, 71% 0%, 100% 29%, 100% 71%, 71% 100%, 29% 100%, 0% 71%, 0% 29%)";
+
+/**
+ * Tile text, sized against the tile rather than against the page.
+ *
+ * Measured off Rannie's live board (`1096:252192`): on a 256 px tile the lead
+ * line ("No, because") runs about 8.6% of the tile's width and the reason
+ * under it about 7.4%. The two lines are separated by size, not by weight:
+ * Coming Soon ships one weight, so a `font-semibold` on the lead is the
+ * browser faking a bold that does not exist, and it reads as smudged rather
+ * than as emphasis.
+ *
+ * Kept as px derived from `OUTER_FRAME_REM` instead of the page's `--text-p-*`
+ * scale, because a tile is a drawn object at a fixed rem size: its text has to
+ * hold its share of the octagon, not its place in the UI type ramp. The board
+ * scales the whole pane, so these scale with it.
+ */
+export const TILE_LEAD_RATIO = 0.086;
+export const TILE_BODY_RATIO = 0.074;
+
+/** The two sizes at the board's own tile. A component drawn at some other
+ *  size (the collapsed-thread fan, a tile in a list) applies the ratios to
+ *  its own box instead, so its text stays in proportion to what it drew. */
+export const TILE_LEAD_PX = Math.round(OUTER_FRAME_REM * 16 * TILE_LEAD_RATIO);
+export const TILE_BODY_PX = Math.round(OUTER_FRAME_REM * 16 * TILE_BODY_RATIO);
