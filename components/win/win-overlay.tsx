@@ -28,7 +28,7 @@
  *     design choice rather than a technical constraint." This rebuild keeps
  *     it instant, matching the retired behaviour, rather than inventing one.
  *
- * The "Share to Linkedin" button was originally scoped OUT of this pass,
+ * The "Share to LinkedIn" button was originally scoped OUT of this pass,
  * then added back in by an explicit scope change from Steve delivered
  * mid-task: build it using LinkedIn's public, auth-free share-offsite URL
  * (no API key, no OAuth, nothing posted on anyone's behalf; the player's own
@@ -78,7 +78,7 @@ function ReopenPill({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className="form-base btn-primary fixed right-6 bottom-6 z-40 rounded-full px-5 py-3 text-p-sm font-secondary"
     >
-      🎉 You won — show results
+      🎉 You both won. Show results
     </button>
   );
 }
@@ -147,14 +147,18 @@ export function WinOverlay({ board }: { board: BoardState }) {
           ✕
         </button>
 
+        {/* "You both won", not "You've won". Both win conditions in this
+            game are cooperative and the recap page under this overlay already
+            says so in as many words. A headline that congratulates one player
+            is the one sentence on the screen that contradicts the game. */}
         <h2 id="win-overlay-heading" className="font-primary text-3xl">
-          You&apos;ve won!
+          You both won.
         </h2>
 
         {variant === "threads" ? (
           <div className="flex w-full flex-col items-center gap-3">
             <p className="font-secondary text-p-md text-center">
-              You&apos;ve resolved all threads on the game board:
+              Every thread got a token:
             </p>
             {/* Sized to content rather than laid out in fixed columns: the number of
                 distinct token types here is 1 to 5, and a rigid two-column grid wrapped
@@ -173,15 +177,15 @@ export function WinOverlay({ board }: { board: BoardState }) {
         ) : (
           <div className="flex w-full flex-col items-center gap-3">
             <p className="font-secondary text-p-md text-center">
-              You&apos;ve agreed on a revised topic:
+              You agreed on a wording you would both sign:
             </p>
             <TopicTile text={board.currentTopicText} />
           </div>
         )}
 
         <p className="font-secondary text-p-sm text-gray text-center italic">
-          Feel free to stay if you want to review the game board, expand your arguments,
-          or try to agree on a revised topic!
+          Stay as long as you like. The board is still here, and nothing stops you reading
+          it back, adding to it, or trying for the other ending too.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -201,7 +205,7 @@ export function WinOverlay({ board }: { board: BoardState }) {
             rel="noopener noreferrer"
             className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
           >
-            Share to Linkedin
+            Share to LinkedIn
           </a>
         </div>
       </div>

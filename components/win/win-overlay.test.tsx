@@ -53,10 +53,8 @@ describe("WinOverlay: visibility", () => {
   it("renders the card for a threads_resolved win", () => {
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByText("You've won!")).toBeTruthy();
-    expect(
-      screen.getByText("You've resolved all threads on the game board:"),
-    ).toBeTruthy();
+    expect(screen.getByText("You both won.")).toBeTruthy();
+    expect(screen.getByText("Every thread got a token:")).toBeTruthy();
   });
 
   it("renders the revised topic for a topic_agreed win", () => {
@@ -68,7 +66,7 @@ describe("WinOverlay: visibility", () => {
         })}
       />,
     );
-    expect(screen.getByText("You've agreed on a revised topic:")).toBeTruthy();
+    expect(screen.getByText("You agreed on a wording you would both sign:")).toBeTruthy();
     expect(screen.getByText("Cats are better.")).toBeTruthy();
   });
 
@@ -95,7 +93,7 @@ describe("WinOverlay: dismissal and reopening", () => {
     await user.click(screen.getByLabelText("Close and review the board"));
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    const pill = screen.getByText("🎉 You won — show results");
+    const pill = screen.getByText("🎉 You both won. Show results");
     expect(pill).toBeTruthy();
 
     await user.click(pill);
@@ -106,7 +104,7 @@ describe("WinOverlay: dismissal and reopening", () => {
     const user = userEvent.setup();
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
 
-    await user.click(screen.getByText("You've won!"));
+    await user.click(screen.getByText("You both won."));
     expect(screen.getByRole("dialog")).toBeTruthy();
 
     await user.click(screen.getByRole("dialog").parentElement!);
@@ -137,9 +135,9 @@ describe("WinOverlay: dismissal and reopening", () => {
 });
 
 describe("WinOverlay: buttons", () => {
-  it("always renders Share to Linkedin as a same-URL, personal-data-free new-tab link", () => {
+  it("always renders Share to LinkedIn as a same-URL, personal-data-free new-tab link", () => {
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
-    const link = screen.getByText("Share to Linkedin") as HTMLAnchorElement;
+    const link = screen.getByText("Share to LinkedIn") as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe(
       "https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fplay.pointtaken.social",
     );
@@ -163,7 +161,7 @@ describe("WinOverlay: buttons", () => {
     render(<WinOverlay board={makeBoard({ winCondition: "threads_resolved" })} />);
     expect(
       screen.getByText(
-        "Feel free to stay if you want to review the game board, expand your arguments, or try to agree on a revised topic!",
+        "Stay as long as you like. The board is still here, and nothing stops you reading it back, adding to it, or trying for the other ending too.",
       ),
     ).toBeTruthy();
   });
