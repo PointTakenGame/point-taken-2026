@@ -179,14 +179,29 @@ function pixelStyle(pos: GridPosition, layout: BoardLayout, size: number): CSSPr
 }
 
 /**
- * The faint octagon-and-square lattice behind the board in Rannie's render,
- * as a repeating background rather than as elements: it is ground, it is
- * infinite, and nothing ever interacts with it. One octagon per pitch cell,
- * inscribed so its edges meet its neighbours' and the leftover corners form
- * the small squares of the tessellation.
+ * The ground under the board: a fine dot grid, which is what Rannie draws
+ * behind the live 1v1 board in `1096:252192`. Background rather than
+ * elements, because it is ground: it is infinite and nothing ever interacts
+ * with it.
+ *
+ * This used to be an octagon-and-square lattice at one cell per tile pitch,
+ * read off the Gym canvas frame (`1064:214081`). Two things were wrong with
+ * that. She does not use the lattice on the live board at all, and where she
+ * does use it, its cell is about 1.7 times the tile pitch, not equal to it.
+ * At one cell per pitch it stopped being ground and started competing with
+ * the tiles for the eye. The Gym canvas can have its lattice back as a prop
+ * on this component the day the Gym exists; the board Steve opens today is
+ * the 1v1 board.
+ *
+ * The dots hold at 1px whatever the zoom, and only their spacing scales, so
+ * a zoomed-out board gets a finer ground rather than a coarser one.
  */
-const LATTICE =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='29,0 71,0 100,29 100,71 71,100 29,100 0,71 0,29' fill='none' stroke='%231e1e1e' stroke-opacity='0.06' stroke-width='2'/%3E%3C/svg%3E\")";
+const DOT_GROUND =
+  "radial-gradient(circle, color-mix(in srgb, var(--color-neutral-black) 14%, transparent) 1px, transparent 1.2px)";
+
+/** Dots per tile pitch. Measured off `1096:252192`: 28px dot spacing against
+ *  a 191px pitch, which is a hair under a seventh. */
+const DOTS_PER_PITCH = 7;
 
 /**
  * An open diagonal slot: a dashed octagon at half opacity that fills in on
@@ -443,12 +458,8 @@ export function SpatialBoard<T extends SpatialTile>({
       className={`absolute inset-0 overflow-hidden ${panning ? "cursor-grabbing select-none" : "cursor-grab"}`}
       style={{
         touchAction: "none",
-        backgroundImage: LATTICE,
-        // One lattice cell per pitch cell. Re-measured off Rannie's
-        // `1064:214081`, where the ground octagons are tile-sized and the
-        // tiles sit in them: the lattice is the grid the board is played on,
-        // not a wallpaper texture behind it.
-        backgroundSize: `${pitch * remPx * zoom}px ${pitch * remPx * zoom}px`,
+        backgroundImage: DOT_GROUND,
+        backgroundSize: `${(pitch * remPx * zoom) / DOTS_PER_PITCH}px ${(pitch * remPx * zoom) / DOTS_PER_PITCH}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
       onPointerDown={onPointerDown}

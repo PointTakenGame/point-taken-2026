@@ -183,7 +183,10 @@ export function TileShape({
           // tinted label reads as body text that happens to be small; the
           // outline reads as a stamp on the tile, which is what it is.
           <span
-            className="font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide text-white uppercase"
+            // Not `uppercase`: Rannie stamps "reason" in lower case and
+            // "TOPIC" in upper, so the case belongs to the word the caller
+            // passes, not to this class list.
+            className="font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide text-white"
             style={{
               WebkitTextStrokeWidth: "1.5px",
               WebkitTextStrokeColor: STROKE_COLOR[side],
@@ -203,7 +206,7 @@ export function TileShape({
         </div>
         {side === "neutral" && (
           <span
-            className="font-primary pointer-events-none absolute bottom-3 z-10 text-xs tracking-wide text-white uppercase"
+            className="font-primary pointer-events-none absolute bottom-3 z-10 text-xs tracking-wide text-white"
             aria-hidden="true"
             style={{
               WebkitTextStrokeWidth: "1.5px",

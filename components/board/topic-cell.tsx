@@ -268,7 +268,7 @@ export function TopicCell({
       <TileShape
         side="neutral"
         size={size}
-        watermark="topic"
+        watermark="TOPIC"
         selected={editing || proposal !== null}
       >
         {body()}

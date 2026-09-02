@@ -1226,7 +1226,7 @@ function InTileComposer({
     <div className="relative size-full">
       <TileShape side={side} size={OUTER_FRAME_REM} watermark="reason" selected>
         <p className="font-tiles w-full text-center">
-          <span className="block text-2xl leading-tight font-semibold">
+          <span className="text-p-lg block leading-tight font-semibold">
             {tileLead(side, parentTileId === null, parentSide)}
           </span>
           {/*
@@ -1238,7 +1238,7 @@ function InTileComposer({
             // The click that opened this cell was the request for a cursor
             // in it; the whole gesture is one motion.
             autoFocus
-            className="text-p-lg mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            className="text-p-md mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
             rows={3}
             value={text}
             maxLength={TILE_MAX_CHARS}
@@ -2233,7 +2233,7 @@ export function LiveBoard({
                     the octagon rather than against the page, because Rannie's
                     tiles carry text at roughly 8% of the tile's width and the
                     shared page body size left a 17rem octagon looking empty. */}
-                <span className="block text-2xl leading-tight font-semibold">
+                <span className="text-p-lg block leading-tight font-semibold">
                   {tileLead(
                     tile.side,
                     // A reason with no parent hangs off the topic, which is
@@ -2245,7 +2245,7 @@ export function LiveBoard({
                     tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
                   )}
                 </span>
-                <span className="text-p-lg block leading-snug">
+                <span className="text-p-md block leading-snug">
                   <TileText tile={tile} />
                 </span>
               </p>
