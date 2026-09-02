@@ -1209,11 +1209,11 @@ function ResolutionRow({
   const disabledTokens = RESOLUTION_TOKENS.filter((_, index) => !tokenVerdicts[index].ok);
 
   return (
+    // Question, then the answer to give, then who has answered. The standing
+    // line used to come first, so a card that had just asked "where do you two
+    // disagree?" answered itself with "You: no token. Them: no token" before
+    // offering anything to press.
     <div className="flex flex-col items-center gap-2 text-p-sm">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <Placed who="You" token={myToken} />
-        <Placed who="Them" token={otherToken} />
-      </div>
       {myToken ? (
         <button
           type="button"
@@ -1230,6 +1230,10 @@ function ResolutionRow({
           onPick={place}
         />
       )}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Placed who="You" token={myToken} />
+        <Placed who="Them" token={otherToken} />
+      </div>
       {myToken ? null : <WhyNotAll verdicts={tokenVerdicts} />}
       <ErrorLine error={error} />
     </div>
@@ -2637,6 +2641,12 @@ export function LiveBoard({
         <AnchoredCard
           anchorSelector={`[data-tile-id="${cssEscape(selectedTile.id)}"]`}
           onClose={() => setSelectedTileId(null)}
+          // The right rail is 15rem wide sitting 2rem in from the edge, and
+          // the canvas runs underneath it, so a tile near the middle of the
+          // board has "room to the right" that is actually Ways to win. One
+          // rem of air on top of the rail's own footprint, so the card flips
+          // to the tile's left instead of landing on the panel.
+          reserveRight={18}
         >
           <ul className="flex flex-col gap-2">
             <TileNode tile={selectedTile} gameId={gameId} me={me} board={board} onBoard />

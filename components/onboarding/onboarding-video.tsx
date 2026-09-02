@@ -31,7 +31,14 @@ export function OnboardingVideo({ src }: { src: string }) {
       timeoutId = setTimeout(() => {
         if (!video) return;
         video.currentTime = 0;
-        void video.play();
+        // `play()` returns a promise that rejects whenever the browser
+        // decides not to play: the tab went to the background, the OS is
+        // saving power, the element was torn down between `ended` and this
+        // timeout. None of those are faults and none need handling beyond
+        // not restarting. Unhandled, each one surfaces as an `AbortError`
+        // in the console, and the tutorial opens on every board load, so
+        // they pile up during ordinary play.
+        video.play().catch(() => {});
       }, LOOP_DELAY_MS);
     }
 

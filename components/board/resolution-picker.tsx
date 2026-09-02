@@ -18,8 +18,15 @@ export function ResolutionPicker({
 
   return (
     <div className="flex flex-col items-center gap-4">
+      {/* One line doing two jobs, which is the retired client's own trick:
+          at rest it tells you the tokens are readable, and under the cursor
+          it is the name of the token you are pointing at. It used to rest on
+          "Resolve thread", which put a second heading directly under the
+          card's own "Where do you two disagree?" and said nothing the tokens
+          did not already say. Two drawings mean nothing cold, so the resting
+          line now points at the way to read them. */}
       <p className="text-p-md font-secondary font-bold text-gray">
-        {hovered ? tokenLabel(hovered) : "Resolve thread"}
+        {hovered ? tokenLabel(hovered) : "Point at one to read it"}
       </p>
       <div className="flex flex-row items-center gap-4">
         {tokens.map((token) => {

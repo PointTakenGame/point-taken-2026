@@ -34,6 +34,7 @@ export function AnchoredCard({
   onClose,
   children,
   width = 22,
+  reserveRight = 0,
 }: {
   /** CSS selector for the element to sit beside. */
   anchorSelector: string;
@@ -41,6 +42,17 @@ export function AnchoredCard({
   children: ReactNode;
   /** Card width in rem. */
   width?: number;
+  /**
+   * A strip along the right edge this card may not enter, in rem.
+   *
+   * The board's canvas runs the full width of the window and the right rail
+   * floats over its last few inches, so "inside the viewport" is not the same
+   * as "not on top of the rail". Without this the card opened to the right of
+   * any tile in the middle of the board and landed squarely on Ways to win,
+   * which reads as two panels fighting rather than as a card belonging to a
+   * tile. Callers that have no furniture on the right pass nothing.
+   */
+  reserveRight?: number;
 }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -67,15 +79,16 @@ export function AnchoredCard({
     const gap = 12;
     // To the right of the tile by default, flipped to the left when there is
     // no room, and always kept inside the viewport vertically.
+    const rightLimit = window.innerWidth - 8 - reserveRight * 16;
     let left = rect.right + gap;
-    if (left + cardWidth > window.innerWidth - 8) left = rect.left - gap - cardWidth;
+    if (left + cardWidth > rightLimit) left = rect.left - gap - cardWidth;
     if (left < 8) left = 8;
     const top = Math.min(
       Math.max(8, rect.top + rect.height / 2 - cardHeight / 2),
       Math.max(8, window.innerHeight - cardHeight - 8),
     );
     setPos({ left, top });
-  }, [anchorSelector, width]);
+  }, [anchorSelector, width, reserveRight]);
 
   useEffect(() => {
     let frame = 0;
