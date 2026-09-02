@@ -157,7 +157,13 @@ export function TileShape({
             {watermark}
           </span>
         )}
-        <div className="font-tiles text-p-md text-neutral-black relative z-10 flex max-h-full flex-col items-center gap-1 overflow-y-auto">
+        {/* Scrolls, but never shows a bar for it. Fractional line heights
+            leave scrollHeight a rounded-up pixel above clientHeight on almost
+            every tile, so `auto` parks a permanent scrollbar down the right
+            of the octagon and takes 15px of text width with it. A tile is a
+            drawn object, not a text box; the wheel still works for the rare
+            reason long enough to need it. */}
+        <div className="font-tiles text-p-md text-neutral-black relative z-10 flex max-h-full flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {children}
         </div>
         {side !== "neutral" && (

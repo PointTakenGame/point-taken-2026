@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useCallback,
   useMemo,
@@ -14,7 +16,6 @@ import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/proje
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
-import { TopicTile } from "@/components/board/topic-tile";
 import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID } from "@/components/board/layout";
@@ -22,6 +23,9 @@ import { CollapsedThread } from "@/components/board/collapsed-thread";
 import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
+import { FloatingPanel } from "@/components/ui/floating-panel";
+import { AnchoredCard } from "@/components/ui/anchored-card";
+import { RuleCardTray } from "@/components/board/rule-card-tray";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -52,7 +56,7 @@ import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
-import { SIDE_LABEL, SIDE_MARK } from "./side-label";
+import { SIDE_LABEL, SIDE_MARK, tileLead } from "./side-label";
 import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
@@ -107,6 +111,52 @@ function allTargets(board: BoardState): BoardTile[] {
     ...thread.orphans.flatMap(flatten),
   ]);
   return fromThreads;
+}
+
+/**
+ * Quote a tile id for use inside an attribute selector.
+ *
+ * Ids are uuids today, so nothing here needs escaping, and that is exactly why
+ * it is worth doing: the day an id carries a quote or a backslash, the selector
+ * should stop matching nothing rather than start matching something else.
+ */
+function cssEscape(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+/**
+ * The cards sitting on one reason, drawn on its bottom edge.
+ *
+ * Icon only, because at board scale there is no room for a name and the name
+ * is one click away in the tile's own card. The tooltip carries it for a
+ * mouse, and the screen-reader text carries it for everyone else.
+ */
+function TileThrowBadges({ board, tileId }: { board: BoardState; tileId: string }) {
+  const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
+  if (here.length === 0) return null;
+  return (
+    <div className="absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 translate-y-1/2 gap-1">
+      {here.map((thrown) => {
+        const card = coachCard(thrown.cardId);
+        const standing = thrown.status === "standing";
+        return (
+          <span
+            key={thrown.seq}
+            title={card ? `${card.name}. ${card.plain}` : thrown.cardId}
+            className={`border-neutral-black/30 bg-offwhite flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${
+              standing ? "" : "opacity-50"
+            }`}
+          >
+            <span aria-hidden="true">{card ? card.icon : "?"}</span>
+            <span className="sr-only">
+              {card ? card.name : thrown.cardId}
+              {standing ? ", waiting for an answer" : ", settled"}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function ErrorLine({ error }: { error: string | null }) {
@@ -577,11 +627,19 @@ function TileNode({
   gameId,
   me,
   board,
+  onBoard = false,
 }: {
   tile: BoardTile;
   gameId: string;
   me: { playerId: string; role: Side };
   board: BoardState;
+  /**
+   * True when this node is opened beside the reason it acts on, out on the
+   * board. The octagon and the replies are already drawn there, so drawing
+   * them again inside the card would be saying the same thing twice; the card
+   * carries only what you cannot do by looking.
+   */
+  onBoard?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -631,7 +689,10 @@ function TileNode({
   return (
     <li className="flex flex-col gap-2">
       <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
+        {/* The octagon is redundant on the board, where the real one is a
+            few pixels away. It comes back while editing, because then it is
+            not a picture of the reason, it is the box you type in. */}
+        <div className={`relative shrink-0 ${onBoard && !editing ? "hidden" : ""}`}>
           <TileShape
             side={tile.side}
             size={11}
@@ -770,7 +831,7 @@ function TileNode({
         <SettledThrow key={thrown.seq} thrown={thrown} />
       ))}
 
-      {tile.children.length > 0 && (
+      {!onBoard && tile.children.length > 0 && (
         <ul className="ml-2 flex flex-col gap-2 border-l border-current/15 pl-4">
           {tile.children.map((child) => (
             <TileNode key={child.id} tile={child} gameId={gameId} me={me} board={board} />
@@ -883,14 +944,6 @@ function Placed({ who, token }: { who: string; token: string | null | undefined 
     </span>
   );
 }
-
-/**
- * The anchor the board's ghost slots scroll to. Clicking an open diagonal
- * picks the parent, and the box you then type in is somewhere further down
- * the page, so the click has to take you there or it looks like it did
- * nothing.
- */
-const COMPOSER_SECTION_ID = "place-a-tile";
 
 function Composer({
   gameId,
@@ -1033,14 +1086,6 @@ function Composer({
     </div>
   );
 }
-
-/**
- * The anchor the Ways-to-win pencil scrolls to. The two ways to win are drawn
- * at the top of the page, above the board, and rewriting the topic now happens
- * on the topic tile itself, so the pencil opens that editor and then brings the
- * board into view rather than sending you to a form somewhere else.
- */
-const BOARD_SECTION_ID = "the-board";
 
 /**
  * Reading their reason back in your own words, for them to judge.
@@ -1395,18 +1440,22 @@ function LeaveButton({ gameId }: { gameId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col items-start gap-1">
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
+        className="border-gray/30 bg-offwhite text-p-sm text-neutral-black hover:bg-sand cursor-pointer rounded-full border px-4 py-2 font-semibold shadow-md disabled:opacity-40"
         disabled={pending}
         onClick={leave}
+        title="Leave this game and go back to the home screen"
       >
-        {sure ? "Yes, end it for both of us" : "Leave this game"}
+        {sure ? "Yes, end it for both of us" : "\u2190 Leave game"}
       </button>
-      <p className="text-p-sm opacity-60">
-        The map stays in your history either way, marked unfinished.
-      </p>
+      {sure ? (
+        <p className="text-p-sm bg-offwhite border-gray/30 max-w-[16rem] rounded-xl border px-3 py-2 opacity-80 shadow-md">
+          A live board needs both sides, so this ends the game for the other player too.
+          The map stays in both histories, marked unfinished.
+        </p>
+      ) : null}
       <ErrorLine error={error} />
     </div>
   );
@@ -1587,249 +1636,423 @@ export function LiveBoard({
   // win pencil), so the board owns whether it is open, not the tile.
   const [topicEditing, setTopicEditing] = useState(false);
   const topicPending = pendingTopicRevision(board) !== null;
+  // The composer is a floating card now, not a section of a page, so it has
+  // an open state. Clicking an open slot on the board opens it, because the
+  // click has to lead somewhere or it looks like it did nothing.
+  const [composerOpen, setComposerOpen] = useState(false);
+  // What a reason can do belongs on the reason. Clicking one opens its actions
+  // beside it rather than sending the player to a list somewhere else on the
+  // screen to find the same tile a second time.
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  // Throwing a card is arm-then-target: pick the card in the tray, then click
+  // the reason it answers. While a card is armed a click on a tile plays it
+  // instead of opening that tile's actions, so the two never fire at once.
+  const [armedCardId, setArmedCardId] = useState<string | null>(null);
+  const [throwError, setThrowError] = useState<string | null>(null);
+  const [throwPending, startThrow] = useTransition();
+  const deck = cardsInPlay(board);
+  const cardCounts = useMemo(() => {
+    const tally: Record<string, number> = {};
+    for (const thrown of board.throws) {
+      if (thrown.thrownBy !== me.playerId) continue;
+      tally[thrown.cardId] = (tally[thrown.cardId] ?? 0) + 1;
+    }
+    return tally;
+  }, [board.throws, me.playerId]);
+  // A reason's lead line depends on whose reason it hangs under, so the board
+  // needs one lookup from tile id to side.
+  const sideOf = useMemo(
+    () => new Map(allTargets(board).map((tile) => [tile.id, tile.side])),
+    [board],
+  );
+  const selectedTile = useMemo(
+    () => allTargets(board).find((tile) => tile.id === selectedTileId) ?? null,
+    [board, selectedTileId],
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <header className="border-neutral-black/15 relative flex flex-col items-center gap-3 border-b pb-4">
-        {/*
-          The board's utility row: small controls that are not part of play
-          itself. The floating feedback button (app/layout.tsx) hides itself
-          on /game routes so it never floats over the board; this inline pill
-          is the replacement entry point while a game is in view.
-        */}
-        <div className="absolute right-0 top-0 flex items-center gap-2">
-          <FeedbackPopover variant="inline" />
+    /*
+      The board is the screen.
+
+      Ported from the retired client's `pages/game/[gameCode].vue`, which is
+      also what Rannie's `1064:214081` draws: a pan-and-zoom board filling the
+      viewport, with four floating clusters over its corners and nothing else
+      competing with it. What used to be here was a 3600px scrolling column of
+      headings, of which the board was one section among ten.
+
+      Everything that column held is still reachable and still wired; it moved
+      into the clusters. The pieces that ought to answer on the tile itself
+      (per-tile actions, thread resolution) are in the right-hand drawer until
+      they get their tile popovers, which is BRAIN-T260901-09, not this pass.
+    */
+    <div className="bg-offwhite fixed inset-0 overflow-hidden">
+      <SpatialBoard
+        // A rewrite of the topic is a negotiation about the whole board,
+        // so the board stops offering places to put a new reason while one
+        // is open or waiting for an answer.
+        placementEnabled={placementEnabled && !topicEditing && !topicPending}
+        canPlaceOn={canPlaceUnder}
+        onPlace={(parentId) => {
+          setReplyTarget(parentId === TOPIC_CELL_ID ? "" : parentId);
+          setComposerOpen(true);
+          setSelectedTileId(null);
+        }}
+        onSelect={(tileId) => {
+          if (armedCardId) {
+            const verdict = canThrowCard(
+              board,
+              tileId,
+              armedCardId,
+              me.role,
+              me.playerId,
+            );
+            if (!verdict.ok) {
+              setThrowError(verdict.error);
+              return;
+            }
+            setThrowError(null);
+            const cardId = armedCardId;
+            startThrow(async () => {
+              const result: ActionResult = await throwCard(gameId, {
+                tileId,
+                cardId,
+              });
+              if (!result.ok) setThrowError(result.error);
+              else setArmedCardId(null);
+            });
+            return;
+          }
+          setSelectedTileId((current) => (current === tileId ? null : tileId));
+        }}
+        tiles={allTargets(board)}
+        topic={
+          <TopicCell
+            gameId={gameId}
+            board={board}
+            me={me}
+            size={14}
+            editing={topicEditing}
+            onEdit={() => setTopicEditing(true)}
+            onEditEnd={() => setTopicEditing(false)}
+          />
+        }
+        renderTile={(tile) => (
+          <div className="relative size-full">
+            <TileShape
+              side={tile.side}
+              size={14}
+              watermark={tile.isOpeningReason ? "thread" : "reason"}
+              // Everything else fades while the topic is being rewritten,
+              // the same move the retired client makes for an emoji
+              // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
+              // a negotiation on one tile should not look like it belongs
+              // to the whole board.
+              dimmed={tile.removed || topicEditing || topicPending}
+              selected={tile.id === selectedTileId}
+            >
+              <p className="font-tiles text-center">
+                {/* The lead line, ported from the retired Tile.vue's
+                    `tilePrefix` and drawn the way Rannie draws it: a larger
+                    line above the reason, so a tile reads as a sentence
+                    rather than as a text box. */}
+                <span className="text-p-lg block leading-tight font-semibold">
+                  {tileLead(
+                    tile.side,
+                    // A reason with no parent hangs off the topic, which is
+                    // what an opening reason is. The flag is the engine's
+                    // word for the same thing and is trusted first, but it
+                    // defaults to false on older rows, and a tile answering
+                    // the topic must never come out as a rebuttal.
+                    tile.isOpeningReason || tile.parentId === null,
+                    tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
+                  )}
+                </span>
+                <span className="text-p-md block leading-snug">
+                  <TileText tile={tile} />
+                </span>
+              </p>
+            </TileShape>
+            {/* A card thrown at a reason leaves a mark on the reason, on its
+              bottom edge, which is where Rannie draws it and where the
+              retired client put it too. Without this the throw is invisible
+              until you open the tile, and a card nobody sees is a card that
+              did not land. Standing throws are full strength because they are
+              waiting on somebody; settled ones fade back to a record. */}
+            <TileThrowBadges board={board} tileId={tile.id} />
+          </div>
+        )}
+      />
+
+      {/* Top left: the way out, and which game this is. Ported from the
+          retired client, where the browser Back button is trapped and this
+          button is the only exit. */}
+      <div className="fixed top-14 left-8 z-30 flex items-start gap-3">
+        <LeaveButton gameId={gameId} />
+        {board.mode === "gym" && board.levelId ? (
+          <span className="bg-orange text-neutral-black text-p-sm font-primary rounded-full px-4 py-2 tracking-wide uppercase shadow-md">
+            {board.levelId.replace(/_/g, " ")}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Top centre: the coach, which is a voice in the game rather than a
+          panel of settings, so it sits where a voice would. */}
+      <div className="fixed top-8 left-1/2 z-30 w-[24rem] -translate-x-1/2">
+        <FloatingPanel title="My AI coach" defaultOpen={coachEnabled}>
+          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+        </FloatingPanel>
+      </div>
+
+      {/* Top right: who you are, help, and the two ways this ends. Same stack
+          and the same 13rem column width as the retired client. */}
+      <div className="fixed top-8 right-8 z-30 flex max-h-[calc(100vh-4rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-end gap-2">
+            <SideGlyph side={me.role} className="h-12 w-12" />
+            <h3
+              className="font-primary text-p-md tracking-wide uppercase"
+              style={{
+                color: me.role === "plus" ? "var(--color-green)" : "var(--color-orange)",
+                textShadow:
+                  "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
+              }}
+            >
+              {SIDE_LABEL[me.role]}
+            </h3>
+          </div>
           <button
             type="button"
             title="Instructions"
             aria-label="Instructions"
             onClick={() => setOnboardingOpen(true)}
-            className="btn-icon h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-p-md font-bold text-neutral-black shadow-md"
+            className="btn-icon border-gray/30 bg-offwhite text-p-md text-neutral-black h-10 w-10 shrink-0 cursor-pointer rounded-full border font-bold shadow-md"
           >
             ?
           </button>
         </div>
-        <p className="text-p-sm text-gray">
-          {joinCode ? (
-            <>
-              Room{" "}
-              <span className="text-neutral-black font-mono font-semibold">
-                {joinCode}
-              </span>{" "}
-              ·{" "}
-            </>
-          ) : null}
-          {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
-          {connected ? "updating live" : "reconnecting"}
-        </p>
-        <TopicTile text={board.currentTopicText} />
-      </header>
+
+        <WaysToWinCard
+          threads={miniThreads}
+          resolvedCount={resolvedCount}
+          onRevise={() => setTopicEditing(true)}
+        />
+
+        <FloatingPanel title="How this ends" defaultOpen={false}>
+          <HowThisEnds board={board} />
+        </FloatingPanel>
+
+        {/*
+          The threads drawer. Every thread's tiles and every per-tile action
+          used to be a page-long list below the board; the actions belong on
+          the tile and will move there with the tile popovers. Until then they
+          live here, folded away, rather than being dropped on the floor.
+        */}
+        <FloatingPanel
+          title={
+            threads.length === 0
+              ? "Threads"
+              : `Threads (${resolvedCount}/${threads.length})`
+          }
+          defaultOpen={false}
+        >
+          <div className="flex flex-col gap-4">
+            {threads.length === 0 ? (
+              <p className="text-p-sm text-gray">
+                Nothing on the board yet. Click one of the open slots around the topic to
+                start the first thread.
+              </p>
+            ) : (
+              threads.map((thread, index) => (
+                <ThreadBlock
+                  key={thread.rootId}
+                  gameId={gameId}
+                  thread={thread}
+                  index={index}
+                  me={me}
+                  board={board}
+                />
+              ))
+            )}
+
+            <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
+              <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
+                Generosity
+              </h3>
+              <p className="text-p-sm text-gray">
+                Thanks, on the record. It always goes to them, and it counts toward
+                nothing: this game is won together or not at all.
+              </p>
+              <p className="text-p-sm">
+                {SIDE_LABEL.plus} {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
+                {board.generosity.minus}
+              </p>
+              <GenerosityButton gameId={gameId} />
+            </section>
+
+            {definitions.length > 0 && (
+              <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
+                <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
+                  Words you have pinned down
+                </h3>
+                <dl className="text-p-sm flex flex-col gap-2">
+                  {definitions.map((entry) => (
+                    <div key={entry.proposalId} className="flex flex-col">
+                      <dt className="font-semibold">{entry.term}</dt>
+                      <dd className="opacity-80">{entry.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
+              <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
+                Who is here
+              </h3>
+              <ul className="text-p-sm flex flex-col gap-1">
+                {board.players.map((player) => (
+                  <li key={player.id}>
+                    {player.displayName ?? "Someone"}
+                    {player.id === me.playerId ? " (you)" : ""}
+                    {": "}
+                    {player.role ? SIDE_LABEL[player.role] : "no side yet"}
+                    {player.left ? `, left: ${player.left}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </FloatingPanel>
+      </div>
+
+      {/* Bottom left: the small print. The room code is read aloud, not
+          clicked, so it is quiet; the bug report sits next to it. */}
+      <div className="fixed bottom-8 left-8 z-30 flex items-center gap-3">
+        {joinCode ? (
+          <span className="border-gray/30 bg-offwhite text-p-sm text-gray rounded-full border px-4 py-2 shadow-md">
+            Room{" "}
+            <span className="text-neutral-black font-mono font-semibold">{joinCode}</span>
+          </span>
+        ) : null}
+        <FeedbackPopover variant="inline" />
+        {/*
+          Connection as a dot rather than a sentence. "In progress, updating
+          live" is true of almost every second of every game, so it was a
+          line of text that never said anything; what a player needs to see
+          is the moment it stops being true.
+        */}
+        <span
+          className="flex items-center gap-2"
+          title={`${STATUS_LABEL[board.status]}. ${connected ? "Updating live." : "Reconnecting."}`}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full ${connected ? "bg-green" : "bg-orange"}`}
+          />
+          <span className="sr-only">
+            {STATUS_LABEL[board.status]}, {connected ? "updating live" : "reconnecting"}
+          </span>
+        </span>
+        {/*
+          The quiet way off a live board, which is not the same door as Leave
+          game in the top left: walking away leaves the argument exactly where
+          it is, and the board is a projection of the log, so it is all still
+          here when you come back to it. This replaces `LeaveLinks`, which the
+          page still renders around the setup room but which would sit under a
+          full-screen board and be unreachable.
+        */}
+        <Link
+          href="/account"
+          className="text-p-sm text-gray decoration-gold underline underline-offset-2"
+        >
+          Your games
+        </Link>
+      </div>
+
+      {/* Bottom centre, one column: what you write, and what you hold.
+
+          The composer opens when a slot on the board is clicked, which is the
+          whole gesture the retired client had: hover a tile, click a diagonal,
+          type into the tile that appears. Typing into the tile itself is still
+          to come; this is the same flow with the box parked under the board
+          instead of on it. The hand sits below it, where Rannie draws it. */}
+      <div className="fixed bottom-8 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3">
+        {composerOpen ? (
+          <div className="w-[34rem]">
+            <div className="border-gray/30 bg-offwhite rounded-2xl border p-4 shadow-lg">
+              <div className="mb-2 flex items-baseline justify-between">
+                <h3 className="font-primary text-p-md tracking-wide uppercase">
+                  Place a reason
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(false)}
+                  className="text-p-sm text-gray hover:text-neutral-black cursor-pointer"
+                >
+                  close
+                </button>
+              </div>
+              <Composer
+                gameId={gameId}
+                board={board}
+                target={replyTarget}
+                onTargetChange={setReplyTarget}
+              />
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setComposerOpen(true)}
+            disabled={!placementEnabled}
+            className="border-gray/30 bg-neutral-black text-offwhite text-p-md font-primary cursor-pointer rounded-full px-6 py-3 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
+          >
+            Place a reason
+          </button>
+        )}
+        <RuleCardTray
+          deck={deck}
+          counts={cardCounts}
+          armedCardId={armedCardId}
+          onArm={(cardId) => {
+            setArmedCardId(cardId);
+            setThrowError(null);
+            // A card and a tile's action card both want the click on a tile,
+            // so arming one closes the other.
+            if (cardId) setSelectedTileId(null);
+          }}
+          hint={
+            throwError ??
+            (throwPending
+              ? "Playing that card..."
+              : armedCardId
+                ? "Now click the reason you want to play it on."
+                : null)
+          }
+        />
+      </div>
+
+      {/* Click a reason, act on that reason, right where it sits. The card
+          follows its tile through pan and zoom, so the two never drift apart.
+          What it holds is TileNode unchanged, the same edit / remove / ask to
+          move / card-throw surface the thread list uses, so there is one
+          implementation of a move and not two that can disagree. */}
+      {selectedTile && (
+        <AnchoredCard
+          anchorSelector={`[data-tile-id="${cssEscape(selectedTile.id)}"]`}
+          onClose={() => setSelectedTileId(null)}
+        >
+          <ul className="flex flex-col gap-2">
+            <TileNode tile={selectedTile} gameId={gameId} me={me} board={board} onBoard />
+          </ul>
+        </AnchoredCard>
+      )}
 
       <OnboardingOverlay
         open={onboardingOpen}
         onClose={() => setOnboardingOpen(false)}
         myRole={me.role}
       />
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Players
-        </h2>
-        <ul className="flex flex-col gap-1 text-p-sm">
-          {board.players.map((player) => (
-            <li key={player.id}>
-              {player.displayName ?? "Someone"}
-              {player.id === me.playerId ? " (you)" : ""}
-              {": "}
-              {player.role ? SIDE_LABEL[player.role] : "no side yet"}
-              {player.signed && player.signed.length > 0
-                ? ", signed"
-                : ", has not signed"}
-              {player.left && `, left: ${player.left}`}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Generosity
-        </h2>
-        <p className="text-p-sm text-gray">
-          Thanks, on the record. When the other player takes a challenge well, or rewrites
-          a reason to meet you halfway, give them a token. It always goes to them, and it
-          counts toward nothing: this game is won together or not at all.
-        </p>
-        <p className="text-p-sm">
-          {SIDE_LABEL.plus} has been given {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
-          has been given {board.generosity.minus}
-        </p>
-        <GenerosityButton gameId={gameId} />
-      </section>
-
-      <section id={COMPOSER_SECTION_ID} className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Place a tile
-        </h2>
-        <Composer
-          gameId={gameId}
-          board={board}
-          target={replyTarget}
-          onTargetChange={setReplyTarget}
-        />
-      </section>
-
-      <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
-
-      {definitions.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-            Words you have pinned down
-          </h2>
-          <dl className="flex flex-col gap-2 text-p-sm">
-            {definitions.map((entry) => (
-              <div key={entry.proposalId} className="flex flex-col">
-                <dt className="font-semibold">{entry.term}</dt>
-                <dd className="opacity-80">{entry.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
-
-      <div className="flex flex-col items-start gap-4 sm:flex-row">
-        <div className="w-full max-w-[13rem] shrink-0">
-          <WaysToWinCard
-            threads={miniThreads}
-            resolvedCount={resolvedCount}
-            onRevise={() => {
-              setTopicEditing(true);
-              document
-                .getElementById(BOARD_SECTION_ID)
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
-          />
-        </div>
-        <div className="w-full">
-          <HowThisEnds board={board} />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        {/*
-          The board is drawn from the first moment, before anybody has placed
-          anything, because the empty board is how the first tile gets placed:
-          the topic tile sits alone in the middle with four open slots
-          around it, and clicking one starts a thread.
-        */}
-        <section id={BOARD_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
-          <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-            The board
-          </h2>
-          <p className="text-p-sm text-gray">
-            {threads.length === 0
-              ? "Click one of the open slots around the topic to start your first thread."
-              : "Every reason in play, hung off the one it answers. Hover a reason to see where a new one can go. Drag the background to move around."}
-          </p>
-          <SpatialBoard
-            // A rewrite of the topic is a negotiation about the whole board,
-            // so the board stops offering places to put a new reason while one
-            // is open or waiting for an answer.
-            placementEnabled={placementEnabled && !topicEditing && !topicPending}
-            canPlaceOn={canPlaceUnder}
-            onPlace={(parentId) => {
-              setReplyTarget(parentId === TOPIC_CELL_ID ? "" : parentId);
-              document
-                .getElementById(COMPOSER_SECTION_ID)
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
-            tiles={allTargets(board)}
-            topic={
-              <TopicCell
-                gameId={gameId}
-                board={board}
-                me={me}
-                size={14}
-                editing={topicEditing}
-                onEdit={() => setTopicEditing(true)}
-                onEditEnd={() => setTopicEditing(false)}
-              />
-            }
-            renderTile={(tile) => (
-              <TileShape
-                side={tile.side}
-                size={14}
-                watermark={tile.isOpeningReason ? "thread" : "reason"}
-                // Everything else fades while the topic is being rewritten,
-                // the same move the retired client makes for an emoji
-                // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
-                // a negotiation on one tile should not look like it belongs
-                // to the whole board.
-                dimmed={tile.removed || topicEditing || topicPending}
-              >
-                <p className="font-tiles text-p-sm px-2 text-center">
-                  <TileText tile={tile} />
-                </p>
-              </TileShape>
-            )}
-          />
-        </section>
-
-        {threads.length === 0 ? null : (
-          <>
-            {threads.map((thread, index) => (
-              <ThreadBlock
-                key={thread.rootId}
-                gameId={gameId}
-                thread={thread}
-                index={index}
-                me={me}
-                board={board}
-              />
-            ))}
-          </>
-        )}
-      </div>
-
-      {/*
-        Two lists stood here, "Proposals waiting on you" and "Proposals you
-        asked", a dedicated area of the screen that collected every pending
-        proposal of every kind and offered Accept and Reject on each. Removed
-        2026-09-01 on Steve's call: "I think that was an ideation at some
-        point. Proposals are little UI elements that pop up next to tiles."
-
-        A proposal is always about a particular tile, so the tile is where it
-        gets answered. The topic rewrite already works that way, on the centre
-        cell (`topic-cell.tsx`). The other five kinds have no tile-side answer
-        yet and so cannot be answered at all until they get one; they are card
-        moves and they arrive with the cards, per the note below.
-
-        "Understanding each other" stood here: four labelled forms, one per
-        non-argument move, in a scrolling column of prose. Removed 2026-09-01
-        on Steve's call.
-
-        The mechanics behind them are real and stay in the event log. They are
-        rule cards, and they were built before there was a hand to put them in.
-        `roadmap.md:54` rules that tile relocation, the Help Me Understand
-        handback, all three Steel Man rungs and revise-topic are one
-        propose-and-approve interaction, so the primitive got built once and
-        every kind of it got a form. The forms were the wrong doorway: a card
-        is played off the hand onto a tile, not chosen from a list of headings.
-
-        Where each one lands when the hand exists: "say a reason back" is 💬
-        Help Me Understand, "pin down a word" is rung 2 of that same card
-        (`roadmap.md:174`, 📖 Define That is explicitly not its own card), and
-        the two Steel Man moves are track F, which is deferred past the first
-        release. The components are still in this file, unrendered, so the
-        card work has something to move rather than something to rewrite.
-      */}
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-p-sm font-semibold uppercase tracking-wide opacity-60">
-          Leaving
-        </h2>
-        <LeaveButton gameId={gameId} />
-      </section>
     </div>
   );
 }

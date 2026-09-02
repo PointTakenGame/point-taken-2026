@@ -121,6 +121,12 @@ export default async function GamePage({
 
   return (
     <>
+      {/*
+        No LeaveLinks and no page chrome around a live board: LiveBoard is a
+        full-screen surface now, ported from the retired client's board page,
+        and it carries its own way out in the bottom left. Anything rendered
+        beside it here would sit underneath it.
+      */}
       <LiveBoard
         gameId={gameId}
         board={board}
@@ -128,7 +134,6 @@ export default async function GamePage({
         coachEnabled={player?.coach_enabled ?? false}
         joinCode={seat.seat.game.join_code}
       />
-      <LeaveLinks />
       {hotseat}
     </>
   );
