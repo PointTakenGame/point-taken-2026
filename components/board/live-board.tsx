@@ -253,6 +253,22 @@ function cardLabel(cardId: string): string {
  * that silently loses cards is a hand you cannot learn.
  */
 /**
+ * The two buttons every little dialog on this board ends with.
+ *
+ * `.form-base` and `.btn-primary` came across from the retired client, where
+ * `.btn-primary` adds a shadow and nothing else, so the verb and the way out
+ * were the same grey box with the same weight and the player had to read both
+ * to find the one that does the thing. Everywhere else in this app the primary
+ * verb is a gold pill, so it is a gold pill here too, and the way out is the
+ * offwhite pill the board's own furniture uses.
+ */
+const PRIMARY_BUTTON =
+  "bg-gold text-neutral-white font-primary text-p-sm cursor-pointer rounded-full px-4 py-1.5 tracking-wide shadow-md disabled:cursor-default disabled:opacity-40";
+
+const SECONDARY_BUTTON =
+  "border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 cursor-pointer rounded-full border px-4 py-1.5 tracking-wide disabled:cursor-default disabled:opacity-40";
+
+/**
  * One move on a reason, in a card that has room to say what it is.
  *
  * The tile card out on the board used to carry the same row of grey underlines
@@ -593,6 +609,32 @@ function SettledThrow({ thrown }: { thrown: BoardThrow }) {
   );
 }
 
+/**
+ * An ask that has been answered, kept on the reason it was about.
+ *
+ * Settled throws already stay on the board, because the exchange is the record
+ * and not a step on the way to one, and an answered ask is the same kind of
+ * thing. It matters more here: a rejection is typed rather than clicked, and
+ * that sentence is the most interesting thing either player writes. It was
+ * being written into the log and then shown to nobody, the person who asked
+ * included, so the two of them said no to each other in private.
+ */
+function SettledProposal({
+  proposal,
+  board,
+}: {
+  proposal: BoardProposal;
+  board: BoardState;
+}) {
+  return (
+    <p className="ml-6 text-xs opacity-60">
+      {proposalSentence(proposal, board)}
+      {proposal.status === "accepted" ? " Yes." : " No."}
+      {proposal.status === "rejected" && proposal.reason ? ` "${proposal.reason}"` : ""}
+    </p>
+  );
+}
+
 /** A tile's text, short enough for a menu or a one-line summary. */
 function shortText(board: BoardState, tileId: Uuid | null): string {
   if (!tileId) return "a reason";
@@ -753,6 +795,17 @@ function TileNode({
     draft.trim().length > 0
       ? editVerdict
       : canEditTile(board, tile.id, me.playerId, "a reason");
+  const openProposals = board.proposals.filter(
+    (proposal) => proposal.status === "pending" && proposal.targetTileId === tile.id,
+  );
+  // A question on this reason that is waiting on you is the only thing on the
+  // card worth reading, so it is the only thing on the card. Under the full
+  // menu it opened five rows down and past the fold, which is where a move
+  // goes to be missed.
+  const awaitingMyAnswer = openProposals.some((proposal) => proposal.askedBy !== me.role);
+  const settledProposals = board.proposals.filter(
+    (proposal) => proposal.status !== "pending" && proposal.targetTileId === tile.id,
+  );
   const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
   const standing = throwsHere.filter((thrown) => thrown.status === "standing");
   const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
@@ -817,7 +870,7 @@ function TileNode({
               <span className="flex gap-2">
                 <button
                   type="button"
-                  className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+                  className={PRIMARY_BUTTON}
                   disabled={pending || !editVerdict.ok}
                   title={!editVerdict.ok ? editVerdict.error : undefined}
                   onClick={runEdit}
@@ -826,7 +879,7 @@ function TileNode({
                 </button>
                 <button
                   type="button"
-                  className="form-base px-3 py-1 text-xs"
+                  className={SECONDARY_BUTTON}
                   disabled={pending}
                   onClick={() => {
                     setDraft(tile.text);
@@ -848,8 +901,16 @@ function TileNode({
                   ruled apart: everything above the line puts a question to
                   the other player and waits for them, everything below it is
                   housekeeping on a reason of your own that happens the moment
-                  you click. */}
-              <div className="-mx-2 flex flex-col">
+                  you click.
+
+                  Picking one puts the menu away. The forms open below, and
+                  with the list still above them the card was a form under
+                  four dead rows of things you could have done instead. */}
+              <div
+                className={`-mx-2 flex flex-col ${
+                  proposing !== null || moving || awaitingMyAnswer ? "hidden" : ""
+                }`}
+              >
                 <ActionItem
                   label="Move it"
                   hint="Ask them to hang this reason under a different one."
@@ -1006,20 +1067,15 @@ function TileNode({
 
       {/* Open proposals about this reason, on this reason. Both directions:
           the one you are waiting on and the one waiting on you. */}
-      {board.proposals
-        .filter(
-          (proposal) =>
-            proposal.status === "pending" && proposal.targetTileId === tile.id,
-        )
-        .map((proposal) => (
-          <ProposalCard
-            key={proposal.id}
-            gameId={gameId}
-            proposal={proposal}
-            board={board}
-            me={me}
-          />
-        ))}
+      {openProposals.map((proposal) => (
+        <ProposalCard
+          key={proposal.id}
+          gameId={gameId}
+          proposal={proposal}
+          board={board}
+          me={me}
+        />
+      ))}
 
       {proposing === "reading" && (
         <ReadingHandbackForm
@@ -1072,11 +1128,19 @@ function TileNode({
           answerable={mine}
         />
       ))}
-      {!mine && tile.side !== me.role && !tile.removed && (
-        <CardHand gameId={gameId} tile={tile} me={me} board={board} onBoard={onBoard} />
-      )}
+      {!mine &&
+        tile.side !== me.role &&
+        !tile.removed &&
+        // The hand is another way to act on this reason, so it goes away with
+        // the rest of them while one of the forms is open.
+        !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
+          <CardHand gameId={gameId} tile={tile} me={me} board={board} onBoard={onBoard} />
+        )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
+      ))}
+      {settledProposals.map((proposal) => (
+        <SettledProposal key={proposal.id} proposal={proposal} board={board} />
       ))}
 
       {!onBoard && tile.children.length > 0 && (
@@ -1160,7 +1224,7 @@ function ProposalCard({
           <span className="flex gap-2">
             <button
               type="button"
-              className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending}
               onClick={() => answer(false)}
             >
@@ -1168,7 +1232,7 @@ function ProposalCard({
             </button>
             <button
               type="button"
-              className="form-base px-3 py-1 text-xs"
+              className={SECONDARY_BUTTON}
               disabled={pending}
               onClick={() => setRejecting(false)}
             >
@@ -1182,7 +1246,7 @@ function ProposalCard({
           <span className="flex gap-2">
             <button
               type="button"
-              className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending || !verdict.ok}
               onClick={() => answer(true)}
             >
@@ -1190,7 +1254,7 @@ function ProposalCard({
             </button>
             <button
               type="button"
-              className="form-base px-3 py-1 text-xs disabled:opacity-40"
+              className={SECONDARY_BUTTON}
               disabled={pending || !verdict.ok}
               onClick={() => setRejecting(true)}
             >
@@ -1355,7 +1419,7 @@ function ResolutionRow({
       {myToken ? (
         <button
           type="button"
-          className="form-base px-3 py-1 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={clear}
         >
@@ -1761,7 +1825,7 @@ function ReadingHandbackForm({
       <span className="flex gap-2">
         <button
           type="button"
-          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          className={PRIMARY_BUTTON}
           disabled={pending || !verdict.ok}
           title={!verdict.ok ? verdict.error : undefined}
           onClick={submit}
@@ -1770,7 +1834,7 @@ function ReadingHandbackForm({
         </button>
         <button
           type="button"
-          className="form-base px-3 py-1 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={onDone}
         >
@@ -1883,7 +1947,7 @@ function SteelmanTileForm({
       <span className="flex gap-2">
         <button
           type="button"
-          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          className={PRIMARY_BUTTON}
           disabled={pending || !verdict.ok}
           title={!verdict.ok ? verdict.error : undefined}
           onClick={submit}
@@ -1892,7 +1956,7 @@ function SteelmanTileForm({
         </button>
         <button
           type="button"
-          className="form-base px-3 py-1 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={onDone}
         >
@@ -1977,7 +2041,7 @@ function DefinitionForm({
       <span className="flex gap-2">
         <button
           type="button"
-          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          className={PRIMARY_BUTTON}
           disabled={pending || !verdict.ok}
           title={!verdict.ok ? verdict.error : undefined}
           onClick={submit}
@@ -1986,7 +2050,7 @@ function DefinitionForm({
         </button>
         <button
           type="button"
-          className="form-base px-3 py-1 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={onDone}
         >
