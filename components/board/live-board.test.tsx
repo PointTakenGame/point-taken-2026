@@ -79,7 +79,12 @@ const BOB = "22222222-2222-4222-8222-222222222222";
 
 /** Same envelope the database returns; only type, actor, and payload matter here. */
 function buildEvents(
-  parts: { type: string; payload: unknown; actor_id?: string | null }[],
+  parts: {
+    type: string;
+    payload: unknown;
+    actor_id?: string | null;
+    actor_role?: string;
+  }[],
 ): AnyGameEvent[] {
   return parts.map((part, index) => ({
     id: `e${index + 1}`,
@@ -94,31 +99,63 @@ function buildEvents(
   })) as AnyGameEvent[];
 }
 
+/** The events every board here starts from: two seated players and a topic. */
+function startedGame() {
+  return [
+    {
+      type: "game_created",
+      payload: { mode: "live", level_id: null, boss_id: null, join_code: "PTKN22" },
+    },
+    { type: "player_joined", payload: { display_name: "Alice" }, actor_id: ALICE },
+    { type: "role_selected", payload: { role: "plus" }, actor_id: ALICE },
+    { type: "player_joined", payload: { display_name: "Bob" }, actor_id: BOB },
+    { type: "role_selected", payload: { role: "minus" }, actor_id: BOB },
+    {
+      type: "topic_set",
+      payload: {
+        text: "Cities should cap rents.",
+        origin: "library",
+        topic_id: "rent-cap",
+      },
+    },
+    {
+      type: "game_started",
+      payload: {
+        card_set: { policy: "intersection", card_ids: [], raised_by: null },
+        coach: null,
+      },
+    },
+  ];
+}
+
 function activeBoard() {
+  return projectBoard(buildEvents(startedGame()));
+}
+
+const TILE = "33333333-3333-4333-8333-333333333333";
+
+/** Alice's reason, with Bob's card sitting on it, unanswered. */
+function boardWithStandingThrow() {
   return projectBoard(
     buildEvents([
+      ...startedGame(),
       {
-        type: "game_created",
-        payload: { mode: "live", level_id: null, boss_id: null, join_code: "PTKN22" },
-      },
-      { type: "player_joined", payload: { display_name: "Alice" }, actor_id: ALICE },
-      { type: "role_selected", payload: { role: "plus" }, actor_id: ALICE },
-      { type: "player_joined", payload: { display_name: "Bob" }, actor_id: BOB },
-      { type: "role_selected", payload: { role: "minus" }, actor_id: BOB },
-      {
-        type: "topic_set",
+        type: "tile_placed",
         payload: {
-          text: "Cities should cap rents.",
-          origin: "library",
-          topic_id: "rent-cap",
+          tile_id: TILE,
+          parent_tile_id: null,
+          thread_root_id: TILE,
+          side: "plus",
+          text: "You are ignoring how much rent has risen.",
+          is_opening_reason: true,
         },
+        actor_id: ALICE,
       },
       {
-        type: "game_started",
-        payload: {
-          card_set: { policy: "intersection", card_ids: [], raised_by: null },
-          coach: null,
-        },
+        type: "card_thrown",
+        payload: { card_id: "you_is_taboo", rung_id: null, target_tile_id: TILE },
+        actor_id: BOB,
+        actor_role: "minus",
       },
     ]),
   );
@@ -248,5 +285,67 @@ describe("LiveBoard: the room code during play", () => {
     );
 
     expect(screen.queryByRole("button", { name: /copy|share|invite|link/i })).toBeNull();
+  });
+});
+
+describe("LiveBoard: whose move a thrown card is", () => {
+  /**
+   * The answer surface for a thrown card is inside the target tile's own card,
+   * and it is fine. What was missing was any reason to open the tile. Both
+   * seats saw the same grey badge saying the same "waiting for an answer",
+   * which does not say waiting on whom, so the player who owed a rewrite had
+   * nothing telling them the turn was theirs.
+   */
+  it("tells the reason's author the card is theirs to answer", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    expect(screen.getByText(/waiting for your answer/)).toBeTruthy();
+    expect(screen.queryByText(/waiting for their answer/)).toBeNull();
+  });
+
+  it("tells the player who threw it that they are the one waiting", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: BOB, role: "minus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    expect(screen.getByText(/waiting for their answer/)).toBeTruthy();
+    expect(screen.queryByText(/waiting for your answer/)).toBeNull();
+  });
+
+  // The colour is the whole point of the change, so it is worth pinning: a
+  // sentence only a screen reader hears would leave the sighted player exactly
+  // where they were.
+  it("marks only the owed answer, in the same colours an unanswered ask uses", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    const badge = screen.getByText(/waiting for your answer/).parentElement;
+    expect(badge?.className).toContain("border-gold");
+    expect(badge?.className).toContain("bg-sand");
+    expect(container.querySelectorAll(".border-gold").length).toBe(1);
   });
 });

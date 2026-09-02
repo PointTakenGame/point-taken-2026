@@ -148,8 +148,26 @@ function cssEscape(value: string): string {
  * Icon only, because at board scale there is no room for a name and the name
  * is one click away in the tile's own card. The tooltip carries it for a
  * mouse, and the screen-reader text carries it for everyone else.
+ *
+ * A standing card is somebody's move, and whose it is has to be visible from
+ * the board. Playing it without that: a card lands on your reason, the badge
+ * appears in the same grey it wears for a card you threw yourself, and the
+ * only words anywhere are "waiting for an answer", which does not say waiting
+ * on whom. The answer surface exists and is good, inside the tile's own card,
+ * but nothing gives you a reason to open the tile, so the game sits there
+ * looking finished while it is actually your turn. `TileProposalBadge` two
+ * hundred lines down already solved this for asks; this is the same rule in
+ * the same colours.
  */
-function TileThrowBadges({ board, tileId }: { board: BoardState; tileId: string }) {
+function TileThrowBadges({
+  board,
+  tileId,
+  me,
+}: {
+  board: BoardState;
+  tileId: string;
+  me: { playerId: string; role: Side };
+}) {
   const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
   if (here.length === 0) return null;
   return (
@@ -157,18 +175,37 @@ function TileThrowBadges({ board, tileId }: { board: BoardState; tileId: string 
       {here.map((thrown) => {
         const card = coachCard(thrown.cardId);
         const standing = thrown.status === "standing";
+        // A card the other side played is yours to answer. A card the coach
+        // played is too, which is why this asks who it was not rather than
+        // who it was.
+        const yours = standing && thrown.thrownByRole !== me.role;
+        const name = card ? card.name : thrown.cardId;
         return (
           <span
             key={thrown.seq}
-            title={card ? `${card.name}. ${card.plain}` : thrown.cardId}
-            className={`border-neutral-black/30 bg-offwhite flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${
-              standing ? "" : "opacity-50"
+            title={
+              standing
+                ? yours
+                  ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
+                  : `${name}. You played this. Waiting for their rewrite.`
+                : `${name}. ${card ? card.plain : ""}`
+            }
+            className={`flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${
+              yours
+                ? "border-gold bg-sand"
+                : standing
+                  ? "border-neutral-black/30 bg-offwhite"
+                  : "border-neutral-black/30 bg-offwhite opacity-50"
             }`}
           >
             <span aria-hidden="true">{card ? card.icon : "?"}</span>
             <span className="sr-only">
-              {card ? card.name : thrown.cardId}
-              {standing ? ", waiting for an answer" : ", settled"}
+              {name}
+              {standing
+                ? yours
+                  ? ", waiting for your answer"
+                  : ", waiting for their answer"
+                : ", settled"}
             </span>
           </span>
         );
@@ -2645,9 +2682,9 @@ export function LiveBoard({
               bottom edge, which is where Rannie draws it and where the
               retired client put it too. Without this the throw is invisible
               until you open the tile, and a card nobody sees is a card that
-              did not land. Standing throws are full strength because they are
-              waiting on somebody; settled ones fade back to a record. */}
-            <TileThrowBadges board={board} tileId={tile.id} />
+              did not land. A card waiting on you is gold, a card waiting on
+              them is plain, and a settled one fades back to a record. */}
+            <TileThrowBadges board={board} tileId={tile.id} me={me} />
             {/* A settled thread says so on the reason it started from, on the
               top edge, opposite the thrown cards. Half strength while only
               one side has laid a token down, because a thread with one token
