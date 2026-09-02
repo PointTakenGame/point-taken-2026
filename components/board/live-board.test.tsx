@@ -161,6 +161,33 @@ function boardWithStandingThrow() {
   );
 }
 
+/** Alice's reason, with only Bob's resolution token on its thread. */
+function boardWithOneToken() {
+  return projectBoard(
+    buildEvents([
+      ...startedGame(),
+      {
+        type: "tile_placed",
+        payload: {
+          tile_id: TILE,
+          parent_tile_id: null,
+          thread_root_id: TILE,
+          side: "plus",
+          text: "Rents have risen faster than wages.",
+          is_opening_reason: true,
+        },
+        actor_id: ALICE,
+      },
+      {
+        type: "resolution_emoji_placed",
+        payload: { thread_root_id: TILE, emoji: "\u{1F440}" },
+        actor_id: BOB,
+        actor_role: "minus",
+      },
+    ]),
+  );
+}
+
 beforeEach(() => {
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
 });
@@ -347,5 +374,48 @@ describe("LiveBoard: whose move a thrown card is", () => {
     expect(badge?.className).toContain("border-gold");
     expect(badge?.className).toContain("bg-sand");
     expect(container.querySelectorAll(".border-gold").length).toBe(1);
+  });
+});
+
+describe("LiveBoard: whose move a resolution token is", () => {
+  /**
+   * Ending a thread is the first win condition, and it takes both sides
+   * putting the same token down. One side had done it and the other side's
+   * board said so only in a `title`, in the same grey the badge wears when
+   * you are the one waiting. Nothing distinguished "they have moved, it is
+   * your turn" from "you have moved, sit tight".
+   */
+  it("marks the token as yours to answer when only they have put one down", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithOneToken()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    const badge = screen.getByText(/They suggested/).parentElement;
+    expect(badge?.className).toContain("border-gold");
+    expect(screen.getByText(/Click the reason to say whether you agree/)).toBeTruthy();
+    expect(container.querySelectorAll(".border-gold").length).toBe(1);
+  });
+
+  it("leaves the player who put it down waiting, not prompted", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithOneToken()}
+        me={{ playerId: BOB, role: "minus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    expect(screen.getByText(/You suggested.*Waiting for them/)).toBeTruthy();
+    expect(container.querySelectorAll(".border-gold").length).toBe(0);
   });
 });

@@ -2314,17 +2314,32 @@ function ThreadTokenBadge({
   // right edge is the one flat side with nothing on it: the watermark word
   // is along the top and the three side glyphs are along the bottom.
   const edgeInset = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
+  // A token they have put down and you have not matched is your move, and it
+  // is the move that ends a thread, so it gets the same gold a thrown card
+  // and an unanswered ask get. Before this the badge looked identical whether
+  // you were the one waiting or the one being waited on, and the only words
+  // anywhere were in a `title`, which needs a mouse held still long enough to
+  // trust and says nothing at all to a screen reader.
+  const yours = !settled && theirs !== null && mine === null;
+  const words = settled
+    ? `Thread resolved: ${tokenLabel(settled)}`
+    : yours
+      ? `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
+      : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
   return (
     <span
       style={{ right: edgeInset }}
-      className={`border-gray/30 bg-offwhite absolute top-1/2 z-20 flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${settled ? "" : "opacity-60"}`}
-      title={
+      className={`absolute top-1/2 z-20 flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${
         settled
-          ? `Thread resolved: ${tokenLabel(settled)}`
-          : `${mine ? "You" : "They"} suggested: ${tokenLabel(token)}`
-      }
+          ? "border-gray/30 bg-offwhite"
+          : yours
+            ? "border-gold bg-sand"
+            : "border-gray/30 bg-offwhite opacity-60"
+      }`}
+      title={words}
     >
       <TokenGlyph token={token} size={22} />
+      <span className="sr-only">{words}</span>
     </span>
   );
 }
