@@ -1665,6 +1665,26 @@ export function LiveBoard({
     () => new Map(allTargets(board).map((tile) => [tile.id, tile.side])),
     [board],
   );
+  /*
+    Connection as a dot rather than a sentence. "In progress, updating live"
+    is true of almost every second of every game, so it was a line of text
+    that never said anything; what a player needs to see is the moment it
+    stops being true.
+  */
+  const statusDot = (
+    <span
+      className="flex items-center gap-2"
+      title={`${STATUS_LABEL[board.status]}. ${connected ? "Updating live." : "Reconnecting."}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 rounded-full ${connected ? "bg-green" : "bg-orange"}`}
+      />
+      <span className="sr-only">
+        {STATUS_LABEL[board.status]}, {connected ? "updating live" : "reconnecting"}
+      </span>
+    </span>
+  );
   const selectedTile = useMemo(
     () => allTargets(board).find((tile) => tile.id === selectedTileId) ?? null,
     [board, selectedTileId],
@@ -1925,9 +1945,11 @@ export function LiveBoard({
         </FloatingPanel>
       </div>
 
-      {/* Bottom left: the small print. The room code is read aloud, not
-          clicked, so it is quiet; the bug report sits next to it. */}
-      <div className="fixed bottom-8 left-8 z-30 flex items-center gap-3">
+      {/* Bottom left: the small print, stacked the way Rannie stacks it. A
+          row here ran into the composer in the middle of the screen the
+          moment the window got narrow, and this corner is the one part of
+          the board with vertical room to spare. */}
+      <div className="fixed bottom-8 left-8 z-30 flex flex-col items-start gap-2">
         {joinCode ? (
           <span className="border-gray/30 bg-offwhite text-p-sm text-gray rounded-full border px-4 py-2 shadow-md">
             Room{" "}
@@ -1936,24 +1958,6 @@ export function LiveBoard({
         ) : null}
         <FeedbackPopover variant="inline" />
         {/*
-          Connection as a dot rather than a sentence. "In progress, updating
-          live" is true of almost every second of every game, so it was a
-          line of text that never said anything; what a player needs to see
-          is the moment it stops being true.
-        */}
-        <span
-          className="flex items-center gap-2"
-          title={`${STATUS_LABEL[board.status]}. ${connected ? "Updating live." : "Reconnecting."}`}
-        >
-          <span
-            aria-hidden="true"
-            className={`h-2 w-2 rounded-full ${connected ? "bg-green" : "bg-orange"}`}
-          />
-          <span className="sr-only">
-            {STATUS_LABEL[board.status]}, {connected ? "updating live" : "reconnecting"}
-          </span>
-        </span>
-        {/*
           The quiet way off a live board, which is not the same door as Leave
           game in the top left: walking away leaves the argument exactly where
           it is, and the board is a projection of the log, so it is all still
@@ -1961,12 +1965,15 @@ export function LiveBoard({
           page still renders around the setup room but which would sit under a
           full-screen board and be unreachable.
         */}
-        <Link
-          href="/account"
-          className="text-p-sm text-gray decoration-gold underline underline-offset-2"
-        >
-          Your games
-        </Link>
+        <span className="flex items-center gap-3 pl-1">
+          <Link
+            href="/account"
+            className="text-p-sm text-gray decoration-gold underline underline-offset-2"
+          >
+            Your games
+          </Link>
+          {statusDot}
+        </span>
       </div>
 
       {/* Bottom centre, one column: what you write, and what you hold.

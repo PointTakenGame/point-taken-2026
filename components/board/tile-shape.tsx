@@ -33,19 +33,31 @@ const SIDE_BORDER: Record<TileSide, string> = {
   neutral: "border-neutral-black",
 };
 
-const SIDE_TEXT: Record<TileSide, string> = {
-  plus: "text-green",
-  minus: "text-orange",
-  neutral: "text-neutral-black",
-};
-
 /** The outer ring is a tint, not a second full-strength line: measured at a
  * light wash of the side colour in Rannie's render, ~10px outside the main
  * border. `border: inherit` on the `::before` carries the alpha with it. */
+/** The wash inside the outer ring. The inner octagon paints itself offwhite
+ *  on top, so only the band between the two frames keeps this, which is the
+ *  soft coloured halo around every tile in Rannie's render. */
+const SIDE_WASH: Record<TileSide, string> = {
+  plus: "bg-green/10",
+  minus: "bg-orange/10",
+  neutral: "bg-neutral-black/5",
+};
+
 const SIDE_BORDER_SOFT: Record<TileSide, string> = {
   plus: "border-green/40",
   minus: "border-orange/40",
   neutral: "border-neutral-black/30",
+};
+
+/** The `-webkit-text-stroke` colour behind the corner watermark, as tokens
+ *  rather than the retired client's literal #49CA81 / #FFB42F, so a palette
+ *  change moves the outline with everything else. */
+const STROKE_COLOR: Record<TileSide, string> = {
+  plus: "var(--color-green)",
+  minus: "var(--color-orange)",
+  neutral: "var(--color-neutral-black)",
 };
 
 /**
@@ -126,9 +138,9 @@ export function TileShape({
     >
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
         <div
-          className={`absolute inset-0 overflow-hidden rotate-45 border bg-offwhite before:absolute before:[inset:-1px] before:rotate-45 before:[border:inherit] before:content-[''] ${
-            selected ? SIDE_BORDER[side] : SIDE_BORDER_SOFT[side]
-          }`}
+          className={`absolute inset-0 overflow-hidden rotate-45 border before:absolute before:[inset:-1px] before:rotate-45 before:[border:inherit] before:content-[''] ${
+            SIDE_WASH[side]
+          } ${selected ? SIDE_BORDER[side] : SIDE_BORDER_SOFT[side]}`}
         />
       </div>
       <div
@@ -151,8 +163,17 @@ export function TileShape({
           />
         )}
         {watermark && (
+          // White fill with a stance-coloured outline, which is exactly what
+          // the retired Tile.vue does to this word (a 1.5px
+          // -webkit-text-stroke, its h3.reason) and what Rannie draws. A flat
+          // tinted label reads as body text that happens to be small; the
+          // outline reads as a stamp on the tile, which is what it is.
           <span
-            className={`font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide uppercase ${SIDE_TEXT[side]} opacity-40`}
+            className="font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide text-white uppercase"
+            style={{
+              WebkitTextStrokeWidth: "1.5px",
+              WebkitTextStrokeColor: STROKE_COLOR[side],
+            }}
           >
             {watermark}
           </span>

@@ -40,42 +40,46 @@ export function RuleCardTray({
   if (deck.length === 0) return null;
 
   return (
-    <div className="border-gray/30 bg-offwhite flex flex-col items-center gap-2 rounded-2xl border px-5 py-3 shadow-lg">
-      <span className="font-primary text-p-sm text-gray tracking-wide uppercase">
+    <div className="w-[34rem]">
+      {/* The label is a tab on the bar's top edge, not a line inside it,
+          which is how Rannie draws it: the tray reads as a thing pulled up
+          from the bottom of the screen rather than as another card floating
+          over the board. */}
+      <span className="border-gray/30 bg-neutral-black text-offwhite font-primary text-p-sm relative z-10 ml-4 inline-block rounded-t-lg border border-b-0 px-4 pt-1 pb-1 tracking-wide uppercase">
         My rule cards
       </span>
-      <div className="flex items-center gap-3">
-        {deck.map((cardId) => {
-          const card = coachCard(cardId);
-          const armed = armedCardId === cardId;
-          const count = counts[cardId] ?? 0;
-          return (
-            <button
-              key={cardId}
-              type="button"
-              aria-pressed={armed}
-              title={card ? `${card.name}. ${card.plain}` : cardId}
-              onClick={() => onArm(armed ? null : cardId)}
-              className={`relative flex size-12 cursor-pointer items-center justify-center rounded-full border text-2xl transition-colors ${
-                armed
-                  ? "border-neutral-black bg-sand"
-                  : "border-gray/30 bg-offwhite hover:bg-sand/40"
-              }`}
-            >
-              <span aria-hidden="true">{card ? card.icon : "?"}</span>
-              <span className="sr-only">{card ? card.name : cardId}</span>
-              {count > 0 && (
-                <span className="bg-neutral-black text-offwhite absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold">
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="border-gray/30 bg-offwhite -mt-px flex flex-col items-center gap-2 rounded-2xl rounded-tl-none border px-5 py-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          {deck.map((cardId) => {
+            const card = coachCard(cardId);
+            const armed = armedCardId === cardId;
+            const count = counts[cardId] ?? 0;
+            return (
+              <button
+                key={cardId}
+                type="button"
+                aria-pressed={armed}
+                title={card ? `${card.name}. ${card.plain}` : cardId}
+                onClick={() => onArm(armed ? null : cardId)}
+                className={`relative flex size-12 cursor-pointer items-center justify-center rounded-xl border-2 text-2xl transition-colors ${
+                  armed
+                    ? "border-neutral-black bg-sand"
+                    : "border-gray/30 bg-offwhite hover:bg-sand/40"
+                }`}
+              >
+                <span aria-hidden="true">{card ? card.icon : "?"}</span>
+                <span className="sr-only">{card ? card.name : cardId}</span>
+                {count > 0 && (
+                  <span className="bg-neutral-black text-offwhite absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {hint && <span className="text-p-sm text-gray text-center">{hint}</span>}
       </div>
-      {hint && (
-        <span className="text-p-sm text-gray max-w-[26rem] text-center">{hint}</span>
-      )}
     </div>
   );
 }
