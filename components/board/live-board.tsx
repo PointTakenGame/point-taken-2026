@@ -58,7 +58,12 @@ import {
   isResolved,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
-import { OUTER_FRAME_REM, TILE_BODY_PX, TILE_LEAD_PX } from "@/components/board/geometry";
+import {
+  INNER_FRAME_RATIO,
+  OUTER_FRAME_REM,
+  TILE_BODY_PX,
+  TILE_LEAD_PX,
+} from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
 import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
@@ -1982,9 +1987,17 @@ function ThreadTokenBadge({
   const theirs = thread.pending[OTHER_SIDE[me.role]];
   const token = settled ?? mine ?? theirs ?? null;
   if (!token) return null;
+  // Straddling the tile's right-hand flat edge, not the top of its bounding
+  // box. The box is the outer ring and the drawn octagon sits a frame inside
+  // it, so a badge pinned to `top-0` floated a clear dozen pixels off the
+  // tile and read as a stray marker rather than as this thread's token. The
+  // right edge is the one flat side with nothing on it: the watermark word
+  // is along the top and the three side glyphs are along the bottom.
+  const edgeInset = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
   return (
     <span
-      className={`border-gray/30 bg-offwhite absolute top-0 left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${settled ? "" : "opacity-60"}`}
+      style={{ right: edgeInset }}
+      className={`border-gray/30 bg-offwhite absolute top-1/2 z-20 flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${settled ? "" : "opacity-60"}`}
       title={
         settled
           ? `Thread resolved: ${tokenLabel(settled)}`

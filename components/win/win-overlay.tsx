@@ -167,8 +167,16 @@ export function WinOverlay({ board }: { board: BoardState }) {
               {Array.from(resolvedByToken.entries()).map(([token, count]) => (
                 <div key={token} className="flex items-center gap-2">
                   <TokenGlyph token={token} size={28} />
+                  {/* Name first, tally second. Counting first produced
+                      "1 Agree to disagree thread", which puts a capitalised
+                      three-word label inside a noun phrase and has to be
+                      re-read to parse. What the players agreed is the thing
+                      worth reading here; how many times is the footnote. */}
                   <span className="font-secondary text-p-sm">
-                    {count} {tokenLabel(token)} {count === 1 ? "thread" : "threads"}
+                    {tokenLabel(token)}{" "}
+                    <span className="text-gray">
+                      {count} {count === 1 ? "thread" : "threads"}
+                    </span>
                   </span>
                 </div>
               ))}

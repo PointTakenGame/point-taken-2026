@@ -41,6 +41,14 @@ export function ResolutionPicker({
               onMouseLeave={() =>
                 setHovered((current) => (current === token ? null : current))
               }
+              // Focus reads the token out on the line above, same as hover.
+              // Without it the one control on the board that means nothing
+              // until it is named is the one control a keyboard cannot name.
+              onFocus={() => setHovered(token)}
+              onBlur={() => setHovered((current) => (current === token ? null : current))}
+              // The glyph is decorative art, so the button has no text of its
+              // own and `title` alone is not a reliable accessible name.
+              aria-label={tokenLabel(token)}
               title={tokenLabel(token)}
               className="ease-in-out flex size-14 items-center justify-center overflow-visible duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40"
             >
