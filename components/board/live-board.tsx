@@ -660,7 +660,9 @@ function TileNode({
   // one at a time, because both of them are you writing something in the other
   // player's voice and a card offering to do that twice at once is a card
   // nobody reads.
-  const [proposing, setProposing] = useState<"reading" | "steelman" | null>(null);
+  const [proposing, setProposing] = useState<
+    "reading" | "steelman" | "definition" | null
+  >(null);
   const [draft, setDraft] = useState(tile.text);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -682,6 +684,7 @@ function TileNode({
       ? null
       : canProposeReadingHandback(board, tile.id, me.role, "a reading");
   const steelmanVerdict = canProposeSteelmanTile(board, tile.id, "a reason");
+  const definitionVerdict = canProposeDefinition(board, "a word", "a meaning");
   // Once the box is open the draft is what gets judged. Before that there is no
   // draft, and "a reason needs some words in it" is not why the link is dead.
   const editBlocked =
@@ -835,6 +838,19 @@ function TileNode({
                 >
                   write one for them
                 </button>
+                {/* The fourth non-argument move. A word, not a reason: you are
+                    not answering this tile, you are asking what one of the
+                    words in it is doing. It opens here because a word is
+                    always a word in something, and this is the something. */}
+                <button
+                  type="button"
+                  className="text-p-sm underline text-gray disabled:opacity-30"
+                  disabled={pending || proposing !== null || !definitionVerdict.ok}
+                  title={!definitionVerdict.ok ? definitionVerdict.error : undefined}
+                  onClick={() => setProposing("definition")}
+                >
+                  pin down a word
+                </button>
               </span>
             </>
           )}
@@ -858,7 +874,7 @@ function TileNode({
             proposal.status === "pending" && proposal.targetTileId === tile.id,
         )
         .map((proposal) => (
-          <ProposalOnTile
+          <ProposalCard
             key={proposal.id}
             gameId={gameId}
             proposal={proposal}
@@ -879,6 +895,15 @@ function TileNode({
 
       {proposing === "steelman" && (
         <SteelmanTileForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          onDone={() => setProposing(null)}
+        />
+      )}
+
+      {proposing === "definition" && (
+        <DefinitionForm
           gameId={gameId}
           board={board}
           tile={tile}
@@ -928,7 +953,11 @@ function TileNode({
 }
 
 /**
- * A proposal about this reason, said in plain English, with the two answers.
+ * A proposal, said in plain English, with the two answers.
+ *
+ * Drawn beside the reason it is about wherever it has one, and in the rail
+ * when it does not. Only the definition ask lands in the rail today, because
+ * it is the one proposal the engine stores with a null target tile.
  *
  * Everything cooperative in this game is a proposal: you ask, they answer, and
  * nothing moves until they do. Until now they could be made and never seen,
@@ -939,7 +968,7 @@ function TileNode({
  * the right one: whenever you say no to something, you should get to say why,
  * and that sentence is the most interesting thing either of you writes.
  */
-function ProposalOnTile({
+function ProposalCard({
   gameId,
   proposal,
   board,
@@ -1034,6 +1063,53 @@ function ProposalOnTile({
       )}
       <ErrorLine error={error} />
     </div>
+  );
+}
+
+/**
+ * The asks that have no reason to sit beside.
+ *
+ * Every other proposal is drawn on its target tile, which is where an ask
+ * belongs: you answer it looking at the thing it is about. A definition ask
+ * has no target tile in the engine, so without this card it could be sent and
+ * never seen, and a move nobody can answer is a move that does not exist.
+ *
+ * Renders nothing at all when there is nothing pending, so the rail does not
+ * carry an empty box through the 95% of a game where this is quiet.
+ */
+function PendingAsks({
+  gameId,
+  board,
+  me,
+}: {
+  gameId: string;
+  board: BoardState;
+  me: { playerId: string; role: Side };
+}) {
+  const asks = board.proposals.filter(
+    (proposal) =>
+      proposal.status === "pending" &&
+      proposal.targetTileId === null &&
+      // The topic rewrite is the other null-target proposal, and it already
+      // has a home: the centre tile answers it in place. Listing it here too
+      // would put the same two buttons in two places on one screen.
+      proposal.kind !== "topic_revision",
+  );
+  if (asks.length === 0) return null;
+
+  return (
+    <section className="border-gray/30 bg-offwhite flex w-full flex-col gap-2 rounded-2xl border px-5 py-4 shadow-md">
+      <h2 className="font-primary text-neutral-black text-p-lg">Open asks</h2>
+      {asks.map((proposal) => (
+        <ProposalCard
+          key={proposal.id}
+          gameId={gameId}
+          proposal={proposal}
+          board={board}
+          me={me}
+        />
+      ))}
+    </section>
   );
 }
 
@@ -1670,11 +1746,33 @@ function SteelmanTileForm({
   );
 }
 
-/** A word one of you keeps using and the other keeps hearing differently. */
-// Unrendered on purpose: rule-card machinery waiting for a hand to be played
-// from. See the note where "Understanding each other" used to be rendered.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }) {
+/**
+ * A word one of you keeps using and the other keeps hearing differently.
+ *
+ * Opened from the reason the word appears in, which is the only place a word
+ * is ever confusing: nobody asks what "fair" means in the abstract, they ask
+ * what it meant in the sentence they just read. The tile's own words are shown
+ * above the box for exactly that reason, so the word can be copied out of it.
+ *
+ * The proposal itself is NOT anchored to that tile, and this is the one place
+ * the move does not fully match Steve's "a little dialog beside a tile" rule.
+ * `proposeDefinition` writes `target_tile_id: null`, so the pending ask has no
+ * tile to be drawn on and is answered from the rail instead (`PendingAsks`).
+ * Widening that is a server-action change, outside this lane. Filed rather
+ * than worked around: the ask is about the word for the rest of the game, so
+ * a null target is arguably right and only the answering surface is wrong.
+ */
+function DefinitionForm({
+  gameId,
+  board,
+  tile,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  tile: BoardTile;
+  onDone: () => void;
+}) {
   const [term, setTerm] = useState("");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1691,15 +1789,16 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
     startTransition(async () => {
       const result = await proposeDefinition(gameId, { term, text });
       if (!result.ok) setError(result.error);
-      else {
-        setTerm("");
-        setText("");
-      }
+      else onDone();
     });
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 border-t border-current/15 pt-2">
+      <p className="text-p-sm text-gray">
+        A word in this reason that the two of you may be hearing differently.
+      </p>
+      <p className="text-p-sm font-tiles text-gray">&ldquo;{tile.text}&rdquo;</p>
       <input
         className="w-full border border-current/30 p-1 text-p-sm"
         value={term}
@@ -1717,15 +1816,25 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
         onChange={(event) => setText(event.target.value)}
       />
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-p-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Ask them to agree
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Ask them to agree
+        </button>
+        <button
+          type="button"
+          className="form-base px-3 py-1 text-xs"
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
@@ -2315,6 +2424,8 @@ export function LiveBoard({
             a FloatingPanel, which hid its switch behind a click. It draws its
             own card now, so there is no wrapper here. */}
         <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+
+        <PendingAsks gameId={gameId} board={board} me={me} />
 
         {/*
           The threads drawer. Every thread's tiles and every per-tile action
