@@ -27,7 +27,10 @@ import { SpatialBoard } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID } from "@/components/board/layout";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
 import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
-import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import {
+  OnboardingOverlay,
+  useOnboarding,
+} from "@/components/onboarding/onboarding-overlay";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { AnchoredCard } from "@/components/ui/anchored-card";
@@ -2552,7 +2555,7 @@ export function LiveBoard({
   // Matches the retired client's isTutorialOpen: true on every arrival at the
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
-  const [onboardingOpen, setOnboardingOpen] = useState(true);
+  const onboarding = useOnboarding();
   // The topic editor opens from two places (the tile itself and the Ways to
   // win pencil), so the board owns whether it is open, not the tile.
   const [topicEditing, setTopicEditing] = useState(false);
@@ -2856,7 +2859,7 @@ export function LiveBoard({
             type="button"
             title="Instructions"
             aria-label="Instructions"
-            onClick={() => setOnboardingOpen(true)}
+            onClick={onboarding.show}
             className="btn-icon border-gray/30 bg-offwhite text-p-md text-neutral-black h-10 w-10 shrink-0 cursor-pointer rounded-full border font-bold shadow-md"
           >
             ?
@@ -3157,8 +3160,8 @@ export function LiveBoard({
       )}
 
       <OnboardingOverlay
-        open={onboardingOpen}
-        onClose={() => setOnboardingOpen(false)}
+        open={onboarding.open}
+        onClose={onboarding.close}
         myRole={me.role}
       />
     </div>

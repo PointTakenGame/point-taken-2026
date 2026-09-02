@@ -31,7 +31,7 @@
  * one on open and never wrote a seen flag anywhere, so this does not either.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 import { RESOLUTION_TOKENS } from "@/lib/board/rules";
@@ -314,4 +314,61 @@ export function OnboardingOverlay({
       </div>
     </div>
   );
+}
+
+/**
+ * Whether this browser has already been walked through the four steps.
+ *
+ * The overlay used to open on every mount, so it covered the board again on
+ * every reload, and reloading mid-game is an ordinary thing to do. There is
+ * no event for this and there should not be: having read a tutorial is a fact
+ * about the person, not about the game, so it lives in their browser rather
+ * than in the log. Losing it costs them one dismissal.
+ */
+const SEEN_KEY = "pt.onboarding.seen";
+
+const subscribeNoop = () => () => {};
+
+function seenSnapshot(): boolean {
+  try {
+    return window.localStorage.getItem(SEEN_KEY) === "1";
+  } catch {
+    // A private window or blocked site data throws on access rather than
+    // answering null. Showing the walkthrough again is the harmless answer.
+    return false;
+  }
+}
+
+/**
+ * Read once at mount, and never again: the value cannot change under us
+ * because this hook is the only thing that writes it.
+ *
+ * The server answers "seen" so a returning player never gets a frame of
+ * backdrop over the board before hydration corrects it. A new player waits
+ * one frame for the tutorial instead, which is the right way round.
+ */
+export function useOnboarding(): {
+  open: boolean;
+  show: () => void;
+  close: () => void;
+} {
+  const seen = useSyncExternalStore(subscribeNoop, seenSnapshot, () => true);
+  const [dismissed, setDismissed] = useState(false);
+  // Asked for on purpose, from the board's "?" button, which has to work
+  // whether or not the walkthrough has been read before.
+  const [asked, setAsked] = useState(false);
+
+  const show = useCallback(() => setAsked(true), []);
+
+  const close = useCallback(() => {
+    setAsked(false);
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      // Same as above: it just means they see it again next time.
+    }
+  }, []);
+
+  return { open: asked || (!seen && !dismissed), show, close };
 }

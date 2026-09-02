@@ -4,9 +4,10 @@
  * Coverage for the onboarding overlay's board-side wiring, added alongside
  * BRAIN-T260825-06's follow-up: the retired client opened its tutorial
  * automatically on every arrival at a game board (`isTutorialOpen = ref(true)`
- * in `[gameCode].vue`, no seen-it-already memory anywhere) and offered a
- * small "?" button in the header to reopen it. This file checks that
- * LiveBoard reproduces both, without re-testing the overlay's own step
+ * in `[gameCode].vue`) and offered a small "?" button in the header to
+ * reopen it. This file checks that LiveBoard reproduces both, and that it
+ * departs from the retired client on the one point where the retired client
+ * was wrong: it remembers that the walkthrough has been read, without re-testing the overlay's own step
  * navigation, which already lives in
  * components/onboarding/onboarding-overlay.test.tsx.
  *
@@ -193,13 +194,36 @@ beforeEach(() => {
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
 });
 
+/**
+ * A browser that can remember things.
+ *
+ * This project's jsdom has no `localStorage` at all, so without a stub the
+ * walkthrough's memory is exercised only through its own catch: every test
+ * would see a first-time player and the one that checks otherwise could not
+ * be written. Cleared between tests because the store outlives a render the
+ * way a real browser's does, and one test dismissing the walkthrough would
+ * otherwise keep it off screen for every test after it.
+ */
+const store = new Map<string, string>();
+
+beforeEach(() => {
+  store.clear();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+    clear: () => store.clear(),
+  });
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("LiveBoard: onboarding on arrival", () => {
-  it("opens the onboarding overlay automatically, with no way to have already seen it", () => {
+  it("opens the onboarding overlay automatically for a first-time player", () => {
     const board = activeBoard();
     render(
       <LiveBoard
@@ -249,6 +273,34 @@ describe("LiveBoard: the header's Instructions button", () => {
     const button = screen.getByRole("button", { name: "Instructions" });
     expect(button.getAttribute("title")).toBe("Instructions");
     expect(button.getAttribute("aria-label")).toBe("Instructions");
+  });
+
+  it("stays shut on a later arrival, once it has been read", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={activeBoard()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    cleanup();
+
+    // The same person, opening the board again. It used to cover the board
+    // on every mount, which meant every reload of a game in progress.
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={activeBoard()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+
+    expect(screen.queryByText("Step 1 of 4")).toBeNull();
+    expect(screen.getByRole("button", { name: "Instructions" })).toBeTruthy();
   });
 
   it("reopens the overlay after it has been dismissed", async () => {
