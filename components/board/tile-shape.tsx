@@ -214,18 +214,25 @@ export function TileShape({
           />
         )}
         {watermark && (
-          // White fill with a stance-coloured outline, which is exactly what
-          // the retired Tile.vue does to this word (a 1.5px
-          // -webkit-text-stroke, its h3.reason) and what Rannie draws. A flat
+          // White fill with a stance-coloured outline, which is what the
+          // retired Tile.vue does to this word and what Rannie draws. A flat
           // tinted label reads as body text that happens to be small; the
           // outline reads as a stamp on the tile, which is what it is.
+          //
+          // The stroke is 0.75px, not the 1.5px that client used, because
+          // that rule was on `h3.reason`, a heading several times this size.
+          // A stroke is laid down on both sides of the contour, so 1.5px on
+          // 12px Anton closes the counters and eats the white fill: "TOPIC"
+          // and the wordmark below both came out as coloured smears rather
+          // than as words. Scale the stroke with the type if this size ever
+          // moves.
           <span
             // Not `uppercase`: Rannie stamps "reason" in lower case and
             // "TOPIC" in upper, so the case belongs to the word the caller
             // passes, not to this class list.
             className="font-primary pointer-events-none absolute top-3 z-10 text-xs tracking-wide text-white"
             style={{
-              WebkitTextStrokeWidth: "1.5px",
+              WebkitTextStrokeWidth: "0.75px",
               WebkitTextStrokeColor: STROKE_COLOR[side],
             }}
           >
@@ -246,7 +253,7 @@ export function TileShape({
             className="font-primary pointer-events-none absolute bottom-3 z-10 text-xs tracking-wide text-white"
             aria-hidden="true"
             style={{
-              WebkitTextStrokeWidth: "1.5px",
+              WebkitTextStrokeWidth: "0.75px",
               WebkitTextStrokeColor: STROKE_COLOR.neutral,
             }}
           >

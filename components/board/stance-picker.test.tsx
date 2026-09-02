@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
 
 /**
- * Interaction tests for StancePicker: the heading, a pick emitting the
- * right side, aria-pressed following the selected value, and a disabled
- * side refusing the click.
+ * Interaction tests for StancePicker: the line above the buttons, a pick
+ * emitting the right side, aria-pressed following the selected value, and a
+ * disabled side refusing the click.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +20,11 @@ describe("StancePicker: heading and buttons", () => {
   it("renders the heading and both side labels", () => {
     render(<StancePicker value={null} onPick={() => {}} />);
 
-    expect(screen.getByText("And choose your stance")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Agree or disagree with the topic above. Once the game starts, your side is fixed.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: /Agree \(\+\)/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Disagree \(-\)/ })).toBeTruthy();
   });

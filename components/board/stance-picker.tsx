@@ -5,13 +5,21 @@ import { SIDE_LABEL } from "./side-label";
 import type { Side } from "@/lib/events/types";
 
 /**
- * "And choose your stance": the two-button pick between Plus and Minus.
- * Ported from the retired client's `RoleSelection.vue`: same heading, same
- * pair of buttons, same border/text colour swap on hover-or-selected, same
- * horizontal mirror on the Minus icon when it goes active. That component
- * used the literal words "Plus" and "Minus"; this one uses `SIDE_LABEL`
- * instead, because `side-label.ts` asks every post-setup screen to share
- * the same two phrases rather than each inventing its own.
+ * The two-button pick between Plus and Minus.
+ *
+ * Ported from the retired client's `RoleSelection.vue`: same pair of buttons,
+ * same border/text colour swap on hover-or-selected, same horizontal mirror
+ * on the Minus icon when it goes active. That component used the literal
+ * words "Plus" and "Minus"; this one uses `SIDE_LABEL` instead, because
+ * `side-label.ts` asks every post-setup screen to share the same two phrases
+ * rather than each inventing its own.
+ *
+ * Its heading came over as "And choose your stance", which followed on from
+ * a sentence in that client and does not follow on from anything here: it
+ * sits directly under the section's own "#2 Your stance" and restates it
+ * word for word. The line is spent instead on the one thing this screen
+ * never said out loud, which is that the pick stops being yours to change
+ * the moment somebody presses start.
  *
  * Presentation only, same split as `ResolutionPicker`: this component holds
  * no game rules and calls no server action. The caller decides what is
@@ -58,9 +66,9 @@ export function StancePicker({
 
   return (
     <div className="flex flex-col items-center">
-      <h3 className="font-secondary text-p-sm text-neutral-black mb-8 text-center font-semibold">
-        And choose your stance
-      </h3>
+      <p className="font-secondary text-p-sm text-gray mb-8 max-w-xs text-center">
+        Agree or disagree with the topic above. Once the game starts, your side is fixed.
+      </p>
       <div className="flex flex-row items-center gap-24">
         {SIDES.map((side) => {
           const isDisabled = disabled || disabledSides.includes(side);

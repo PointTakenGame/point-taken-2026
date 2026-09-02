@@ -144,7 +144,18 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const [custom, setCustom] = useState("");
+  /*
+    The octagon is the topic, so what it shows is the agreed topic, and
+    `draft` is only the edit in progress on top of it. Held as null-means-clean
+    rather than as a seeded string because the agreed topic arrives over the
+    feed: a player who did not type it, and any player who reloads, both get a
+    board with `currentTopicText` set and no local typing to show for it. With
+    a plain `useState("")` those cases drew the hero shape empty, placeholder
+    and all, and the topic they had actually agreed on was relegated to a note
+    card underneath it.
+  */
+  const [draft, setDraft] = useState<string | null>(null);
+  const custom = draft ?? board.currentTopicText ?? "";
   const [picked, setPicked] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   // Rannie's frame keeps the shelf behind a pill rather than always on screen,
@@ -174,6 +185,9 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   };
 
   const customVerdict = canSetTopic(board, custom);
+  // Pressing the button with the agreed wording still in the box would append
+  // an event that changes nothing and clears both signatures for the trouble.
+  const topicUnchanged = custom.trim() === (board.currentTopicText ?? "").trim();
 
   async function copyInvite() {
     if (!joinCode) return;
@@ -293,7 +307,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
           Left as a marker, because a comment that rationalises a discrepancy
           is how this one stayed off the delta tables for as long as it did.
         */}
-        <TileShape side="neutral" size={16} watermark="topic">
+        <TileShape side="neutral" size={16} watermark="TOPIC">
           <textarea
             className="font-tiles text-p-md text-neutral-black placeholder:text-gray h-28 w-36 resize-none border-none bg-transparent text-center focus:outline-none"
             value={custom}
@@ -301,27 +315,30 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
             placeholder="Should…"
             disabled={pending}
             aria-label="Write your own topic"
-            onChange={(event) => setCustom(event.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
           />
         </TileShape>
         <button
           type="button"
           className="border-neutral-black font-secondary text-p-sm rounded-full border-2 px-5 py-1.5 font-bold disabled:opacity-40"
-          disabled={pending || !customVerdict.ok}
-          title={customVerdict.ok ? undefined : customVerdict.error}
+          disabled={pending || !customVerdict.ok || topicUnchanged}
+          title={
+            topicUnchanged
+              ? "This is already the topic."
+              : customVerdict.ok
+                ? undefined
+                : customVerdict.error
+          }
           onClick={() => {
             setPicked(null);
             run(() => setTopic(gameId, { text: custom, topicId: null }));
+            // Back to following the board, so the agreed wording is what the
+            // octagon shows the moment the event lands.
+            setDraft(null);
           }}
         >
-          Use this
+          {board.currentTopicText ? "Change the topic" : "Use this"}
         </button>
-
-        {board.currentTopicText ? (
-          <p className="border-gold bg-neutral-white font-secondary text-p-sm text-neutral-black max-w-md rounded-lg border-l-4 px-3 py-2 shadow-sm">
-            Current topic: &ldquo;{board.currentTopicText}&rdquo;
-          </p>
-        ) : null}
 
         <button
           type="button"
@@ -354,6 +371,7 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
                           run(() =>
                             setTopic(gameId, { text: topic.text, topicId: topic.id }),
                           );
+                          setDraft(null);
                         }}
                         className={`font-secondary text-p-sm rounded-xl border-2 px-4 py-3 text-left shadow-sm transition-colors disabled:opacity-40 ${
                           picked === topic.id
