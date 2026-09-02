@@ -20,7 +20,7 @@ import type {
 } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
-import { TileShape, SideGlyph } from "@/components/board/tile-shape";
+import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard } from "@/components/board/spatial-board";
@@ -2346,7 +2346,7 @@ export function LiveBoard({
         {/* Which side you are, in the corner Rannie puts it in. Your colour is
             on every tile you have placed, but only once you have placed one,
             and the first move of the game is the one where knowing matters. */}
-        <SideGlyph side={me.role} className="h-9 w-9 shrink-0" />
+        <SideAvatar side={me.role} className="h-9 w-9" />
         {/* Rannie writes the room code up here as plain small print, not as a
             chip: `#Room: 83083` in `1096:252192`. It used to sit in the
             bottom-left stack with the bug reporter, which is where you look
@@ -2364,6 +2364,25 @@ export function LiveBoard({
         ) : null}
       </div>
 
+      {/* A soft fade under the right rail.
+          The cards float over a canvas that pans, so a tile can end up behind
+          them, and the 12 px gaps between the cards then show a two-word
+          sliver of somebody's reason. On screen that reads as a rendering
+          fault rather than as a tile passing behind: "Whoever decides this"
+          hanging in a gap belongs to no card. The fade puts the canvas back
+          to the ground colour Rannie draws the rail on, without making the
+          rail an opaque panel, which it is not. Nothing to click, so nothing
+          is caught: the board still pans and the tiles under here still
+          answer the mouse exactly as before. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 right-0 z-20 w-[26rem]"
+        style={{
+          background:
+            "linear-gradient(to left, var(--color-offwhite) 66%, color-mix(in srgb, var(--color-offwhite) 55%, transparent) 85%, transparent)",
+        }}
+      />
+
       {/* Top right: who you are, help, and the two ways this ends. Same stack
           and the same 13rem column width as the retired client. */}
       <div className="fixed top-8 right-8 z-30 flex max-h-[calc(100vh-4rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
@@ -2375,7 +2394,7 @@ export function LiveBoard({
             permanent corner. */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-end gap-2">
-            <SideGlyph side={opponentSide} className="h-12 w-12" />
+            <SideAvatar side={opponentSide} className="h-12 w-12" />
             <h3
               className="font-primary text-p-md tracking-wide uppercase"
               style={{

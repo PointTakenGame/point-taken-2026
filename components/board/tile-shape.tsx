@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { INNER_FRAME_RATIO } from "@/components/board/geometry";
+import { INNER_FRAME_RATIO, OCTAGON_CLIP } from "@/components/board/geometry";
 
 /**
  * The tile: a regular octagon with a double border, built exactly the way the
@@ -89,6 +89,43 @@ export function SideGlyph({
       aria-hidden="true"
       className={`object-contain ${className ?? ""}`}
     />
+  );
+}
+
+/**
+ * A player, drawn as the game's own shape.
+ *
+ * Rannie hangs an octagon badge in the board's top corner rather than a bare
+ * mark (`1096:252192`): the side colour as a ring, offwhite inside it, and the
+ * plus or minus in the middle. It is a tile in miniature, which is the point.
+ * A player on this board is the colour of the reasons they place, and saying
+ * that with the same silhouette is how the corner reads as part of the board
+ * instead of as an icon borrowed from a toolbar.
+ *
+ * Deliberately not `TileShape` at a small size: that component draws a
+ * watermark word, a background mark, and a row of three side glyphs, all
+ * sized for a 296 px octagon, and none of them survive being shrunk to 48.
+ */
+export function SideAvatar({
+  side,
+  className,
+}: {
+  side: "plus" | "minus";
+  className?: string;
+}) {
+  const ring = side === "plus" ? "bg-green" : "bg-orange";
+  return (
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center ${className ?? ""}`}
+      aria-hidden="true"
+    >
+      <span className={`absolute inset-0 ${ring}`} style={{ clipPath: OCTAGON_CLIP }} />
+      <span
+        className="bg-offwhite absolute inset-[3px]"
+        style={{ clipPath: OCTAGON_CLIP }}
+      />
+      <SideGlyph side={side} className="relative h-[45%] w-[45%]" />
+    </span>
   );
 }
 
