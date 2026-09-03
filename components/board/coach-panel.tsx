@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useTransition, type ReactElement } from "react";
+import { useEffect, useMemo, useState, useTransition, type ReactElement } from "react";
 
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import { dismissCoachReading, editTile, setCoach } from "@/app/game/[gameId]/actions";
-import type { BoardNudge, BoardState, CoachReading } from "@/lib/board/project";
+import type {
+  BoardNudge,
+  BoardState,
+  BoardTile,
+  CoachReading,
+} from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
 
 /**
@@ -134,6 +139,17 @@ function dareFor(
   return found.length > 0 ? found[found.length - 1] : null;
 }
 
+/**
+ * How long the panel is willing to say it is still reading.
+ *
+ * The round trip is a model call, measured here at eight to ten seconds on
+ * haiku, and a silent reading writes nothing at all, so there is no event that
+ * means "finished, and had nothing to say". This is the only clock available.
+ * Fifteen is comfortably past the slowest reading observed without leaving the
+ * line up long enough to become its own lie.
+ */
+const COACH_WAIT_MS = 15_000;
+
 export function CoachPanel({
   gameId,
   board,
@@ -161,6 +177,42 @@ export function CoachPanel({
   const mine = board.coachReadings.filter(
     (reading) => reading.forPlayer === me.playerId && !reading.shown,
   );
+
+  // The reason I placed most recently, which is the one the coach is reading if
+  // it is reading anything at all.
+  const myNewest = useMemo(() => {
+    let best: BoardTile | null = null;
+    for (const tile of board.tiles) {
+      if (tile.placedBy !== me.playerId) continue;
+      if (!best || tile.placedAtSeq > best.placedAtSeq) best = tile;
+    }
+    return best;
+  }, [board.tiles, me.playerId]);
+
+  // Between placing a reason and the reading coming back, this panel used to
+  // say "Nothing to say so far", which is exactly what it says when the coach
+  // is broken. Steve read it the obvious way: the coach is on and does nothing
+  // (2026-09-02). It was working the whole time; it just had no way to say it
+  // was still reading. Now it does.
+  //
+  // Seeded from the board rather than from null, so opening a game that
+  // already has my reasons on it does not claim to be reading the oldest one.
+  const [seenTile, setSeenTile] = useState<string | null>(() => myNewest?.id ?? null);
+  const [waitingFor, setWaitingFor] = useState<string | null>(null);
+  if (myNewest && seenTile !== myNewest.id) {
+    setSeenTile(myNewest.id);
+    setWaitingFor(on ? myNewest.id : null);
+  }
+  useEffect(() => {
+    if (!waitingFor) return;
+    const timer = setTimeout(() => setWaitingFor(null), COACH_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waitingFor]);
+
+  const answered =
+    myNewest !== null &&
+    board.coachReadings.some((reading) => reading.tileId === myNewest.id);
+  const reading = on && waitingFor !== null && waitingFor === myNewest?.id && !answered;
 
   const toggle = () => {
     const next = !on;
@@ -208,7 +260,10 @@ export function CoachPanel({
       </p>
 
       {error && <p className="text-p-sm text-orange mt-2">{error}</p>}
-      {on && mine.length === 0 && (
+      {on && reading && (
+        <p className="text-gray mt-2 text-xs italic">Reading that one now...</p>
+      )}
+      {on && !reading && mine.length === 0 && (
         <p className="text-gray mt-2 text-xs">
           Nothing to say so far. Silence is the usual answer.
         </p>

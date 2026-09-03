@@ -33,14 +33,35 @@ export interface CoachRun {
   input: CoachInput;
 }
 
+/**
+ * Every way this can end, said out loud in development.
+ *
+ * The coach is silent by design, and "on and working, with nothing to say"
+ * looks from the outside exactly like "on and broken" (Steve, 2026-09-02).
+ * Four different endings led to the same empty panel and none of them left a
+ * trace. In production this stays quiet, because a player is not owed a
+ * running commentary on a reading they never asked for.
+ */
+function note(what: string): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[coach] ${what}`);
+  }
+}
+
 export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
   try {
     const player = await getPlayer(run.playerId);
     // Off by default, and off means no model call at all, not a discarded one.
-    if (!player?.coach_enabled) return;
+    if (!player?.coach_enabled) {
+      note("switched off for this player, no model call made");
+      return;
+    }
 
     const verdict = await evaluateTile(run.input);
-    if (!verdict) return;
+    if (!verdict) {
+      note("the model returned nothing usable");
+      return;
+    }
 
     // Silence is the normal answer. Logging every "nothing to say" would bury
     // the readings that matter under readings that say nothing.
@@ -50,7 +71,12 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
     // because this log is the game's history and a player scrolling it should
     // see the moments the coach spoke. If the corpus ever needs the silent
     // readings, that is a second sink, not a change here.
-    if (verdict.cardIds.length === 0) return;
+    if (verdict.cardIds.length === 0) {
+      note(
+        `read the tile in ${verdict.latencyMs}ms and had nothing to say (relation ${verdict.findings.relation}, violations ${JSON.stringify(verdict.findings.violations)})`,
+      );
+      return;
+    }
 
     await appendGameEvent(gameId, {
       type: "ai_feedback_returned",
@@ -95,6 +121,8 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
     // here rather than shown as a button that would be refused. The reading
     // still carries it, so nothing the model said is lost.
     const dare = verdict.suggestion?.trim() ?? "";
+    note(`spoke: ${verdict.cardIds.join(", ")}`);
+
     if (dare.length > 0 && dare.length <= TILE_MAX_CHARS) {
       await appendGameEvent(gameId, {
         type: "coach_nudge_delivered",
@@ -109,10 +137,16 @@ export async function runCoach(gameId: Uuid, run: CoachRun): Promise<void> {
         },
       });
     }
-  } catch {
-    // Deliberate. This runs detached from the request that placed the tile, so
-    // throwing here would surface as an unhandled rejection in the server log
-    // and change nothing the player can see.
+  } catch (error) {
+    // Deliberate: the player sees nothing. This runs detached from the request
+    // that placed the tile, so throwing here would surface as an unhandled
+    // rejection in the server log and change nothing the player can see.
+    //
+    // Silent to the player is not the same as silent to us. Swallowing the
+    // reason outright made "the coach is on and does nothing" impossible to
+    // tell apart from "the coach read it and had nothing to say" (Steve,
+    // 2026-09-02), so the reason goes to the server log in development.
+    note(`reading failed, the game carried on without it: ${String(error)}`);
     return;
   }
 }

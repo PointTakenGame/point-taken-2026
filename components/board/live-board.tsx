@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import {
   useCallback,
   useMemo,
@@ -26,6 +24,11 @@ import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID } from "@/components/board/layout";
 import { CollapsedThread } from "@/components/board/collapsed-thread";
+import {
+  SameSideNotice,
+  markSameSideNoticeSeen,
+  sameSideNoticeSeen,
+} from "@/components/board/same-side-notice";
 import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
 import {
   OnboardingOverlay,
@@ -2421,19 +2424,38 @@ function ThreadTokenBadge({
     : yours
       ? `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
       : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
+  // A settled thread and a thread waiting on somebody are two different
+  // announcements and the retired client only ever drew the first one. There,
+  // a resolved root carried its token in an 80px box hanging below the tile's
+  // bottom point (`TileShape.vue:23-33`, `-bottom-8 w-20 h-20`), with the
+  // drawing left unshrunk inside it. Ours drew both states as a 22px corner
+  // dot, which is what Steve saw as "way too small" (2026-09-02).
+  //
+  // So: settled hangs below, big, the way it used to. Pending stays in the
+  // corner, because a token one side has merely suggested is a question and
+  // should not shout louder than the reason it is asked about, but it is no
+  // longer a dot either.
+  if (settled) {
+    return (
+      <span
+        className="absolute bottom-0 left-1/2 z-30 flex size-20 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-gray/30 bg-offwhite shadow-md"
+        title={words}
+      >
+        <TokenGlyph token={settled} size={64} />
+        <span className="sr-only">{words}</span>
+      </span>
+    );
+  }
+
   return (
     <span
       style={{ right: CORNER_INSET, top: CORNER_INSET }}
       className={`absolute z-20 flex translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${
-        settled
-          ? "border-gray/30 bg-offwhite"
-          : yours
-            ? "border-gold bg-sand"
-            : "border-gray/30 bg-offwhite opacity-60"
+        yours ? "border-gold bg-sand" : "border-gray/30 bg-offwhite opacity-60"
       }`}
       title={words}
     >
-      <TokenGlyph token={token} size={22} />
+      <TokenGlyph token={token} size={40} />
       <span className="sr-only">{words}</span>
     </span>
   );
@@ -2594,6 +2616,14 @@ export function LiveBoard({
     parentId: string;
     pos: { x: number; y: number };
   } | null>(null);
+  // A same-side answer the player has asked for but not yet been let into,
+  // because this is the first one this match and the notice is in front of
+  // them. Dismissing the notice opens it; there is no way to say no, because
+  // clicking the slot already said yes (Steve, 2026-09-02).
+  const [sameSideHold, setSameSideHold] = useState<{
+    parentId: string;
+    pos: { x: number; y: number };
+  } | null>(null);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -2698,10 +2728,18 @@ export function LiveBoard({
         onPlace={(parentId, pos) => {
           // The board is where the reason gets written now, so the card
           // parked under the board closes rather than competing with it.
-          setDraft({ parentId, pos });
           setComposerOpen(false);
           setSelectedTileId(null);
           setArmedCardId(null);
+          // Answering your own reason is legal and gets one word about it,
+          // once per match. The topic belongs to neither side, so starting a
+          // thread off it is never a same-side answer.
+          const answering = parentId === TOPIC_CELL_ID ? null : sideOf.get(parentId);
+          if (answering && answering === me.role && !sameSideNoticeSeen(gameId)) {
+            setSameSideHold({ parentId, pos });
+            return;
+          }
+          setDraft({ parentId, pos });
         }}
         onSelect={(tileId) => {
           if (armedCardId) {
@@ -3011,23 +3049,12 @@ export function LiveBoard({
       <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-30 flex flex-col items-start gap-2">
         <FeedbackPopover variant="inline" />
         {buildStamp}
-        {/*
-          The quiet way off a live board, which is not the same door as Leave
-          game in the top left: walking away leaves the argument exactly where
-          it is, and the board is a projection of the log, so it is all still
-          here when you come back to it. This replaces `LeaveLinks`, which the
-          page still renders around the setup room but which would sit under a
-          full-screen board and be unreachable.
-        */}
-        <span className="flex items-center gap-3 pl-1">
-          <Link
-            href="/account"
-            className="text-p-sm text-gray decoration-gold underline underline-offset-2"
-          >
-            Your games
-          </Link>
-          {statusDot}
-        </span>
+        {/* `Your games` used to sit here as a quiet way off the board. It
+            read as a button on the game rather than a link off it, and
+            clicking it looked like it removed you from the match, so it is
+            gone (Steve, 2026-09-02). Leave game in the top left is the only
+            door out, and it says what it does. */}
+        <span className="flex items-center gap-3 pl-1">{statusDot}</span>
       </div>
 
       {/* Bottom centre, one column: what you write, and what you hold.
@@ -3183,6 +3210,16 @@ export function LiveBoard({
             </div>
           )}
         </AnchoredCard>
+      )}
+
+      {sameSideHold && (
+        <SameSideNotice
+          onDismiss={() => {
+            markSameSideNoticeSeen(gameId);
+            setDraft(sameSideHold);
+            setSameSideHold(null);
+          }}
+        />
       )}
 
       <OnboardingOverlay

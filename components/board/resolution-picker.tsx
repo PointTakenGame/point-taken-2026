@@ -28,7 +28,10 @@ export function ResolutionPicker({
       <p className="text-p-sm font-secondary text-gray">
         {hovered ? tokenLabel(hovered) : "Point at one to read it"}
       </p>
-      <div className="flex flex-row items-center gap-4">
+      {/* Wider than the buttons look, because each drawing overflows its own
+          56px box by six pixels a side. Four would leave the two tokens almost
+          touching. */}
+      <div className="flex flex-row items-center gap-6">
         {tokens.map((token) => {
           const isDisabled = disabledTokens.includes(token);
           return (
@@ -52,7 +55,14 @@ export function ResolutionPicker({
               title={tokenLabel(token)}
               className="ease-in-out flex size-14 items-center justify-center overflow-visible duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40"
             >
-              <TokenGlyph token={token} size={40} hovered={hovered === token} />
+              {/* Drawn at the source art's own size, not shrunk to fit the
+                  button. The retired client set these SVGs `w-auto h-auto
+                  overflow-visible` inside the same 56px box, so a 68-wide
+                  drawing spilled six pixels past each edge and the tokens
+                  read at arm's length. Ours were rendered at 40 and Steve
+                  called them "way too small" (2026-09-02); this is the old
+                  client's number, not a new guess. */}
+              <TokenGlyph token={token} size={68} hovered={hovered === token} />
             </button>
           );
         })}

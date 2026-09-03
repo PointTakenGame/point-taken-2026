@@ -71,6 +71,25 @@ import type { TileSide } from "@/components/board/tile-shape";
  */
 
 const MIN_ZOOM = 0.25;
+/** One click of the pan pad, in screen pixels. */
+const PAN_STEP_PX = 160;
+
+/**
+ * The four arrows of the pan pad, left to right. `dx`/`dy` are the direction
+ * the board moves, which is the opposite of the direction the player is
+ * looking: the up arrow shows what is above, so it slides the board down.
+ *
+ * A row rather than the usual d-pad cross. The cross is the more legible
+ * shape, but the only clear strip on this screen is the one below the right
+ * rail, and a three-row cross put two of its arrows behind the rail.
+ */
+const PAN_STEPS = [
+  { dx: 1, dy: 0, label: "Pan left", path: "M12 8H4M7.5 4.5 4 8l3.5 3.5" },
+  { dx: 0, dy: 1, label: "Pan up", path: "M8 12V4M4.5 7.5 8 4l3.5 3.5" },
+  { dx: 0, dy: -1, label: "Pan down", path: "M8 4v8M4.5 8.5 8 12l3.5-3.5" },
+  { dx: -1, dy: 0, label: "Pan right", path: "M4 8h8M8.5 4.5 12 8l-3.5 3.5" },
+] as const;
+
 /**
  * The floor for the automatic refit that runs as tiles land.
  *
@@ -656,6 +675,16 @@ export function SpatialBoard<T extends SpatialTile>({
     return () => cancelAnimationFrame(frame);
   }, [draftAt, pane, pan, zoom, remPx, layout, pitch, size, reserveRight, reserveBottom]);
 
+  /**
+   * One click of the pan pad, in screen pixels. Independent of zoom on
+   * purpose: the pad exists to move what you are looking at, and a fixed
+   * screen distance is what "a bit to the left" means to the person clicking.
+   */
+  const nudge = useCallback((dx: number, dy: number) => {
+    touched.current = true;
+    setPan((p) => ({ x: p.x + dx * PAN_STEP_PX, y: p.y + dy * PAN_STEP_PX }));
+  }, []);
+
   const zoomTo = useCallback(
     (next: number, anchor?: { x: number; y: number }) => {
       const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
@@ -726,8 +755,26 @@ export function SpatialBoard<T extends SpatialTile>({
     (event: React.PointerEvent<HTMLDivElement>) => {
       // Only a drag on the background pans. A drag that starts on a tile is
       // the browser's own text selection, which a player needs in order to
-      // read and copy a reason.
-      if (event.target !== event.currentTarget) return;
+      // read and copy a reason, and a drag that starts on a control belongs
+      // to the control.
+      //
+      // This used to test `event.target !== event.currentTarget`, which is
+      // true only for the handful of pixels where the pane itself is the
+      // topmost element. Everywhere else the transform layer is on top, so
+      // most of the empty ground refused to pan and grab-and-drag worked
+      // "sometimes" with no way to tell which times (Steve, 2026-09-02). Ask
+      // what was actually grabbed instead of where the listener happens to
+      // sit.
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "[data-tile-id], button, a, input, textarea, select, [role='button'], [contenteditable='true']",
+        )
+      ) {
+        return;
+      }
+      // Middle and right buttons are the browser's, not ours.
+      if (event.button !== 0) return;
       dragRef.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
       setPanning(true);
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -851,52 +898,91 @@ export function SpatialBoard<T extends SpatialTile>({
         and because a player who has just scrolled the board off the edge is
         looking for a shape, not reading a label.
       */}
-      <div className="border-gray/30 bg-offwhite absolute right-8 bottom-8 z-30 flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">
-        <button
-          type="button"
-          onClick={() => zoomTo(zoom - 0.25)}
-          disabled={zoom <= MIN_ZOOM}
-          aria-label="Zoom out"
-          className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-lg font-bold disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          &minus;
-        </button>
-        <span className="text-neutral-black text-p-sm min-w-[3.25rem] text-center font-semibold tabular-nums">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          type="button"
-          onClick={() => zoomTo(zoom + 0.25)}
-          disabled={zoom >= MAX_ZOOM}
-          aria-label="Zoom in"
-          className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-lg font-bold disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          +
-        </button>
-        <div className="bg-gray/30 mx-1 h-5 w-px" />
-        <button
-          type="button"
-          onClick={() => fit()}
-          title="Zoom to fit: put the whole board back on screen"
-          aria-label="Zoom to fit"
-          className="text-neutral-black hover:bg-sand flex h-6 w-6 cursor-pointer items-center justify-center rounded-full"
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
-            <g
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      {/* Bottom right, one row: how to move, then how much to see. Both live
+          in the strip below the right rail, which is the only clear band on
+          this screen. */}
+      <div className="absolute right-8 bottom-8 z-30 flex items-center gap-2">
+        {/*
+          The pan pad.
+
+          Dragging the ground pans, and a trackpad's two fingers pan, and both
+          of those are invisible: nothing on the screen says so. This is the
+          way out for a player on a plain mouse who never discovers either
+          (Steve, 2026-09-02). A plain nudge rather than a held repeat, on
+          purpose, because the thing it rescues is "I cannot see my tile",
+          which is one or two clicks, not a joystick.
+        */}
+        <div className="border-gray/30 bg-offwhite flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">
+          {PAN_STEPS.map(({ dx, dy, label, path }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => nudge(dx, dy)}
+              aria-label={label}
+              title={label}
+              className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full"
             >
-              <path d="M3 6.2V3h3.2" />
-              <path d="M13 6.2V3H9.8" />
-              <path d="M3 9.8V13h3.2" />
-              <path d="M13 9.8V13H9.8" />
-            </g>
-          </svg>
-        </button>
-        {extraControls}
+              <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+
+        <div className="border-gray/30 bg-offwhite flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">
+          <button
+            type="button"
+            onClick={() => zoomTo(zoom - 0.25)}
+            disabled={zoom <= MIN_ZOOM}
+            aria-label="Zoom out"
+            className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-lg font-bold disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            &minus;
+          </button>
+          <span className="text-neutral-black text-p-sm min-w-[3.25rem] text-center font-semibold tabular-nums">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => zoomTo(zoom + 0.25)}
+            disabled={zoom >= MAX_ZOOM}
+            aria-label="Zoom in"
+            className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-lg font-bold disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            +
+          </button>
+          <div className="bg-gray/30 mx-1 h-5 w-px" />
+          <button
+            type="button"
+            onClick={() => fit()}
+            title="Zoom to fit: put the whole board back on screen"
+            aria-label="Zoom to fit"
+            className="text-neutral-black hover:bg-sand flex h-6 w-6 cursor-pointer items-center justify-center rounded-full"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
+              <g
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6.2V3h3.2" />
+                <path d="M13 6.2V3H9.8" />
+                <path d="M3 9.8V13h3.2" />
+                <path d="M13 9.8V13H9.8" />
+              </g>
+            </svg>
+          </button>
+          {extraControls}
+        </div>
       </div>
 
       {unplaced.length > 0 ? (
