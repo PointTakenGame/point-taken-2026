@@ -198,8 +198,10 @@ describe("TopicCell: what happened to the last rewrite", () => {
     expect(screen.getByText(TOPIC)).toBeTruthy();
   });
 
-  it("offers the proposer the next try, and closing the note gets out of the way", async () => {
-    const onEdit = vi.fn();
+  // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+ move,
+  // held back from the live game for now. The note about the rejection
+  // still shows; the retry that would start a new proposal does not.
+  it("does not offer the proposer a retry: a new topic revision is a later move", () => {
     render(
       <TopicCell
         gameId={GAME}
@@ -207,14 +209,13 @@ describe("TopicCell: what happened to the last rewrite", () => {
         me={{ playerId: BOB, role: "minus" }}
         size={14}
         editing={false}
-        onEdit={onEdit}
+        onEdit={noop}
         onEditEnd={noop}
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Try another wording" }));
-    expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("They turned down your wording")).toBeNull();
+    expect(screen.getByText("They turned down your wording")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try another wording" })).toBeNull();
   });
 
   it("shows the rejecter their own no, without offering them a rewrite to retry", async () => {
@@ -282,8 +283,11 @@ describe("TopicCell: what happened to the last rewrite", () => {
 });
 
 describe("TopicCell: the tile at rest", () => {
-  it("shows the topic and offers itself as the way to rewrite it", async () => {
-    const onEdit = vi.fn();
+  // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+ move,
+  // held back from the live game for now, so the tile is not a click
+  // target to start one. (The rule this used to exercise,
+  // canProposeTopicRevision, is untouched; only the UI's own gate is new.)
+  it("does not offer itself as the way to rewrite the topic: it is a later move", () => {
     render(
       <TopicCell
         gameId={GAME}
@@ -291,16 +295,13 @@ describe("TopicCell: the tile at rest", () => {
         me={{ playerId: ALICE, role: "plus" }}
         size={14}
         editing={false}
-        onEdit={onEdit}
+        onEdit={noop}
         onEditEnd={noop}
       />,
     );
 
     expect(screen.getByText(TOPIC)).toBeTruthy();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Propose a revised topic" }),
-    );
-    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Propose a revised topic" })).toBeNull();
   });
 
   it("is not a click target while a rewrite is already waiting for an answer", () => {

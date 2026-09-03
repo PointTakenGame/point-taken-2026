@@ -64,7 +64,7 @@ export default function HowToPlay() {
           <p className="font-secondary text-ink-soft">
             Two people who disagree about one thing, writing short reasons at each other
             until they can name exactly where they part ways. Nobody wins by scoring
-            points off the other one. Both ways the game can end are agreements.
+            points off the other one. The one way the game can end is an agreement.
           </p>
           {/*
             The least invasive entry point available to a presentation-layer
@@ -129,7 +129,10 @@ export default function HowToPlay() {
           </p>
         </Section>
 
-        <Section title="Asking the other player for something">
+        {/* BRAIN-T260903-06: these six moves are Gym level 5+ and are not in
+            the game yet. Steve, 2026-09-03: built, kept, not deleted, just
+            not shown until the basics are down. */}
+        {/* <Section title="Asking the other player for something">
           <p className="font-secondary text-p-sm text-ink-soft">
             Some moves need both of you. You send the ask, they accept or decline, and
             nothing changes on the board until they answer.
@@ -142,7 +145,7 @@ export default function HowToPlay() {
             <li>Hand a reading back, if the version they wrote of your side is wrong.</li>
             <li>Propose a new wording for the topic itself.</li>
           </ul>
-        </Section>
+        </Section> */}
 
         <Section title="The cards">
           <p className="font-secondary text-p-sm text-ink-soft">
@@ -177,13 +180,15 @@ export default function HowToPlay() {
 
         <Section title="How the game ends">
           <p className="font-secondary text-p-sm text-ink-soft">
-            Two ways, and both are agreements.
+            One way, and it is an agreement.
           </p>
           <ul className="flex list-disc flex-col gap-1 pl-5 font-secondary text-p-sm text-ink-soft">
             <li>Every thread on the board is resolved, however many there are.</li>
-            <li>
+            {/* BRAIN-T260903-06: the topic-revision ending is a Gym level 5+
+                move and is not in the game yet. */}
+            {/* <li>
               You agree on a rewritten wording of the topic, one both sides could sign.
-            </li>
+            </li> */}
           </ul>
           <p className="font-secondary text-p-sm text-ink-soft">
             Either way the board stays readable afterwards, with every thread and the

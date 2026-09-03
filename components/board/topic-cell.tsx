@@ -55,6 +55,7 @@ import { TileShape } from "@/components/board/tile-shape";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { TilePopover } from "@/components/ui/tile-popover";
 import { canProposeTopicRevision } from "@/lib/board/rules";
+import { canStartLaterMove } from "@/components/board/later-moves";
 import type { BoardProposal, BoardState } from "@/lib/board/project";
 import type { Side } from "@/lib/events/types";
 import {
@@ -186,8 +187,14 @@ export function TopicCell({
     (rejected.askedBy === me.role || rejected.answeredAtSeq === board.lastSeq);
   const mine = proposal !== null && proposal.askedBy === me.role;
   const verdict = canProposeTopicRevision(board, draft);
+  // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+ move,
+  // held back from the live game for now. The rule itself
+  // (canProposeTopicRevision) is untouched; this only decides whether the
+  // tile offers itself as a way to start one right now.
   const canOpen =
-    proposal === null && canProposeTopicRevision(board, "a revised topic").ok;
+    proposal === null &&
+    canProposeTopicRevision(board, "a revised topic").ok &&
+    canStartLaterMove(board, "topic_revision");
 
   const close = () => {
     setDraft("");

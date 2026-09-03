@@ -38,6 +38,7 @@ import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
+import { canStartLaterMove } from "@/components/board/later-moves";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
@@ -1098,14 +1099,20 @@ function TileNode({
                     : ""
                 }`}
               >
-                <ActionItem
-                  label="Move it"
-                  hint="Ask them to hang this reason under a different one."
-                  verdict={moveVerdict}
-                  disabled={pending || moving}
-                  onClick={() => setMoving(true)}
-                />
-                {readingVerdict && (
+                {/* BRAIN-T260903-06: the four moves below are gated by
+                    canStartLaterMove. Relocation stays available outside live
+                    play (it is load-bearing for Gym level 2); the other three
+                    are Gym level 5+ and hidden everywhere for now. */}
+                {canStartLaterMove(board, "tile_relocation") && (
+                  <ActionItem
+                    label="Move it"
+                    hint="Ask them to hang this reason under a different one."
+                    verdict={moveVerdict}
+                    disabled={pending || moving}
+                    onClick={() => setMoving(true)}
+                  />
+                )}
+                {readingVerdict && canStartLaterMove(board, "reading_handback") && (
                   <ActionItem
                     label="Say it back"
                     hint="Write what you think they meant. They tell you whether you have it."
@@ -1114,20 +1121,24 @@ function TileNode({
                     onClick={() => setProposing("reading")}
                   />
                 )}
-                <ActionItem
-                  label="Write one for them"
-                  hint="Put their point better than they did, and offer it as their reason."
-                  verdict={steelmanVerdict}
-                  disabled={pending || proposing !== null}
-                  onClick={() => setProposing("steelman")}
-                />
-                <ActionItem
-                  label="Pin down a word"
-                  hint="Ask what one word in here is doing, and agree on what it means."
-                  verdict={definitionVerdict}
-                  disabled={pending || proposing !== null}
-                  onClick={() => setProposing("definition")}
-                />
+                {canStartLaterMove(board, "steelman_tile") && (
+                  <ActionItem
+                    label="Write one for them"
+                    hint="Put their point better than they did, and offer it as their reason."
+                    verdict={steelmanVerdict}
+                    disabled={pending || proposing !== null}
+                    onClick={() => setProposing("steelman")}
+                  />
+                )}
+                {canStartLaterMove(board, "definition") && (
+                  <ActionItem
+                    label="Pin down a word"
+                    hint="Ask what one word in here is doing, and agree on what it means."
+                    verdict={definitionVerdict}
+                    disabled={pending || proposing !== null}
+                    onClick={() => setProposing("definition")}
+                  />
+                )}
                 {mine && (
                   <>
                     <span
@@ -1195,20 +1206,25 @@ function TileNode({
                     <span aria-hidden="true" className="bg-gray/30 h-3.5 w-px" />
                   </>
                 )}
-                {/* Anyone may ask to move any reason: the other side answers. */}
-                <button
-                  type="button"
-                  className="text-p-sm underline text-gray disabled:opacity-30"
-                  disabled={pending || moving || !moveVerdict.ok}
-                  title={!moveVerdict.ok ? moveVerdict.error : undefined}
-                  onClick={() => setMoving(true)}
-                >
-                  move
-                </button>
+                {/* Anyone may ask to move any reason: the other side answers.
+                    BRAIN-T260903-06: relocation is hidden in live play and
+                    stays available only outside it (Gym level 2 needs it). */}
+                {canStartLaterMove(board, "tile_relocation") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || moving || !moveVerdict.ok}
+                    title={!moveVerdict.ok ? moveVerdict.error : undefined}
+                    onClick={() => setMoving(true)}
+                  >
+                    move
+                  </button>
+                )}
                 {/* The two cooperative moves, on the reason they are about.
                     Steve's call: none of these is writing in a tile, it is
-                    writing in a little dialog beside one. */}
-                {readingVerdict && (
+                    writing in a little dialog beside one.
+                    BRAIN-T260903-06: Gym level 5+, hidden for now. */}
+                {readingVerdict && canStartLaterMove(board, "reading_handback") && (
                   <button
                     type="button"
                     className="text-p-sm underline text-gray disabled:opacity-30"
@@ -1219,28 +1235,33 @@ function TileNode({
                     say it back
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="text-p-sm underline text-gray disabled:opacity-30"
-                  disabled={pending || proposing !== null || !steelmanVerdict.ok}
-                  title={!steelmanVerdict.ok ? steelmanVerdict.error : undefined}
-                  onClick={() => setProposing("steelman")}
-                >
-                  write one for them
-                </button>
+                {canStartLaterMove(board, "steelman_tile") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !steelmanVerdict.ok}
+                    title={!steelmanVerdict.ok ? steelmanVerdict.error : undefined}
+                    onClick={() => setProposing("steelman")}
+                  >
+                    write one for them
+                  </button>
+                )}
                 {/* The fourth non-argument move. A word, not a reason: you are
                     not answering this tile, you are asking what one of the
                     words in it is doing. It opens here because a word is
-                    always a word in something, and this is the something. */}
-                <button
-                  type="button"
-                  className="text-p-sm underline text-gray disabled:opacity-30"
-                  disabled={pending || proposing !== null || !definitionVerdict.ok}
-                  title={!definitionVerdict.ok ? definitionVerdict.error : undefined}
-                  onClick={() => setProposing("definition")}
-                >
-                  pin down a word
-                </button>
+                    always a word in something, and this is the something.
+                    BRAIN-T260903-06: Gym level 5+, hidden for now. */}
+                {canStartLaterMove(board, "definition") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !definitionVerdict.ok}
+                    title={!definitionVerdict.ok ? definitionVerdict.error : undefined}
+                    onClick={() => setProposing("definition")}
+                  >
+                    pin down a word
+                  </button>
+                )}
               </span>
             </>
           )}
@@ -1252,7 +1273,13 @@ function TileNode({
       {editing || onBoard ? null : (
         <WhyNotAll
           className="text-p-sm text-gray ml-6"
-          verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
+          verdicts={[
+            mine ? editBlocked : null,
+            mine ? removeVerdict : null,
+            // BRAIN-T260903-06: no "why not" line for a move that is not
+            // offered in the first place.
+            canStartLaterMove(board, "tile_relocation") ? moveVerdict : null,
+          ]}
         />
       )}
 
@@ -2935,11 +2962,28 @@ export function LiveBoard({
         <WaysToWinCard
           threads={miniThreads}
           resolvedCount={resolvedCount}
-          onRevise={() => setTopicEditing(true)}
-          reviseHint={endsOnTopic ? "Write the version you would both sign." : null}
+          // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+
+          // move. The pencil already knows how to go quiet when this game's
+          // rules do not allow a revision at all (`endsOnTopic`); reusing
+          // that same "no hint, no handler" shape is how it stays quiet
+          // while the move is held back from the live game too.
+          onRevise={
+            canStartLaterMove(board, "topic_revision")
+              ? () => setTopicEditing(true)
+              : undefined
+          }
+          reviseHint={
+            endsOnTopic && canStartLaterMove(board, "topic_revision")
+              ? "Write the version you would both sign."
+              : null
+          }
           ceilingNote={ceilingNote}
+          // BRAIN-T260903-06: the footer names the topic-revision ending as
+          // something you can go do right now, so it is gated the same way
+          // the pencil is, rather than describing a door the card itself has
+          // just closed.
           footer={
-            endsOnTopic
+            endsOnTopic && canStartLaterMove(board, "topic_revision")
               ? "Either ending is a win, and it is the same win for both of you."
               : null
           }
