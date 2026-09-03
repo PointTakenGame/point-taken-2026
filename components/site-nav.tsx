@@ -19,8 +19,10 @@ import { Wordmark } from "@/components/brand/art";
  * It renders on the three screens that are not part of the four-tab hub;
  * inside the hub, `components/account/account-shell.tsx` is the nav.
  *
- * Signed out it renders nothing. A visitor with no account has no account to
- * visit, and the front door already explains itself.
+ * Signed out it keeps the wordmark and drops the links. A visitor with no
+ * account has no account to visit, but these three screens are reachable
+ * signed out (the rules in particular are meant to be readable before you
+ * play), and a page with no way back to the front door is a dead end.
  *
  * Not on the board. A game in progress has its own links and does not want a
  * row of ways to leave it sitting above the argument.
@@ -37,10 +39,7 @@ const LINKS: { here: Here; href: string; label: string }[] = [
 
 export async function SiteNav({ here }: { here: Here }) {
   const playerId = await currentPlayerId();
-  if (!playerId) return null;
-
-  const player = await getPlayer(playerId);
-  if (!player) return null;
+  const player = playerId ? await getPlayer(playerId) : null;
 
   return (
     <nav
@@ -52,7 +51,7 @@ export async function SiteNav({ here }: { here: Here }) {
         <Wordmark width={132} />
         <span className="sr-only">Start a room</span>
       </Link>
-      {LINKS.map((link) => {
+      {(player ? LINKS : []).map((link) => {
         const active = link.here === here;
         return (
           <Link
