@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./actions";
+import { CoachPersonaPicker } from "./coach-persona-picker";
 
 /**
  * The three settings forms, each its own card.
@@ -277,6 +278,7 @@ export function SettingsForm({
         hint="Off by default. When it is on, the coach reads each reason as you place it and can offer a rule card or a rewrite. Only you see what it says about your own reasons."
       >
         <CoachToggle enabled={coachEnabled} />
+        <CoachPersonaPicker />
       </Section>
 
       <Section

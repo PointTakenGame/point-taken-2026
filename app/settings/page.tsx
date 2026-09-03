@@ -19,8 +19,12 @@ import { SettingsForm } from "./settings-form";
  * Settings frame `1096:222248` (spec BRAIN-T260902-21). Hers carries rows this
  * game does not have: a coach persona picker with named characters, a public
  * profile visibility control, and notification preferences for scheduled
- * events. All three hang off systems that are not decided
- * (BRAIN-T260817-02), so they stay out.
+ * events. The persona picker was added 2026-09-03, reading
+ * lib/progression/sample.ts, since the coach is picked once per account
+ * rather than per level (BIZ-T260823-68); it holds its pick in React state
+ * only, because there is no players column for it yet. The other two still
+ * hang off systems that are not decided (BRAIN-T260817-02), so they stay
+ * out.
  *
  * What her frame did have and this page was missing is the F&Q, so it is here
  * now, written rather than lorem. Her copy calls the practice mode the Dojo;
