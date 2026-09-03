@@ -1,4 +1,4 @@
-import { COACH_CARDS, coachCardsMatchDeck } from "@/lib/coach/cards";
+import { coachCardsMatchDeck } from "@/lib/coach/cards";
 import { getPlayerStats } from "@/lib/db/stats";
 import { currentPlayerId } from "@/lib/supabase/session";
 import {
@@ -7,25 +7,36 @@ import {
   Panel,
   SectionHeading,
 } from "@/components/account/account-shell";
+import { CardWall } from "@/components/cards/card-wall";
+import { BossCollection } from "@/components/cards/boss-collection";
+import { BadgeGallery } from "@/components/cards/badge-gallery";
 import { StartPlaying } from "../account/start-playing";
 
 /**
- * The deck, and what this player has done with it.
+ * The deck, and what this player has done with it: rule cards, bosses, and
+ * badges, in that order.
  *
  * Rannie draws this surface as CARDS & BADGES. The 2026-09-02 pull splits it
  * into three frames: Rule Cards `790:97607`, Boss Collection `790:111876`, and
  * Badges Gallery `810:61120` (spec BRAIN-T260902-21). The `730:19646` cited
  * here before belongs to a superseded generation of the file.
  *
- * Only the cards half is built, and the omission is deliberate rather than
- * pending: every badge in those frames hangs off a level ladder, a ranked
- * division or a cooperation score, none of which are decided
- * (BRAIN-T260817-02). Inventing thresholds here would ship a progression system
- * by accident, and a badge is much harder to take away than to add. The Boss
- * Collection is the same story one step further on: there are no bosses.
+ * Bosses and badges were left out entirely until now: every one of them hangs
+ * off a level ladder, a card set beyond the ratified four, or a badge taxonomy,
+ * none of which were built, and inventing thresholds here would have shipped
+ * a progression system by accident. Steve's 2026-09-03 ruling changed that
+ * (BRAIN-T260903-10 for the rule-card wall, BRAIN-T260903-11 for bosses and
+ * badges): "these are just tiles on a website with db queries behind them. I
+ * would rather have more fake ones now as inspiration and remove them later."
+ * All three sections below are built, and everything past the four ratified
+ * cards is invented sample data from lib/progression/sample.ts, flagged with
+ * SampleTag rather than presented as fact. The file has a comment at its top
+ * naming exactly what is ratified and what is not; that comment is the source
+ * to update, not this one, when a card, boss, or badge moves from invented to
+ * real.
  *
- * What is here is counted, not scored. Each card carries three numbers, and
- * they are three different relationships to the same rule:
+ * The rule-card counts are the one thing here that were never sample: three
+ * numbers, and they are three different relationships to the same rule:
  *
  *   thrown   you called this on the other player's reason.
  *   coached  your own coach raised it about yours. Only you ever see this.
@@ -38,25 +49,14 @@ import { StartPlaying } from "../account/start-playing";
  *
  * Rebuilt 2026-09-02 into the account hub as its Cards & Badges tab, so the
  * four account pages share one chrome. Her Rule Cards frame draws eleven cards
- * in a level-gated grid, each locked until its level; ours is four cards, all
- * held by everyone from the first game, which is a decided difference and not a
- * gap: the deck is deliberately small and ungated in the first release.
+ * in a level-gated grid, each locked until its level; ours now does the same,
+ * with the four ratified cards owned by everyone from the first game (a
+ * decided difference, not a gap: the deck is deliberately small and ungated in
+ * the first release) and five later cards shown locked, as sample inspiration
+ * for what a fuller deck looks like.
  */
 
 export const dynamic = "force-dynamic";
-
-function Count({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex w-20 flex-col gap-0.5">
-      <span className="font-figure text-ink text-3xl leading-none font-black tabular-nums">
-        {value}
-      </span>
-      <span className="font-label text-ink-soft text-[11px] font-bold tracking-widest uppercase">
-        {label}
-      </span>
-    </div>
-  );
-}
 
 export default async function CardsPage() {
   const playerId = await currentPlayerId();
@@ -97,35 +97,12 @@ export default async function CardsPage() {
         </p>
       )}
 
-      <SectionHeading
-        title="Rule cards"
-        note={`${COACH_CARDS.length} held`}
-        noteTone="good"
+      <CardWall
+        thrownById={stats.cards_thrown_by_id}
+        coachedById={stats.coach_flags_by_id}
       />
-      <ul className="mb-8 flex flex-col gap-4">
-        {COACH_CARDS.map((card) => (
-          <li
-            key={card.id}
-            className="sticker flex flex-wrap items-start justify-between gap-6 p-5"
-          >
-            <div className="flex min-w-56 flex-1 flex-col gap-1">
-              <h2 className="font-figure text-ink flex items-center gap-2 text-xl font-black tracking-wide uppercase">
-                <span aria-hidden className="text-xl">
-                  {card.icon}
-                </span>
-                {card.name}
-              </h2>
-              <p className="font-secondary text-ink-soft text-p-sm">{card.plain}</p>
-            </div>
-            <div className="flex gap-6">
-              <Count label="thrown" value={stats.cards_thrown_by_id[card.id] ?? 0} />
-              <Count label="coached" value={stats.coach_flags_by_id[card.id] ?? 0} />
-            </div>
-          </li>
-        ))}
-      </ul>
 
-      <Panel>
+      <Panel className="mb-8">
         <SectionHeading title="Cards you turned down" />
         <p className="font-secondary text-ink-soft text-p-sm">
           {stats.card_throws_declined === 0
@@ -133,6 +110,10 @@ export default async function CardsPage() {
             : `${stats.card_throws_declined}. Each one is a card thrown at a reason of yours that you answered by disputing the card rather than by rewriting.`}
         </p>
       </Panel>
+
+      <BossCollection />
+
+      <BadgeGallery />
     </AccountShell>
   );
 }
