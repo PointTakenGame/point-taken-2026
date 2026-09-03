@@ -10,6 +10,11 @@ import { ResumeOrStart } from "@/components/resume-or-start";
 import { StreakCounters } from "@/components/streak-counters";
 import { AccountShell, Panel, SectionHeading } from "@/components/account/account-shell";
 import { MatchList } from "@/components/account/match-list";
+import { ActiveBoss } from "@/components/account/progression/active-boss";
+import { BadgeStrip } from "@/components/account/progression/badge-strip";
+import { CertificateWall } from "@/components/account/progression/certificate-wall";
+import { LadderStrip } from "@/components/account/progression/ladder-strip";
+import { StatTiles } from "@/components/account/progression/stat-tiles";
 import { StartPlaying } from "./start-playing";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { Avatar } from "@/components/avatar";
@@ -25,15 +30,24 @@ import { joinedThisWeek, loadAccount } from "./data";
  * blocks beside it, the sticker panels, the "View All" link out of a section
  * that continues on another tab, and the type pairing throughout.
  *
- * What is not here is the part of her frame that describes a game this is not
- * yet. She draws a level ladder L1 to L8, a cooperation score out of ten with a
- * global percentile, a ladder rank in a named division, an active boss
- * challenge, and a calendar of scheduled events with sign-ups and a countdown.
- * Every one of those is a system that has been on hold since BRAIN-T260817-02,
- * so building them means inventing thresholds and a scoring formula on the
- * spot. They are left out rather than faked, and where leaving one out would
- * open a hole in her grid the grid is closed up instead of padded. Steve has
- * the list and the question in BRAIN-T260902-28.
+ * The widgets her frame also draws, that an earlier ruling had left out (a
+ * level ladder, a stat row with a cooperation score and a ladder rank, an
+ * active boss challenge, a certificate wall, and a recent-badges strip), are
+ * built now, above the sections listed above. Steve, 2026-09-03: the
+ * progression layer behind them waits on Nathan's script, but "design the
+ * screen that summarizes what happened, just fake some data," and on these
+ * specific widgets, "these are just tiles on a website with db queries behind
+ * them. I would rather have more fake ones now as inspiration and remove them
+ * later. We will be iterating on them anyway." (BRAIN-T260903-10,
+ * BRAIN-T260903-11.)
+ *
+ * Every number in them comes from lib/progression/sample.ts, the single
+ * invented-data source and the single file to delete once the real engine
+ * lands, and each one carries a small "Sample data" tag so a tester does not
+ * file a bug against a figure with no formula behind it. Not built: a
+ * calendar of scheduled events with sign-ups and a countdown, which stayed out
+ * because there is no event system anywhere in this codebase to fake data for,
+ * only a UI to draw.
  *
  * The archive itself moved to /account/history, which is her own arrangement:
  * History is one of the four tabs. This page keeps the four most recent games,
@@ -129,12 +143,18 @@ export default async function AccountPage() {
 
   return (
     <AccountShell tab="profile">
+      <LadderStrip />
+      <StatTiles />
+      <ActiveBoss />
+      <CertificateWall />
+      <BadgeStrip />
+
       {/*
         Her top row is two promo cards side by side: an active boss challenge on
         the left, and "Play with your peers" with Gym and Live buttons on the
-        right. The boss card is one of the undecided systems, so this row is the
-        right-hand card alone, widened, with the one action this page actually
-        has.
+        right. The active-boss card is above now, built on sample data; this row
+        is still the right-hand card alone, widened, with the one action this
+        page actually has.
       */}
       <Panel className="mb-8 flex flex-col gap-4">
         <SectionHeading title="Play with your peers" />
