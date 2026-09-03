@@ -38,8 +38,10 @@ export const dynamic = "force-dynamic";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 border-t border-current/10 pt-6">
-      <h2 className="text-p-lg font-semibold">{title}</h2>
+    <section className="sticker flex flex-col gap-3 p-6">
+      <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -47,12 +49,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function HowToPlay() {
   return (
-    <>
+    <div className="dot-ground min-h-screen w-full">
       <SiteNav here="how" />
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold">How to play</h1>
-          <p className="text-gray">
+      {/*
+        The column is the hub's 1229 so the wordmark, the heading and every
+        card share one left edge, and the prose inside it is held to a
+        readable measure rather than run to the full width.
+      */}
+      <main className="mx-auto flex w-full max-w-[1229px] flex-col gap-6 px-6 pb-16 [&>*]:max-w-3xl">
+        <header className="flex flex-col gap-2 pb-2">
+          <h1 className="font-primary text-ink text-5xl tracking-wide uppercase">
+            How to play
+          </h1>
+          <p className="font-secondary text-ink-soft">
             Two people who disagree about one thing, writing short reasons at each other
             until they can name exactly where they part ways. Nobody wins by scoring
             points off the other one. Both ways the game can end are agreements.
@@ -68,31 +77,31 @@ export default function HowToPlay() {
         </header>
 
         <Section title="Getting a second person in">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Start a room and you get a {JOIN_CODE_LENGTH}-character code. The other player
             types it on the front page, or opens the link you send them, and that seats
             them. One of you is Plus and one is Minus. The seat is yours for the rest of
             the game.
           </p>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Testing on your own? Open a second browser, or a private window, and join with
             the code there. The two seats are two sessions, so one window each is all it
             takes. There is no computer opponent.
           </p>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Either player can set the topic and start. There is no host, and no waiting on
             one.
           </p>
         </Section>
 
         <Section title="A turn">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             You write one reason, up to {TILE_MAX_CHARS} characters, and hang it off a
             reason already on the board. That is what makes this a board rather than a
             chat log: everything points at the thing it is answering, so the argument
             grows as a set of threads instead of a scroll.
           </p>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             A reason hung straight off the topic starts a new thread. A board holds at
             most {MAX_THREADS} of them, which is a limit on how many arguments you can
             have going at once, not on how deep any one of them goes.
@@ -100,7 +109,7 @@ export default function HowToPlay() {
         </Section>
 
         <Section title="Ending a thread">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             A thread ends when both of you put down the same token. Not when one of you
             concedes, and not when a timer runs out. The token is a shared answer to what
             kind of disagreement this turned out to be.
@@ -109,11 +118,11 @@ export default function HowToPlay() {
             {RESOLUTION_TOKENS.map((token) => (
               <li key={token} className="flex items-center gap-3 text-p-sm">
                 <TokenGlyph token={token} size={28} />
-                <span className="text-gray">{tokenLabel(token)}</span>
+                <span className="font-secondary text-ink-soft">{tokenLabel(token)}</span>
               </li>
             ))}
           </ul>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Put one down and the other player sees it. If they put down a different one,
             nothing is settled and the thread stays open, which is the correct outcome:
             you do not yet agree about what you disagree about.
@@ -121,11 +130,11 @@ export default function HowToPlay() {
         </Section>
 
         <Section title="Asking the other player for something">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Some moves need both of you. You send the ask, they accept or decline, and
             nothing changes on the board until they answer.
           </p>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-p-sm text-gray">
+          <ul className="flex list-disc flex-col gap-1 pl-5 font-secondary text-p-sm text-ink-soft">
             <li>Move a reason to a place on the board where it fits better.</li>
             <li>Pin down a word, so the rest of the game uses it the same way.</li>
             <li>Say their side back to them, and ask whether you have it right.</li>
@@ -136,7 +145,7 @@ export default function HowToPlay() {
         </Section>
 
         <Section title="The cards">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Everyone holds the same {COACH_CARDS.length} cards. Throwing one says a reason
             broke that rule. The consequence is always that the reason gets rewritten,
             never that anybody loses anything.
@@ -149,12 +158,12 @@ export default function HowToPlay() {
                 </span>
                 <span>
                   <span className="font-medium">{card.name}</span>
-                  <span className="text-gray"> {card.plain}</span>
+                  <span className="font-secondary text-ink-soft"> {card.plain}</span>
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             The coach, if you turn it on in{" "}
             <Link href="/settings" className="underline">
               Settings
@@ -167,21 +176,23 @@ export default function HowToPlay() {
         </Section>
 
         <Section title="How the game ends">
-          <p className="text-p-sm text-gray">Two ways, and both are agreements.</p>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
+            Two ways, and both are agreements.
+          </p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 font-secondary text-p-sm text-ink-soft">
             <li>Every thread on the board is resolved, however many there are.</li>
             <li>
               You agree on a rewritten wording of the topic, one both sides could sign.
             </li>
           </ul>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Either way the board stays readable afterwards, with every thread and the
             token you landed on for it.
           </p>
         </Section>
 
         <Section title="Things not to file a bug about yet">
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             This is a prototype, and some of it is genuinely undecided rather than
             unfinished. Known and being argued about: how many threads a game should need
             before it can end, what the levels and badges are called, how much of a turn
@@ -189,7 +200,7 @@ export default function HowToPlay() {
             something in that list looks wrong to you, say so, but it is a decision
             waiting to be made and not a defect.
           </p>
-          <p className="text-p-sm text-gray">
+          <p className="font-secondary text-p-sm text-ink-soft">
             Everything else is fair game.{" "}
             <Link href="/" className="underline">
               Start a room
@@ -198,6 +209,6 @@ export default function HowToPlay() {
           </p>
         </Section>
       </main>
-    </>
+    </div>
   );
 }

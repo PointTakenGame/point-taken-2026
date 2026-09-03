@@ -17,7 +17,7 @@ export function OnboardingLauncher() {
     <>
       <button
         type="button"
-        className="form-base btn-primary self-start border-gray bg-offwhite text-neutral-black"
+        className="font-label border-ink bg-card text-ink hover:bg-sand self-start rounded-full border-[1.5px] px-5 py-2 text-xs font-bold tracking-widest uppercase transition-colors"
         onClick={() => setOpen(true)}
       >
         Watch the 4-step tutorial

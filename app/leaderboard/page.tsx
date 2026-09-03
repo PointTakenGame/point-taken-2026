@@ -71,7 +71,7 @@ function ranks(rows: LeaderboardRow[], metric: LeaderboardMetric): number[] {
 function SortLinks({ active }: { active: LeaderboardMetric }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+      <span className="font-label text-ink-soft text-[11px] font-bold tracking-widest uppercase">
         Rank by
       </span>
       {METRICS.map((metric) =>
@@ -79,7 +79,7 @@ function SortLinks({ active }: { active: LeaderboardMetric }) {
           <span
             key={metric}
             aria-current="true"
-            className="rounded-md border-2 border-gold bg-sand px-3 py-1 font-secondary text-p-sm"
+            className="font-label border-ink bg-card text-ink rounded-full border-[1.5px] px-4 py-1.5 text-xs font-bold tracking-widest uppercase"
           >
             {METRIC_LABELS[metric]}
           </span>
@@ -87,7 +87,7 @@ function SortLinks({ active }: { active: LeaderboardMetric }) {
           <Link
             key={metric}
             href={`/leaderboard?by=${metric}`}
-            className="rounded-md border-2 border-neutral-black px-3 py-1 font-secondary text-p-sm transition-colors hover:border-gold hover:bg-sand"
+            className="font-label border-ink/30 text-ink-soft hover:border-ink hover:text-ink rounded-full border-[1.5px] px-4 py-1.5 text-xs font-bold tracking-widest uppercase transition-colors"
           >
             {METRIC_LABELS[metric]}
           </Link>
@@ -110,12 +110,14 @@ export default async function LeaderboardPage({
   const places = ranks(rows, metric);
 
   return (
-    <>
+    <div className="dot-ground min-h-screen w-full">
       <SiteNav here="leaderboard" />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
-        <header className="flex flex-col gap-1">
-          <h1 className="font-primary text-3xl tracking-wide">Leaderboard</h1>
-          <p className="text-p-sm text-gray">
+      <main className="mx-auto flex w-full max-w-[1229px] flex-col gap-6 px-6 pb-16">
+        <header className="flex flex-col gap-2 pb-2">
+          <h1 className="font-primary text-ink text-5xl tracking-wide uppercase">
+            Leaderboard
+          </h1>
+          <p className="font-secondary text-ink-soft max-w-2xl">
             Both ways to win this game are cooperative, so none of these columns measures
             beating anybody.
           </p>
@@ -124,7 +126,7 @@ export default async function LeaderboardPage({
         <SortLinks active={metric} />
 
         {rows.length === 0 ? (
-          <p className="text-gray">
+          <p className="font-secondary text-ink-soft">
             Nobody has played a game yet. The first one starts the board.
           </p>
         ) : (
@@ -141,13 +143,13 @@ export default async function LeaderboardPage({
                   key={row.playerId}
                   className={
                     you
-                      ? "flex items-center gap-3 rounded-xl border-2 border-gold bg-sand p-4 shadow-sm"
-                      : "flex items-center gap-3 rounded-xl border-2 border-neutral-black/15 bg-neutral-white p-4 shadow-sm"
+                      ? "sticker border-stat-warm flex items-center gap-3 p-4"
+                      : "sticker flex items-center gap-3 p-4"
                   }
                 >
                   <span
-                    className={`w-8 shrink-0 text-right font-primary text-gold tabular-nums ${
-                      podium ? "text-p-lg" : "text-p-md"
+                    className={`font-figure text-ink w-8 shrink-0 text-right font-black tabular-nums ${
+                      podium ? "text-2xl" : "text-lg"
                     }`}
                   >
                     {places[index]}
@@ -155,16 +157,20 @@ export default async function LeaderboardPage({
                   <Avatar playerId={row.playerId} name={row.displayName} size="sm" />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-2">
-                      <span className={row.displayName ? "" : "opacity-60"}>
+                      <span
+                        className={`font-figure text-ink font-black tracking-wide uppercase ${
+                          row.displayName ? "" : "opacity-60"
+                        }`}
+                      >
                         {row.displayName ?? UNNAMED_PLAYER}
                       </span>
                       {you ? (
-                        <span className="rounded-full border-2 border-gold bg-neutral-white px-2 py-0.5 font-secondary text-p-sm text-gold uppercase tracking-wide">
+                        <span className="font-label border-stat-warm text-stat-warm rounded-full border-[1.5px] px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase">
                           you
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-p-sm text-gray">
+                    <span className="font-secondary text-p-sm text-ink-soft">
                       {row.gamesPlayed} game{row.gamesPlayed === 1 ? "" : "s"} played
                     </span>
                   </span>
@@ -172,15 +178,13 @@ export default async function LeaderboardPage({
                     {METRICS.map((column) => (
                       <span key={column} className="flex w-20 flex-col items-end gap-0.5">
                         <span
-                          className={`font-secondary tabular-nums ${
-                            column === metric
-                              ? "font-semibold text-neutral-black"
-                              : "text-gray"
+                          className={`font-figure text-xl font-black tabular-nums ${
+                            column === metric ? "text-ink" : "text-ink-soft"
                           }`}
                         >
                           {row[column]}
                         </span>
-                        <span className="font-secondary text-p-sm text-gray uppercase tracking-wide">
+                        <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
                           {METRIC_LABELS[column]}
                         </span>
                       </span>
@@ -192,6 +196,6 @@ export default async function LeaderboardPage({
           </ol>
         )}
       </main>
-    </>
+    </div>
   );
 }
