@@ -222,7 +222,9 @@ function Director({
               </button>
             ))}
             <span className="font-label text-ink-soft">
-              Or write your own on the board, under the same tile.
+              {beat.expect.parent === null
+                ? "Or write your own on the board, hung off the topic."
+                : "Or write your own on the board, under the same tile."}
             </span>
           </div>
         ) : null}
