@@ -2623,7 +2623,7 @@ export function LiveBoard({
   // Matches the retired client's isTutorialOpen: true on every arrival at the
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
-  const onboarding = useOnboarding();
+  const onboarding = useOnboarding({ auto: board.mode !== "gym" });
   // The topic editor opens from two places (the tile itself and the Ways to
   // win pencil), so the board owns whether it is open, not the tile.
   const [topicEditing, setTopicEditing] = useState(false);
@@ -2978,6 +2978,7 @@ export function LiveBoard({
               : null
           }
           ceilingNote={ceilingNote}
+          showRevise={canStartLaterMove(board, "topic_revision")}
           // BRAIN-T260903-06: the footer names the topic-revision ending as
           // something you can go do right now, so it is gated the same way
           // the pencil is, rather than describing a door the card itself has

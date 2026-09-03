@@ -95,6 +95,7 @@ export function WaysToWinCard({
   reviseHint = null,
   ceilingNote = null,
   footer = null,
+  showRevise = true,
 }: {
   threads: MiniThread[];
   resolvedCount: number;
@@ -108,6 +109,11 @@ export function WaysToWinCard({
   /** The cooperative point, last, because it is the thing about this game
    *  that a player arriving from any other game does not expect. */
   footer?: string | null;
+  /** BRAIN-T260903-06: false while topic revision is held back from the
+   *  game. Route 2 leaves the list and the centre stamp stops being a
+   *  button, so the card describes one way to win, not one and a locked
+   *  door. Default true keeps the retired client's two-route card. */
+  showRevise?: boolean;
 }) {
   // Each slot takes the next thread of its own side, so a board with one Plus
   // thread lights the top right and leaves the other three faint.
@@ -237,10 +243,10 @@ export function WaysToWinCard({
         <button
           type="button"
           className="bg-neutral-black group/topic absolute top-[34%] left-[34%] aspect-square w-[32%] cursor-pointer border-none p-0 [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)]"
-          aria-label="Revise the topic"
+          aria-label={showRevise ? "Revise the topic" : "Topic"}
           onMouseEnter={() => onHover?.({ tileId: "0", kind: "topic" })}
           onMouseLeave={() => onHover?.(null)}
-          onClick={() => onRevise?.()}
+          onClick={showRevise ? () => onRevise?.() : undefined}
         >
           {/* Labelled, not a pencil. Rannie stamps the middle of the stamp
               "TOPIC" the same way the real centre tile is stamped, so the
@@ -248,19 +254,25 @@ export function WaysToWinCard({
               toolbar with an edit button in it. The pencil still appears,
               on hover, because this is also the way to open the rewrite. */}
           <span className="bg-neutral-black font-primary absolute inset-[3px] flex items-center justify-center text-[9px] tracking-wide text-white [clip-path:inherit]">
-            <span className="group-hover/topic:hidden">TOPIC</span>
-            <span className="hidden group-hover/topic:inline">✎</span>
+            <span className={showRevise ? "group-hover/topic:hidden" : ""}>TOPIC</span>
+            {showRevise ? (
+              <span className="hidden group-hover/topic:inline">✎</span>
+            ) : null}
           </span>
         </button>
       </div>
 
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-neutral-black bg-offwhite border-gray/40 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold">
-          2
-        </span>
-        <span className="text-neutral-black text-p-sm">Revise the topic</span>
-      </div>
-      {reviseHint ? <p className="text-gray mt-1 pl-7 text-xs">{reviseHint}</p> : null}
+      {showRevise ? (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-neutral-black bg-offwhite border-gray/40 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold">
+            2
+          </span>
+          <span className="text-neutral-black text-p-sm">Revise the topic</span>
+        </div>
+      ) : null}
+      {showRevise && reviseHint ? (
+        <p className="text-gray mt-1 pl-7 text-xs">{reviseHint}</p>
+      ) : null}
 
       {ceilingNote ? <p className="text-gray mt-3 text-xs">{ceilingNote}</p> : null}
       {footer ? (

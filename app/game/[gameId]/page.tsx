@@ -9,6 +9,10 @@ import { GameSetup } from "@/components/board/game-setup";
 import { BuildStamp } from "@/components/build-stamp";
 import { LiveBoard } from "@/components/board/live-board";
 import { WinOverlay } from "@/components/win/win-overlay";
+import { Certificate } from "@/components/gym/certificate";
+import { GymDirector } from "@/components/gym/director";
+import { GymLobby } from "@/components/gym/gym-lobby";
+import { levelById } from "@/lib/gym/levels";
 import { projectBoard } from "@/lib/board/project";
 import { getPlayer } from "@/lib/db/players";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
@@ -47,6 +51,11 @@ export default async function GamePage({
   // A preference, not a move, so it lives on the player row rather than the log.
   const player = await getPlayer(seat.seat.playerId);
 
+  // A scripted Gym level is the same board with a script beside it: the
+  // lobby is the signing ritual alone, the ending is the certificate, and
+  // the live board gets the director on top. Same URL, same history row.
+  const level = board.mode === "gym" ? levelById(board.levelId) : undefined;
+
   // Local sandbox bypass, see docs/filed/SANDBOX.md. Inert outside local dev.
   const hotseat = hotseatAllowed() ? (
     <HotseatBar
@@ -59,6 +68,16 @@ export default async function GamePage({
       }))}
     />
   ) : null;
+
+  if (board.status === "ended" && level) {
+    return (
+      <>
+        <Certificate level={level} board={board} />
+        <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+        {hotseat}
+      </>
+    );
+  }
 
   if (board.status === "ended") {
     return (
@@ -96,6 +115,20 @@ export default async function GamePage({
             Leaderboard
           </Link>
         </nav>
+        {hotseat}
+      </>
+    );
+  }
+
+  if (board.status === "lobby" && level) {
+    return (
+      <>
+        <GymLobby
+          gameId={gameId}
+          levelId={level.id}
+          board={board}
+          me={{ playerId: seat.seat.playerId }}
+        />
         {hotseat}
       </>
     );
@@ -154,6 +187,7 @@ export default async function GamePage({
         // component, because it reads server-only environment.
         buildStamp={<BuildStamp />}
       />
+      {level ? <GymDirector gameId={gameId} levelId={level.id} board={board} /> : null}
       {hotseat}
     </>
   );

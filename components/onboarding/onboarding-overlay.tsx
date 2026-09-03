@@ -405,7 +405,7 @@ function seenSnapshot(): boolean {
  * backdrop over the board before hydration corrects it. A new player waits
  * one frame for the tutorial instead, which is the right way round.
  */
-export function useOnboarding(): {
+export function useOnboarding({ auto = true }: { auto?: boolean } = {}): {
   open: boolean;
   show: () => void;
   close: () => void;
@@ -428,5 +428,8 @@ export function useOnboarding(): {
     }
   }, []);
 
-  return { open: asked || (!seen && !dismissed), show, close };
+  // `auto: false` keeps the "?" button working and stops the unasked-for
+  // open. A scripted Gym level is its own walkthrough, beat by beat, and two
+  // tutorials stacked on the first frame teach neither.
+  return { open: asked || (auto && !seen && !dismissed), show, close };
 }

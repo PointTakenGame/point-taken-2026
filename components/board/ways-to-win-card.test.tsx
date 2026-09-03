@@ -155,3 +155,14 @@ describe("WaysToWinCard: fewer than four threads", () => {
     expect(screen.getByLabelText("Revise the topic")).toBeTruthy();
   });
 });
+
+// BRAIN-T260903-06: topic revision held back; route 2 leaves the card.
+describe("WaysToWinCard with showRevise off", () => {
+  it("lists one route and keeps the centre stamp as a stamp", () => {
+    render(<WaysToWinCard threads={[]} resolvedCount={0} showRevise={false} />);
+    expect(screen.queryByText("Revise the topic")).toBeNull();
+    expect(screen.queryByLabelText("Revise the topic")).toBeNull();
+    expect(screen.getByLabelText("Topic")).toBeTruthy();
+    expect(screen.getByText("Resolve all threads")).toBeTruthy();
+  });
+});
