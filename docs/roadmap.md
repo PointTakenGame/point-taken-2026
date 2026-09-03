@@ -114,7 +114,7 @@ Nothing else can be built on top until this is settled, because everything else 
 - **1.4 The account progression record.** Cards owned, badges earned with occurrence counts, points,
   highest level reached, in-flight practice game id, coach pick. **Absent from this repo entirely.**
   Harvest it from the retired backend's progression module rather than reimplementing; the old
-  counter field that named snitch catches is renamed in the port `[ruled]`.
+  counter field named after the retired client's Harry Potter reference is renamed in the port `[ruled]`.
 
 ### Phase 2. The award engine
 
@@ -246,11 +246,12 @@ player reads without checking.
 
 **Two engineering findings embedded in the beat sheets** `[ruled]`, both of which bite this repo:
 
-1. **Level 1's win is unreachable against shipped code.** The minimum thread count is four:
-   `lib/board/rules.ts:66`, `export const MIN_THREADS_TO_END = 4;`, used by `threadsWinReached()` at
-   `:106-109` `[unratified]`. Level 1 has two threads. The ruled fix makes the minimum a per-game
-   number set at creation, with level 1 setting its own to 2 (`BRAIN-T260823-39`, `BIZ-T260824-11`).
-   It surfaces in the ways-to-win card and the live board, so the per-game value must reach those.
+1. **Built: there is no minimum thread count.** `MIN_THREADS_TO_END` no longer exists in
+   `lib/board/rules.ts`; `threadsWinReached()` ends the game once every live thread is resolved,
+   whatever their number, so a two-thread Gym level wins on the same rule as everyone else
+   `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`, reconfirmed 2026-09-03: "it is all threads, not
+   four threads"). This entry previously said level 1's win was unreachable against shipped code;
+   that finding is resolved and this is its tombstone.
 2. **The rung-0 question test does not exist in the tile validator.** The approved implementation is a
    trailing question mark plus a list of interrogative openers, with no model call; a refusal names the
    rule and hands the text back (`BRAIN-T260823-43`, `BIZ-T260824-14`). Build it in the tile validator
@@ -281,9 +282,25 @@ not the category.
 certificates. Fast-forward exists on levels 3 and 4 only; build the full level first and then scale
 back, so the short path is a strict subset of the long one.
 
-**The profile is personal and non-comparative** `[ruled]` (`BIZ-T260822-05`): no leaderboard, no
-opponent comparison, no win/loss record. Six stats, one of which is Cards Landed. It renders only
-once the progression port lands, so it is downstream of 1.4, not parallel to it.
+**A leaderboard exists and is built**, at `app/leaderboard/page.tsx` (`BRAIN-T260831-80`), ranking
+players on their own accumulated numbers, never against a specific opponent: wins, threads agreed,
+and tiles placed, each its own sortable column `[ruled Steve 2026-08-31]`. This overturns the
+leaderboard half of the earlier `BIZ-T260822-05` ruling below, tombstoned here rather than
+silently dropped.
+
+**No opponent comparison, no win/loss record stays ruled** `[ruled]` (`BIZ-T260822-05`): nothing
+shows how a player did relative to the person they just played. No per-match versus score, no WIN
+or LOSS tag on a game, no head-to-head record. A leaderboard and a ban on opponent comparison
+coexist on purpose: a leaderboard compares a player to everyone else on that player's own number,
+while opponent comparison compares a player to the one person they just played, in a game whose
+two win conditions are both agreements, not victories over that person.
+
+Also `[ruled Steve 2026-09-03]` (`BRAIN-T260903-11`): the profile also carries a cooperation score
+with a global percentile, and a ladder rank with divisions, as tiles to iterate on. The data behind
+both is invented sample data until the progression layer lands.
+
+Six stats, one of which is Cards Landed. It renders only once the progression port lands, so it is
+downstream of 1.4, not parallel to it.
 
 **Why four levels and not eight** `[ruled]`: evidence, not scope trimming. Nobody pays to build level
 5 until somebody has played to level 4. This is a build order, not a ladder order, and level 4 is not
@@ -305,17 +322,13 @@ Verified against the clone. Do not assume any of this exists because a source sa
 - **No `THROW_POINTS`, no `fastForward`, no per-level rules object.** The board wants a per-level rules
   object, not a scatter of per-level flags `[ruled]`.
 - **No rungs.** `app/game/[gameId]/actions.ts:197` `[unratified]`.
-- **No turn timers anywhere.** Every timer in the code is a UI-presentation delay, not a clock a
-  player races: a 60ms feed debounce, toast auto-dismiss and its 180ms exit
-  (`components/ui/alert-store.ts:32,82`), an 1800ms success-close on the feedback popover
-  (`components/feedback/feedback-popover.tsx:36,62`), an 800ms onboarding-video loop delay
-  (`components/onboarding-video.tsx:19,29-33`), and a 2000ms settle in `lib/feedback/submit.ts:47-51`
-  `[unratified]`. `app/how-to-play/page.tsx:110` says the win condition is reached
-  when someone concedes and not when a timer runs out `[unratified]`. Steve has ruled turn timers of
-  30 seconds for the speaker and 45 seconds to summarize `[ruled]`, and there is no Gym timer by
-  ruling.
-  GAP: which surface do the 30-second and 45-second timers govern? They are not in the code, not in
-  the Gym, and no source assigns them to a screen.
+- **No turn timers anywhere, and none belong here.** Turn timers are out of scope for this edition
+  by ruling (Steve 2026-09-03, `BRAIN-T260903-01`); they are a Heart-edition mechanic, not Brain's.
+  The earlier entry here citing a 30-second speaker timer and a 45-second summarize timer as
+  `[ruled]` for Brain was a mistake and is superseded by this ruling. Every millisecond delay in the
+  code (the feed debounce, toast auto-dismiss, the feedback-popover success-close, the
+  onboarding-video loop, the feedback-submit settle) is presentation timing, not a game clock, and
+  none of it is a turn timer under a different name.
 - **No levels 5 to 8.** Designed on paper and provisional; see section 5.
 - **No third human.** The referee is the AI `[ruled]`; do not build a moderator seat.
 - **No tokens** in Brain for now `[ruled]`. Generosity tokens are deferred.
@@ -369,8 +382,9 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
 - **The skill wording for levels 1 to 4**, whose source is a draft awaiting Steve.
 - **The emoji vocabulary above level 1.** Level 1 ships with 👍 and 👀 only; the wider vocabulary is
   an open question.
-- **The live-play thread bounds**: four minimum, six ceiling, every thread must resolve `[ruled]`.
-  Brain is asked to confirm the ceiling against the code; the ceiling opens at level 5.
+- **The live-play thread bounds**: no minimum, six ceiling, every live thread must resolve
+  `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`). The four-minimum this entry used to carry is
+  gone; the ceiling opens at level 5, and Brain is asked to confirm it against the code.
 - **The event log's physical home**, an open engineering call: inline on the game record or its own
   table. This repo answers it with its own table `[unratified]`, which does not make the call ruled.
 - **Boss roster coverage.** Skin tones are deliberately uncorrelated with name origin `[ruled]`. No

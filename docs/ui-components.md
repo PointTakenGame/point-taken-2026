@@ -262,12 +262,12 @@ requested back. **Nothing mounts it.** Its only importer is
 `components/info/paths-to-winning-card.test.tsx`; see sections 3 and 9.
 
 ### Turn timers
-`GAP:` The task's brief states 30 seconds for the speaker and 45 seconds to summarize as an established,
-ruled fact. No timer constant, countdown component, or timeout-based thread resolution exists anywhere in
-this codebase. `app/how-to-play/page.tsx:110` states the opposite directly in its own player-facing copy:
-a thread resolves "when a player concedes, and not when a timer runs out." A coding agent needing a turn
-timer UI has nothing to build against; this needs a ruling from Steve or a designer before any timer
-component is built, not an invented one.
+There is no turn timer component to build. Turn timers are out of scope for this edition by ruling
+[ruled Steve 2026-09-03, BRAIN-T260903-01]; they belong to the Heart edition. `app/how-to-play/page.tsx:110`
+already states the correct rule in its player-facing copy: a thread resolves "when a player concedes,
+and not when a timer runs out." An earlier version of this section cited a 30-second speaker timer and
+a 45-second summarize timer as an established, ruled fact needing a build; that citation was a mistake
+and is superseded.
 
 ## 6. Accessibility
 
@@ -353,10 +353,13 @@ questions should be answered once these files run out.
 
 From `docs/reference/materials/design-briefs/2026-08-19_rannie-figma-delta.md` (BRAIN-T260817-02)
 `[ruled]`, drawn-but-cut systems: an eight-rung level ladder with different names than the shipped
-four-level ladder that actually ships (`app/gym/page.tsx:5,12`, `LEVELS` renders four); a public
-"Cooperation Score" and percentile rank; a per-match "Win/Loss" versus score
-(the actual model is one shared team score); an events calendar with signups; a "Season 3" / version
-footer; a boss-count badge pending a roster decision. Stale naming: "Dojo" (now "Gym," BRAIN-T260816-18);
+four-level ladder that actually ships (`app/gym/page.tsx:5,12`, `LEVELS` renders four); a per-match
+"Win/Loss" versus score (the actual model is one shared team score, and per-match opponent comparison
+stays out of scope, `BIZ-T260822-05`); an events calendar with signups; a "Season 3" / version
+footer; a boss-count badge pending a roster decision. No longer cut: a public "Cooperation Score" with
+percentile rank, and a ladder rank in a named division, are now `[ruled Steve 2026-09-03]`
+(`BRAIN-T260903-11`) to be built on the profile as tiles on invented sample data; see `roadmap.md`
+section 3. Stale naming: "Dojo" (now "Gym," BRAIN-T260816-18);
 rule cards named for the fallacy rather than the good move; 11 cards across levels 2-8 in Figma versus 8
 card tracks in the decided model. `GAP:` across which levels do those 8 tracks run? Neither the four
 levels the Gym ships nor the eight-rung ladder `roadmap.md` section 5 designs on paper divides into 8

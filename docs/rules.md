@@ -82,15 +82,7 @@ Designed, unbuilt: each player writes 2 starting reason tiles before play, Plus 
 
 `GAP: is Brain strictly alternating, or free-running with both players able to write at once? The code assumes free-running and no source doc rules either way.`
 
-**Timers.** 30 seconds for the speaker and 45 seconds to summarize [ruled Steve 2026-08-28]. Designed, unbuilt: no timer code exists anywhere in the rebuild. The print game instead has a 1-minute chat timer, flipped by hand when writing is not enough [unratified: GAME_MECHANICS.md].
-
-The Gym has no timer at all, as part of having no failure state [ruled BIZ-T260823-67, guide §2.10].
-
-Timers are advisory in live play and absent in the Gym [vibecoded: this reconciliation of the 30/45 ruling against the no-timer Gym ruling is an interpretation, not a decision].
-
-`GAP: what happens when the 30-second or 45-second timer expires? Is the turn forfeited, is the tile discarded, or is the timer purely a nudge with no consequence?`
-
-`GAP: what is the 45-second "summarize" turn as a board action? No move in the code corresponds to summarizing, unless it means the reading described in section 6.`
+**Timers.** There are no turn timers in this edition [ruled Steve 2026-09-03]; the earlier 30-second speaker and 45-second summarize entry here was recorded in error and belongs to the Heart edition, not Brain. The print game's one-minute chat timer, flipped by hand when writing is not enough, is a Heart-edition mechanic [unratified: GAME_MECHANICS.md].
 
 **What a turn is.** Write one reason, up to 100 characters, and hang it off a tile already on the board. A reason hung straight off the topic starts a new thread.
 
@@ -102,7 +94,7 @@ Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 - Board closed: "This game is over." or "This game has not started yet."
 - Editing someone else's tile: "Only the person who wrote it can change it."
 
-Thread ceiling is 6 [ruled Steve 2026-08-23, lib/board/rules.ts:74]. Live play needs at least 4 threads and every thread must resolve [ruled 2026-08-24, guide §10.3]. That 4 is also a live code constant, `lib/board/rules.ts:66`, where it carries no ruling of its own and appears to be inherited from the retired 2024 server [unratified: lib/board/rules.ts:66]. Read the design ruling as authoritative and the constant as its implementation. The ceiling opens above 6 at level 5.
+Thread ceiling is 6 [ruled Steve 2026-08-23, lib/board/rules.ts:74]. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 6 at level 5.
 
 ## 5. Ending a thread
 
@@ -203,16 +195,14 @@ Designed, unbuilt: the coach reading your draft before you post it and naming th
 
 Two ways, and both are agreements [unratified: lib/board/rules.ts, app/how-to-play/page.tsx]:
 
-1. **Every thread resolved**, once there are at least 4 of them (`threadsWinReached`).
+1. **Every thread resolved**, with no minimum count (`threadsWinReached`) [ruled Steve 2026-09-01, BRAIN-T260901-06].
 2. **A rewritten topic both sides could sign** (`topicAgreementEndsGame`). In live play this always ends the game; in the Gym it ends the game only inside a level or boss game.
 
 The board stays readable afterwards, with every thread and the token it landed on.
 
-`GAP: BRAIN-T260823-10, still open: MIN_THREADS_TO_END is 4, carried forward from the deployed 2024 server and never ratified. Is 4 the right minimum for live play, and does it become a per-game value so a two-thread Gym level can be won?`
-
 Designed, unbuilt: the Certificate of Agreeable Disagreement, filled in with the topic, the counts of each token, the common ground found, and what each player now appreciates about the other's view, meant to be photographed [unratified: GAME_MECHANICS.md]. Nothing in the rebuild produces one.
 
-Also designed, unbuilt: the entire progression layer. Points, badges, certificates, streaks, and profile stats exist only in the retired backend. `THROW_POINTS = 10` [ruled BIZ-T260823-65] and the four award events `card_granted`, `certificate_granted`, `badge_granted`, `points_adjusted` [ruled BIZ-T260824-08] are named and appear nowhere in the rebuild's code. Profile stats, when they exist, are personal and non-comparative only: games played, topics debated, threads resolved, cards landed (never "snitch catches"), tiles placed, current and longest streak [unratified: guide §8].
+Also designed, unbuilt: the entire progression layer. Points, badges, certificates, streaks, and profile stats exist only in the retired backend. `THROW_POINTS = 10` [ruled BIZ-T260823-65] and the four award events `card_granted`, `certificate_granted`, `badge_granted`, `points_adjusted` [ruled BIZ-T260824-08] are named and appear nowhere in the rebuild's code. Profile stats, when they exist, are personal and non-comparative only: games played, topics debated, threads resolved, cards landed (never the retired client's Harry Potter name for a card landing), tiles placed, current and longest streak [unratified: guide §8].
 
 ## 10. The Gym, levels 1 to 4
 
@@ -272,13 +262,13 @@ Acknowledgment of imbalance, stated rather than hidden: the boss roster is US-ce
 
 True today in the code, and player-visible: seats and sides, the three-line signing ritual, the topic library, the 100-character tile, the 6-thread ceiling, the two resolution tokens, both-must-match resolution, the six proposal asks, the four rule cards, the coach as an opt-in post-placement offer, and both endgames.
 
-Decided and unbuilt: every timer, the scripted bosses and all Gym beats, the graded steps inside cards, points, badges, certificates, streaks, profile stats, and the coach's pre-post draft review.
+Decided and unbuilt: the scripted bosses and all Gym beats, the graded steps inside cards, points, badges, certificates, streaks, profile stats, and the coach's pre-post draft review. Turn timers are removed from this list: they are out of scope for this edition by ruling [ruled Steve 2026-09-03, BRAIN-T260903-01] and belong to the Heart edition, not Brain.
 
-Neither decided nor built, and therefore listed as a GAP above: turn order, timer consequences, the clarification move, the minimum thread count, level unlocks, level replay, the two opening tiles, and the emoji vocabulary above level 1.
+Neither decided nor built, and therefore listed as a GAP above: turn order, the clarification move, level unlocks, level replay, the two opening tiles, and the emoji vocabulary above level 1.
 
 ## 13. Contradictions a builder will hit
 
-1. `MIN_THREADS_TO_END` is 4 in code, and Gym level 1 has 2 threads, so as written level 1 cannot be won. The fix adopted on paper is a per-game minimum [ruled BIZ-T260824-11] and it is not in the code.
+1. Resolved: level 1's win used to be unreachable because `MIN_THREADS_TO_END` was 4 in code against a 2-thread Gym level. That constant is gone; `threadsWinReached()` now needs only that every live thread resolve, whatever their number [ruled Steve 2026-09-01, BRAIN-T260901-06]. Kept here as a tombstone since this section's numbering is a builder-facing index and earlier entries may cite it by number.
 2. `GAME_MECHANICS.md` gives per-game token supplies (👍 x4, 👀 x4, 💵 x4). Brain has no token economy [ruled Steve 2026-08-28] and the code treats 👍 and 👀 as unlimited.
 3. `GAME_MECHANICS.md` has four agreement items; the guide and the code ship three. The four-item version is superseded.
 4. `app/how-to-play/page.tsx` tells the player the coach "can tell you a reason of yours looks like one of them before you place it". `lib/coach/run.ts` runs the coach only after the tile is in the log. The copy describes the unbuilt draft review.

@@ -297,11 +297,13 @@ a pre-rewrite Vue file that no longer exists in this codebase; the current
 number is confirmed directly in TypeScript, not carried over from a stale
 pointer.
 
-`MIN_THREADS_TO_END = 4` carries a `GAP:` in its own source comment
-(`lib/board/rules.ts`): Steve ruled the six-thread ceiling on 2026-08-23 but
-did not restate this floor, so 4 is carried forward from the deployed 2024
-server rather than freshly ratified (tracked `BRAIN-T260823-10`). `MAX_THREADS
-= 6` is `[ruled]`, same date, same source. `RESOLUTION_TOKENS = ["👍", "👀"]`
+`MIN_THREADS_TO_END` is gone: there is no minimum thread count any more. A game
+ends once every live thread resolves, whatever their number `[ruled Steve
+2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]`, reconfirmed
+2026-09-03: "it is all threads, not four threads." This entry previously
+tracked a carried-forward floor of 4 as an open gap (`BRAIN-T260823-10`); that
+gap is resolved. `MAX_THREADS = 6` is `[ruled]`, 2026-08-23, same source.
+`RESOLUTION_TOKENS = ["👍", "👀"]`
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so
 nothing can place one yet. This is intended-but-unbuilt, gated behind a
@@ -509,17 +511,14 @@ cannot conclude the function is open.
 - **GAP: what hosting tier and region does the deployed app run on?**
   Discussed in `2026-08-22_platform-rebuild-handoff.md` as pending, not
   confirmed in code.
-- **GAP: does anything enforce a 30-second speaker timer or a 45-second
-  summarize timer, client or server?** This document was given both numbers
-  as `[ruled]` facts to state precisely where they are enforced. A direct
-  search across `app/`, `lib/`, and `components/` for timer, timeout, and
-  the literal values 30/45-as-seconds found no turn-clock logic anywhere.
-  The one closely related artifact is `WinCondition`'s `"timeout"` value
-  (`lib/db/types.ts`), and `lib/games/abandon.ts`'s own comment confirms
-  the gap explicitly: "This is the only writer of `abandoned`. `timeout`
-  still has none [a writer]." The concept of a timeout ending a game is
-  represented in the type system; nothing produces it. The honest answer to
-  "where are these timers enforced" is: nowhere yet.
+- **Resolved: there is no 30-second speaker timer or 45-second summarize timer to
+  enforce.** This entry previously listed as a GAP where those two numbers were
+  enforced, on the premise that they were `[ruled]` facts for this edition. They
+  were not: turn timers are out of scope for Brain and belong to the Heart edition
+  instead `[ruled Steve 2026-09-03, BRAIN-T260903-01]`. `WinCondition`'s `"timeout"`
+  value (`lib/db/types.ts`) and `lib/games/abandon.ts` remain what they were, an
+  unrelated abandon-the-game path with no writer of its own, and are not a turn
+  clock under a different name.
 - **Doc contradicts code, AI critical path.** See section 6 in full. The
   given fact "AI inference is on the critical path of a turn" is
   contradicted by `app/game/[gameId]/actions.ts` (uses `after()` to run the
@@ -529,9 +528,10 @@ cannot conclude the function is open.
   Gym levels 1 to 4 are on the critical path `[ruled]` (Steve, 2026-08-28).
   `CLAUDE.md`, `README.md`, and `app/gym/page.tsx` still quote the
   superseded 2026-08-17 ruling. See section 9.
-- **`MIN_THREADS_TO_END = 4` is unratified**, carried forward from a 2024
-  server rather than restated when the six-thread ceiling was ruled
-  (`lib/board/rules.ts`, tracked `BRAIN-T260823-10`).
+- **Resolved: `MIN_THREADS_TO_END` no longer exists.** This entry previously flagged
+  it as unratified, carried forward from a 2024 server rather than restated when the
+  six-thread ceiling was ruled (`BRAIN-T260823-10`). Steve ruled it out on 2026-09-01
+  (`BRAIN-T260901-06`): a game ends once every live thread resolves, no minimum.
 - **The advisory-lock ordering mechanism and the exact grant SQL for
   `player_stats`'s card-stats extension (`0010`, `0011`) were read at the
   grant/function-signature level, not line by line.** Low risk: the pattern

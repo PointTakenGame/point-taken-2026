@@ -24,14 +24,9 @@ fouls, or Final Showdown appear below.
 - The referee is the AI. There is no human referee; all feedback is generated or templated.
 - No tokens in BRAIN for now (BRAIN's resolution tokens below are a different mechanic:
   agree/disagree markers on a thread, not the Heart 🙏 token economy).
-- Turn timers: 30 seconds for the speaker, 45 seconds to summarize.
-
-**GAP: no code implements a turn timer.** A repo-wide search of `app/`, `components/`,
-and `lib/` under `point-taken-2026` found no timer component, countdown state, or
-30/45-second constant anywhere in the client. The ruled fact above has no corresponding
-shipped string or UI element to cite. The values themselves are not in doubt: Steve
-restated 30 and 45 seconds on 2026-08-28, so nothing here is superseded. What is
-missing is the implementation, not the ruling.
+- No turn timers. This edition does not have them [ruled Steve 2026-09-03, BRAIN-T260903-01]; the
+  earlier entry here citing a 30-second speaker timer and a 45-second summarize timer named a Heart
+  edition mechanic by mistake and is superseded.
 
 ---
 
@@ -138,11 +133,10 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 - `DECLINE_REASON_MAX_CHARS = 200`
 - `MAX_PLAYERS = 2` (read pre-compaction, `lib/board/setup.ts`)
 - `MAX_THREADS = 6`
-- `MIN_THREADS_TO_END = 4`, carrying its own in-code flag: **"GAP: Steve ruled the
-  ceiling on 2026-08-23 and did not restate this number, so four is still carried
-  forward from the deployed 2024 server rather than ratified (BRAIN-T260823-10)."** This
-  is the code's own admission, not this document's invention; repeated here verbatim
-  because the task requires surfacing gaps the source itself flags.
+- No `MIN_THREADS_TO_END` any more. The constant is gone from the code; a game ends once every live
+  thread resolves, whatever their number [ruled Steve 2026-09-01, BRAIN-T260901-06]. This entry
+  used to quote the constant's own now-removed GAP comment about a carried-forward floor of 4; that
+  floor no longer exists.
 
 **Resolution tokens** (agree/disagree markers on a thread, distinct from Heart's 🙏):
 `RESOLUTION_TOKENS = ["👍", "👀"]`, settled 2026-08-23 by Steve, `[ruled]`.
@@ -424,8 +418,11 @@ absent, not a missed read).
 `app/account/page.tsx` (full, 414 lines), `[unratified]` unless noted. Header
 comment (`:25-34`) states this page is deliberately unstyled beyond plain type: a
 level ladder, ranked division, and cooperation score are not decided yet
-(BRAIN-T260817-02, BRAIN-T260816-08), so the page does not bake in numbers the game
-does not have.
+(BRAIN-T260817-02, BRAIN-T260816-08). That comment predates a later ruling: Steve
+has since decided to build the cooperation score, with a global percentile, and a
+ladder rank, with divisions, as profile tiles backed by invented sample data, to
+iterate on [ruled Steve 2026-09-03, BRAIN-T260903-11]. The comment quoted above has
+not caught up to that ruling as of this writing.
 
 Full `OUTCOME` map (`:39-44`), what a game ended as, in a player's words:
 `threads_resolved: "All threads resolved"`, `topic_agreed: "Agreed a new topic"`,
