@@ -22,11 +22,14 @@ import { createRoom } from "@/app/join/actions";
  * exactly one call to action per card for the same reason.
  */
 
+// Restyled 2026-09-02: this now sits inside a sticker panel on the profile, and
+// a hard-shadowed card inside a hard-shadowed card reads as a mistake. It keeps
+// its own edge, one step quieter than its container.
 const CARD =
-  "flex flex-col items-start gap-3 rounded-2xl border-2 border-neutral-black bg-neutral-white p-5 shadow-sm";
+  "flex w-full flex-col items-start gap-3 rounded-xl border border-ink/25 bg-paper p-5";
 
 const BUTTON =
-  "font-primary tracking-wide rounded-full bg-orange px-5 py-2.5 text-neutral-black shadow-sm transition-shadow hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50";
+  "font-primary tracking-wide rounded-full border-[1.5px] border-ink bg-orange px-5 py-2.5 text-ink shadow-sticker-sm transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function ResumeOrStart({
   gameId,
@@ -63,10 +66,10 @@ export function ResumeOrStart({
   if (gameId) {
     return (
       <div className={CARD}>
-        <h2 className="font-primary text-p-lg tracking-wide">
+        <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
           {waiting ? "Your room is open" : "Pick up where you left off"}
         </h2>
-        <p className="font-secondary text-p-sm text-gray">
+        <p className="font-secondary text-p-sm text-ink-soft">
           {waiting
             ? "Nobody has taken the other seat yet. The room holds the code to send them."
             : topic
@@ -82,15 +85,17 @@ export function ResumeOrStart({
 
   return (
     <div className={CARD}>
-      <h2 className="font-primary text-p-lg tracking-wide">Ready when you are</h2>
-      <p className="font-secondary text-p-sm text-gray">
+      <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
+        Ready when you are
+      </h2>
+      <p className="font-secondary text-p-sm text-ink-soft">
         Nothing running right now. Starting a room gives you a code to send whoever you
         want to argue with.
       </p>
       <button type="button" className={BUTTON} disabled={pending} onClick={begin}>
         {pending ? "Opening a room..." : "Start a room"}
       </button>
-      {failed && <p className="font-secondary text-p-sm text-orange">{failed}</p>}
+      {failed && <p className="font-secondary text-p-sm text-stat-warm">{failed}</p>}
     </div>
   );
 }

@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { Anton, Coming_Soon, Noto_Sans } from "next/font/google";
+import {
+  Anton,
+  Barlow_Condensed,
+  Coming_Soon,
+  DM_Sans,
+  Noto_Sans,
+} from "next/font/google";
 
 import { BuildStamp } from "@/components/build-stamp";
 import { HideOnBoard } from "@/components/hide-on-board";
@@ -35,6 +41,30 @@ const comingSoon = Coming_Soon({
   display: "swap",
 });
 
+/*
+  Two more faces, added 2026-09-02 for the account flow. Rannie sets every
+  number on the profile in Barlow Condensed 900 and every small label above one
+  in DM Sans, and that pairing is most of why her stat blocks read as stats
+  rather than as sentences. Anton is too wide to stack a 34px figure over an
+  11px label without the label looking like a mistake.
+
+  Both are variable fonts, so the weights below cost one file each, not one per
+  weight. They are used on the account pages and nowhere else; the board and the
+  landing page still run on the original three.
+*/
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Point Taken",
   description: "A game about disagreeing well.",
@@ -44,7 +74,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${anton.variable} ${notoSans.variable} ${comingSoon.variable}`}
+      className={`h-full antialiased ${anton.variable} ${notoSans.variable} ${comingSoon.variable} ${barlowCondensed.variable} ${dmSans.variable}`}
     >
       <body className="min-h-full flex flex-col">
         {children}

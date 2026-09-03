@@ -4,12 +4,12 @@ import Link from "next/link";
  *  signed-out visitor: exactly the person who has never played. */
 export function HomeLinks({ signedIn }: { signedIn: boolean }) {
   return (
-    <footer className="flex flex-col items-center gap-2 text-center text-p-sm text-gray">
+    <footer className="text-p-sm text-ink-soft flex flex-col items-center gap-2 text-center">
       <p>
         Never played?{" "}
         <Link
           href="/how-to-play"
-          className="underline decoration-gold underline-offset-2"
+          className="decoration-gold text-ink underline underline-offset-2"
         >
           How to play
         </Link>{" "}
@@ -18,7 +18,10 @@ export function HomeLinks({ signedIn }: { signedIn: boolean }) {
       {signedIn ? null : (
         <p>
           Played before and attached an email?{" "}
-          <Link href="/signin" className="underline decoration-gold underline-offset-2">
+          <Link
+            href="/signin"
+            className="decoration-gold text-ink underline underline-offset-2"
+          >
             Sign in
           </Link>{" "}
           to get back to those games. Otherwise just start a room: an account comes with

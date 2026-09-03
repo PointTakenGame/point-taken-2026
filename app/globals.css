@@ -50,15 +50,43 @@
   --color-gold: #efae45;
   --color-brown: #73674e;
 
+  /* Rannie's account-flow palette (Figma 60wr75TY7I95UnL6jkLz2J, pulled
+     2026-09-02, BRAIN-T260902-21). Her ink is a warm near-black that is
+     noticeably softer than the board's #1e1e1e, and every border, stroke and
+     sticker shadow on the account pages is that one colour. The board keeps
+     neutral-black; these are the account flow's, and the two are not
+     interchangeable. */
+  --color-ink: #4d4c4a;
+  --color-ink-soft: #747474;
+  --color-paper: #f5f2f0;
+  --color-card: #fffdf9;
+
+  /* The stat colours, used only for the small note under a number. Warm for a
+     count going up, green for something settled, and nothing else. */
+  --color-stat-warm: #e08e3c;
+  --color-stat-good: #3fa88e;
+
   /* Typefaces. font-tiles is the handwritten face the reason tiles are set in
-     and is the single most recognisable thing about the game's look. */
+     and is the single most recognisable thing about the game's look.
+     font-figure and font-label are the account flow's pairing: a big condensed
+     number over a small wide-tracked label. */
   --font-primary: var(--font-anton), sans-serif;
   --font-secondary: var(--font-noto-sans), sans-serif;
   --font-tiles: var(--font-coming-soon), cursive;
+  --font-figure: var(--font-barlow-condensed), sans-serif;
+  --font-label: var(--font-dm-sans), sans-serif;
 
   --text-p-lg: 20px;
   --text-p-md: 16px;
   --text-p-sm: 13px;
+
+  /* The sticker shadow. Every panel on Rannie's account frames carries a hard
+     offset block of ink with no blur at all, sat under a 1.5px border in the
+     same colour. It is the whole reason her pages read as printed cards rather
+     than as web panels, and it stops working the moment it is softened, so it
+     is a token instead of a guess at a blur radius. */
+  --shadow-sticker: 4px 5px 0 0 #4d4c4a;
+  --shadow-sticker-sm: 2px 3px 0 0 #4d4c4a;
 
   --shadow-lg: 0px 4px 8px rgba(0, 0, 0, 0.15);
   --shadow-md: 0px 4px 8px rgba(0, 0, 0, 0.1);
@@ -203,4 +231,60 @@
 
 .animate-alert-out {
   animation: alert-out 180ms ease-in forwards;
+}
+
+/*
+  The account flow's page ground: Rannie's warm grey, with the decorative dot
+  grid she draws behind the top of every account frame. Hers is a 5x5px dot of
+  #747474 every 52px, starting at (18, 9), and it stops 832px down the page
+  rather than tiling forever. Both of those are reproduced literally: a grid
+  that ran the whole height of a 2171px page would turn from texture into
+  wallpaper.
+
+  Written as a background rather than a component so nothing has to render a
+  few hundred absolutely positioned dots into the accessibility tree.
+*/
+.dot-ground {
+  position: relative;
+  /* The dot field is a ::before at z-index -1, and a negative layer paints
+     behind its parent's own background unless the parent is a stacking
+     context of its own. Without this the field is drawn and never seen. */
+  isolation: isolate;
+  background-color: var(--color-paper);
+}
+
+/*
+  The field itself, as a layer rather than as the element's own background,
+  which is what confines it to the top 832px on a page that is three times
+  that. `z-index: -1` puts it above the parent's background colour and below
+  every child, so nothing on the page needs a stacking rule of its own.
+*/
+.dot-ground::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: -1;
+  height: 832px;
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--color-ink-soft) 28%, transparent) 2.5px,
+    transparent 2.5px
+  );
+  background-position: 18px 9px;
+  background-size: 52px 52px;
+  pointer-events: none;
+}
+
+/*
+  One sticker panel. The border and the shadow are the same ink and have to
+  stay in step, so they are set together rather than as two utilities that
+  somebody later half-edits.
+*/
+.sticker {
+  border: 1.5px solid var(--color-ink);
+  border-radius: 14px;
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-sticker);
 }

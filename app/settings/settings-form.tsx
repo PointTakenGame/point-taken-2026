@@ -19,17 +19,17 @@ import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./act
  */
 
 /*
-  Buttons and inputs keep the `.form-base` / `.input-primary` / `.btn-primary`
-  chrome ported from `app/globals.css`, rather than the orange pill used on
-  /account: that pill is reserved for the single highest-priority action on a
-  card, and no button here is the one thing this page wants a visitor to do.
-  The card, heading and hint typography around them now match /account's
-  (BRAIN-T260831-76); only the control chrome stays the retired client's
-  default. See the header comment on `./page.tsx`.
+  Buttons and inputs are drawn in the account flow's ink rather than the orange
+  pill used for the one call to action on the profile: that pill is reserved for
+  the single highest-priority action on a card, and no button here is the one
+  thing this page wants a visitor to do. Restyled 2026-09-02 with the rest of
+  the account hub (spec BRAIN-T260902-21); the shapes are hers, the reservation
+  of the orange is ours.
 */
 const BUTTON =
-  "form-base btn-primary px-4 py-2 text-p-sm font-secondary disabled:cursor-not-allowed disabled:opacity-50";
-const FIELD = "form-base input-primary";
+  "font-label rounded-full border-[1.5px] border-ink bg-card px-5 py-2 text-xs font-bold tracking-widest uppercase text-ink transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0";
+const FIELD =
+  "font-secondary min-w-56 flex-1 rounded-[10px] border-[1.5px] border-ink bg-card px-4 py-2 text-ink outline-none focus-visible:ring-2 focus-visible:ring-gold/60";
 
 function Note({ result }: { result: SettingsResult | null }) {
   if (!result) return null;
@@ -37,8 +37,8 @@ function Note({ result }: { result: SettingsResult | null }) {
     <p
       className={
         result.ok
-          ? "font-secondary text-p-sm text-gray"
-          : "font-secondary text-p-sm text-orange"
+          ? "font-secondary text-p-sm text-ink-soft"
+          : "font-secondary text-p-sm text-stat-warm"
       }
     >
       {result.ok ? result.message : result.error}
@@ -56,10 +56,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border-2 border-neutral-black bg-neutral-white p-5 shadow-sm">
+    <section className="sticker flex flex-col gap-3 p-6">
       <div className="flex flex-col gap-1">
-        <h2 className="font-primary text-p-lg tracking-wide">{title}</h2>
-        <p className="font-secondary text-p-sm text-gray">{hint}</p>
+        <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
+          {title}
+        </h2>
+        <p className="font-secondary text-ink-soft text-p-sm">{hint}</p>
       </div>
       {children}
     </section>
@@ -131,7 +133,7 @@ function CoachToggle({ enabled }: { enabled: boolean }) {
       <label className="flex items-center gap-3">
         <input
           type="checkbox"
-          className="h-4 w-4"
+          className="accent-ink h-4 w-4"
           checked={on}
           disabled={pending}
           onChange={(event) => {
@@ -145,7 +147,7 @@ function CoachToggle({ enabled }: { enabled: boolean }) {
             });
           }}
         />
-        <span>Let the coach read my reasons</span>
+        <span className="font-secondary text-ink">Let the coach read my reasons</span>
       </label>
       <Note result={result} />
     </div>
@@ -240,14 +242,14 @@ function SignOut({ claimed }: { claimed: boolean }) {
         {armed ? (
           <button
             type="button"
-            className="font-secondary text-p-sm underline text-gray"
+            className="font-secondary text-p-sm text-ink-soft underline"
             onClick={() => setArmed(false)}
           >
             Keep me signed in
           </button>
         ) : null}
       </div>
-      {error ? <p className="font-secondary text-p-sm text-orange">{error}</p> : null}
+      {error ? <p className="font-secondary text-p-sm text-stat-warm">{error}</p> : null}
     </div>
   );
 }
