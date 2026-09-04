@@ -248,6 +248,46 @@ export interface GymRunRecordedPayload {
   client_ended_at: string | null;
 }
 
+// --- Awards ----------------------------------------------------------------
+// What a player walked away with. These are the only events written about a
+// player rather than about the board, and they are still game events: they
+// carry the actor_id of the player they belong to, so an account's whole
+// history of them is one query and no join (lib/db/awards.ts).
+//
+// Nothing here is a score against an opponent. There is no losing, so there is
+// no event that says anyone lost.
+
+export interface LevelClearedPayload {
+  /** Level id as used by lib/gym/levels, e.g. "onboarding". */
+  level_id: string;
+  /** The rule card this level grants, or null for a level that grants none. */
+  card_id: string | null;
+}
+
+export interface BadgeGrantedPayload {
+  /** Kebab-case badge id (BIZ-T260823-66). */
+  badge_id: string;
+  /**
+   * 1 the first time this player earned it, 2 the second, and so on. The same
+   * badge can be earned again in a later game, and the log keeps both, so the
+   * reader can say "3 times" without the writer having to know it is a repeat.
+   */
+  occurrence: number;
+}
+
+export interface PointsChangedPayload {
+  /** Signed. Negative is a stake put down, never a punishment for being wrong. */
+  delta: number;
+  /** Why, in a stable machine-readable word: "throw", "dare_staked", "dare_repaired". */
+  reason: string;
+}
+
+export interface CertificateGrantedPayload {
+  level_id: string;
+  /** ISO timestamp. Written rather than derived so a reprint says the same date. */
+  issued_at: string;
+}
+
 export interface ContentRedactedPayload {
   target_seq: number;
   /** Dotted path into that event's payload, e.g. "text". */
@@ -288,6 +328,10 @@ export interface EventPayloads {
   ai_feedback_shown: AiFeedbackShownPayload;
   coach_nudge_delivered: CoachNudgeDeliveredPayload;
   gym_run_recorded: GymRunRecordedPayload;
+  level_cleared: LevelClearedPayload;
+  badge_granted: BadgeGrantedPayload;
+  points_changed: PointsChangedPayload;
+  certificate_granted: CertificateGrantedPayload;
   content_redacted: ContentRedactedPayload;
 }
 
@@ -332,6 +376,12 @@ export const EVENT_TYPES: Record<GameEventType, EventTypeSpec> = {
   ai_feedback_shown: { schemaVersion: 1, maxBytes: 256 },
   coach_nudge_delivered: { schemaVersion: 1, maxBytes: 2048 },
   gym_run_recorded: { schemaVersion: 1, maxBytes: 1024 },
+  // The four awards (0014_awards.sql). Small on purpose: each one names an id
+  // and a number, and the words that go with the id live in content.
+  level_cleared: { schemaVersion: 1, maxBytes: 256 },
+  badge_granted: { schemaVersion: 1, maxBytes: 256 },
+  points_changed: { schemaVersion: 1, maxBytes: 256 },
+  certificate_granted: { schemaVersion: 1, maxBytes: 256 },
   content_redacted: { schemaVersion: 1, maxBytes: 1024 },
 };
 

@@ -1,7 +1,8 @@
 import { coachCard } from "@/lib/coach/cards";
-import { clearedRungs, LADDER, type Rung } from "@/lib/progression/sample";
+import type { PlayerAwards } from "@/lib/db/awards";
+import { type Rung } from "@/lib/progression/sample";
+import { designedRungs, ladderFor } from "@/lib/progression/state";
 import { Panel, SectionHeading } from "@/components/account/account-shell";
-import { SampleTag } from "./sample-tag";
 
 /**
  * One step of the ladder.
@@ -65,22 +66,27 @@ function RungTile({ rung }: { rung: Rung }) {
  * rungs"), so this reads LADDER.length rather than assuming a count, and lays
  * the strip out with no fixed widths: it scrolls inside its own
  * overflow-x-auto rather than squeezing rungs to fit a row built for four.
+ *
+ * Which rungs are cleared is now real: it comes off the player's own
+ * level_cleared events (lib/progression/state.ts). The count reads against the
+ * designed rungs rather than every drawn one, so an untouched account says
+ * "0 / 4 cleared" rather than "0 / 8" against four levels that do not exist.
  */
-export function LadderStrip() {
-  const cleared = clearedRungs().length;
+export function LadderStrip({ awards }: { awards: PlayerAwards }) {
+  const rungs = ladderFor(awards);
+  const cleared = rungs.filter((rung) => rung.status === "cleared").length;
 
   return (
     <Panel className="mb-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <SectionHeading
           title="Level ladder"
-          note={`${cleared} / ${LADDER.length} cleared`}
+          note={`${cleared} / ${designedRungs()} cleared`}
           noteTone="good"
         />
-        <SampleTag />
       </div>
       <ul className="flex gap-3 overflow-x-auto pb-1">
-        {LADDER.map((rung) => (
+        {rungs.map((rung) => (
           <RungTile key={rung.level} rung={rung} />
         ))}
       </ul>

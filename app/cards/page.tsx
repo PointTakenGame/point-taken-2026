@@ -1,4 +1,5 @@
 import { coachCardsMatchDeck } from "@/lib/coach/cards";
+import { readPlayerAwards } from "@/lib/db/awards";
 import { getPlayerStats } from "@/lib/db/stats";
 import { currentPlayerId } from "@/lib/supabase/session";
 import {
@@ -49,11 +50,10 @@ import { StartPlaying } from "../account/start-playing";
  *
  * Rebuilt 2026-09-02 into the account hub as its Cards & Badges tab, so the
  * four account pages share one chrome. Her Rule Cards frame draws eleven cards
- * in a level-gated grid, each locked until its level; ours now does the same,
- * with the four ratified cards owned by everyone from the first game (a
- * decided difference, not a gap: the deck is deliberately small and ungated in
- * the first release) and five later cards shown locked, as sample inspiration
- * for what a fuller deck looks like.
+ * in a level-gated grid, each locked until its level. Ours draws four, gated
+ * the same way: a card is owned once the level that teaches it is cleared
+ * (0014_awards.sql). Cards 5 to 11 are out (Steve, 2026-09-03), so the five
+ * locked sample tiles that used to sit below the divider are gone.
  */
 
 export const dynamic = "force-dynamic";
@@ -65,8 +65,8 @@ export default async function CardsPage() {
     return (
       <AccountShell tab="cards">
         <AccountHeading title="Cards & badges">
-          You are not signed in. Starting a game gives you a name, an account, and the
-          same four cards everyone gets.
+          You are not signed in. Starting a game gives you a name and an account, and the
+          Gym is where the cards come from.
         </AccountHeading>
         <Panel className="flex max-w-2xl flex-col items-start gap-4">
           <StartPlaying />
@@ -75,7 +75,10 @@ export default async function CardsPage() {
     );
   }
 
-  const stats = await getPlayerStats(playerId);
+  const [stats, awards] = await Promise.all([
+    getPlayerStats(playerId),
+    readPlayerAwards(playerId),
+  ]);
 
   // A card the coach cites but nobody holds would be a rule the player cannot
   // answer. Surfaced rather than swallowed, because the two lists are edited in
@@ -85,9 +88,10 @@ export default async function CardsPage() {
   return (
     <AccountShell tab="cards">
       <AccountHeading title="Cards & badges">
-        Everyone holds these four. Throwing one says a reason broke that rule; the other
-        player answers it, or rewrites. Your coach reads from the same four, so there is
-        never a rule raised at you that you do not already hold.
+        You earn these four in the Gym, one level at a time. Throwing one says a reason
+        broke that rule; the other player answers it, or rewrites. In a live game a card
+        is on the table only if both of you hold it, so nobody is ever called on a rule
+        they have not been taught.
       </AccountHeading>
 
       {decksAgree ? null : (
@@ -98,6 +102,7 @@ export default async function CardsPage() {
       )}
 
       <CardWall
+        awards={awards}
         thrownById={stats.cards_thrown_by_id}
         coachedById={stats.coach_flags_by_id}
       />

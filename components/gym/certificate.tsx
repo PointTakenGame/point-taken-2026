@@ -15,11 +15,22 @@ import { BADGES } from "@/lib/progression/sample";
 
 /**
  * The Certificate of Agreeable Disagreement, shown where a live game shows
- * its ending. Tokens are counted from the board. The card, the badges and
- * the points are read from the level script, because no event in the
- * catalogue records an award yet (docs/tech-spec.md): this screen is what
- * the player earned, and nothing has written it to their account. That gap
- * is named on the screen rather than hidden.
+ * its ending. Tokens are counted from the board.
+ *
+ * The card, the badges and the points now come off the log too: clearing a
+ * level appends level_cleared, badge_granted, points_changed and
+ * certificate_granted (0014_awards.sql), and the projection folds them into
+ * `board.awards`. So this screen prints what was actually saved, and the
+ * certificate carries the date it was issued rather than the date it is read.
+ *
+ * The script fallback below is for the games that ended before those events
+ * existed, where the log genuinely has nothing to print. It says so on the
+ * screen rather than passing script output off as a record.
+ *
+ * Badge names are still sample data: BADGES in lib/progression/sample.ts is a
+ * list of invented display names, and the taxonomy is open (this repo's
+ * CLAUDE.md, "still moving"). The badge ids in the log are real; the words
+ * beside them are not yet.
  */
 
 const PILL =
@@ -32,12 +43,19 @@ export function Certificate({ level, board }: { level: Level; board: BoardState 
   const resolutions = board.threads.map((thread) => thread.resolution?.emoji ?? null);
   const thumbs = resolutions.filter((emoji) => emoji === "👍").length;
   const eyes = resolutions.filter((emoji) => emoji === "👀").length;
-  const card = coachCard(level.awards.cardId);
+  const cleared = board.awards.levelCleared;
+  const saved = cleared !== null;
   const progress = levelProgress(level, board, ALL_PAUSES_DISMISSED);
-  const points = levelPoints(level, progress);
-  const badges = levelBadges(level).map(
-    (id) => BADGES.find((badge) => badge.id === id) ?? null,
-  );
+
+  const card = coachCard((cleared ? cleared.cardId : level.awards.cardId) ?? "");
+  const points = saved ? board.awards.points : levelPoints(level, progress);
+  const badgeIds = saved
+    ? board.awards.badges.map((badge) => badge.badgeId)
+    : levelBadges(level);
+  const badges = badgeIds.map((id) => BADGES.find((badge) => badge.id === id) ?? null);
+  const issued = board.awards.certificate
+    ? new Date(board.awards.certificate.issuedAt).toLocaleDateString()
+    : null;
   const next = nextLevel(level.id);
 
   return (
@@ -114,8 +132,17 @@ export function Certificate({ level, board }: { level: Level; board: BoardState 
           ) : null}
 
           <p className="font-label text-ink-soft">
-            Shown from the level script. Nothing is saved to your account yet: there is no
-            award event in the log to save.
+            {saved ? (
+              <>
+                Saved to your account{issued ? ` on ${issued}` : ""}. Badge names are
+                still placeholders.
+              </>
+            ) : (
+              <>
+                Shown from the level script. This game ended before awards were recorded,
+                so nothing here is saved to your account.
+              </>
+            )}
           </p>
 
           <nav className="flex flex-wrap items-center gap-3">

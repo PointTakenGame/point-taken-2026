@@ -8,11 +8,16 @@
  * tab is told the same thing without reading that file, so nobody files a bug
  * against an invented figure. One component, one place to delete once the
  * real engine lands and the tag comes off every widget at once.
+ *
+ * Since 0014_awards.sql some of those widgets read the log instead, and their
+ * tags have come off. The ones that keep it are the ones with nothing real
+ * behind them yet, and `label` is for the middle case: a widget whose figures
+ * are real but whose wording is still placeholder.
  */
-export function SampleTag() {
+export function SampleTag({ label = "Sample data" }: { label?: string }) {
   return (
     <span className="font-label border-ink/30 text-ink-soft shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase">
-      Sample data
+      {label}
     </span>
   );
 }

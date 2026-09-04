@@ -289,18 +289,44 @@ export function canStartGame(board: BoardState): Verdict {
 }
 
 /**
- * The card set a live game starts with. Today every player owns the same four
- * cards, so the intersection is all of them and nobody has raised anything;
- * who may raise it above the intersection is still open (BRAIN-T260817-09).
+ * The card set a game starts with: the cards every player at the table owns.
+ *
+ * A plain AND gate, ruled by Steve on 2026-09-03. Nobody can be held to a rule
+ * they have never been taught, so a card is in play only if both sides earned
+ * it, and a player who has cleared no levels holds nothing in live play. That
+ * is a real empty hand, not a bug: the Gym is where a hand comes from.
+ *
+ * `owned` is one list per player, each being that player's earned card ids
+ * (lib/db/awards.ts). `alsoInclude` is for the Gym, where the level being
+ * played puts its own card on the table so it can be taught: level 1 opens with
+ * "You" is Taboo in the hand of a player who owns nothing yet.
+ *
+ * Ordered by FIRST_RELEASE_CARD_IDS rather than by whatever order the awards
+ * came back in, so the tray is in the same order for everyone, and unknown ids
+ * are dropped rather than rendered as a blank card.
+ *
+ * Who may raise the set above the intersection is still open
+ * (BRAIN-T260817-09), so `policy` stays "intersection" and nobody has raised.
  */
-export function startingCardSet(): {
+export function startingCardSet(
+  owned: readonly (readonly string[])[],
+  alsoInclude: readonly string[] = [],
+): {
   policy: "intersection";
   card_ids: string[];
   raised_by: null;
 } {
+  const shared = new Set(alsoInclude);
+  if (owned.length > 0) {
+    const sets = owned.map((list) => new Set(list));
+    for (const cardId of sets[0]) {
+      if (sets.every((set) => set.has(cardId))) shared.add(cardId);
+    }
+  }
+
   return {
     policy: "intersection",
-    card_ids: [...FIRST_RELEASE_CARD_IDS],
+    card_ids: FIRST_RELEASE_CARD_IDS.filter((cardId) => shared.has(cardId)),
     raised_by: null,
   };
 }

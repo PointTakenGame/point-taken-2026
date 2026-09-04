@@ -1,9 +1,10 @@
 import Link from "next/link";
 
 import { coachCard } from "@/lib/coach/cards";
-import { boss, currentRung } from "@/lib/progression/sample";
+import type { PlayerAwards } from "@/lib/db/awards";
+import { boss } from "@/lib/progression/sample";
+import { ladderFor } from "@/lib/progression/state";
 import { Panel, SectionHeading } from "@/components/account/account-shell";
-import { SampleTag } from "./sample-tag";
 
 /**
  * The boss standing at the player's current rung.
@@ -12,22 +13,22 @@ import { SampleTag } from "./sample-tag";
  * rule, which is the only ending this game has, so this widget names the
  * habit rather than a fight. No start-a-level logic here; the link is a plain
  * link to /gym, and the Gym's own Start buttons decide what happens next.
+ *
+ * Which rung is current is real: the first designed level this player has not
+ * cleared (lib/progression/state.ts). A player who has cleared everything
+ * designed gets no panel, which is correct until there is a level 5.
  */
-export function ActiveBoss() {
-  const rung = currentRung();
-  const activeBoss = rung.bossId ? boss(rung.bossId) : undefined;
-  const card = rung.cardId ? coachCard(rung.cardId) : undefined;
+export function ActiveBoss({ awards }: { awards: PlayerAwards }) {
+  const rung = ladderFor(awards).find((candidate) => candidate.status === "current");
+  const activeBoss = rung?.bossId ? boss(rung.bossId) : undefined;
+  const card = rung?.cardId ? coachCard(rung.cardId) : undefined;
 
-  // The ladder always has exactly one "current" rung today, and it always
-  // names a boss, but a widget reading sample data should not assume that
-  // stays true as the ladder grows.
-  if (!activeBoss) return null;
+  if (!rung || !activeBoss) return null;
 
   return (
     <Panel className="mb-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <SectionHeading title="Current boss" note={`Level ${rung.level}`} />
-        <SampleTag />
       </div>
       <div className="flex flex-wrap items-center gap-6">
         <span aria-hidden className="text-6xl leading-none">

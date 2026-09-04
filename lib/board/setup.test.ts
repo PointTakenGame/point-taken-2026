@@ -83,13 +83,32 @@ describe("content", () => {
     expect(new Set(SIGNING_LINE_IDS).size).toBe(3);
   });
 
-  it("ships four rule cards, and startingCardSet hands out exactly those", () => {
+  it("ships four rule cards, and deals only the ones both players earned", () => {
     expect(FIRST_RELEASE_CARD_IDS).toHaveLength(4);
-    expect(startingCardSet()).toEqual({
+
+    // Two trained players: the cards they share, in release order.
+    expect(
+      startingCardSet([
+        ["stick_to_root", "you_is_taboo"],
+        ["you_is_taboo", "stick_to_root", "no_exaggeration"],
+      ]),
+    ).toEqual({
       policy: "intersection",
-      card_ids: [...FIRST_RELEASE_CARD_IDS],
+      card_ids: ["you_is_taboo", "stick_to_root"],
       raised_by: null,
     });
+
+    // Nobody has cleared a level, so nobody may throw anything.
+    expect(startingCardSet([[], []]).card_ids).toEqual([]);
+
+    // One side has trained and the other has not: still nothing shared.
+    expect(startingCardSet([["you_is_taboo"], []]).card_ids).toEqual([]);
+
+    // The Gym puts the level's own card on the table so it can be taught.
+    expect(startingCardSet([[]], ["you_is_taboo"]).card_ids).toEqual(["you_is_taboo"]);
+
+    // An id nobody ships is dropped rather than dealt as a blank card.
+    expect(startingCardSet([["not_a_card"], ["not_a_card"]]).card_ids).toEqual([]);
   });
 
   it("keeps library topic ids unique and their text inside the ceiling", () => {

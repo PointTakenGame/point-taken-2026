@@ -10,6 +10,7 @@ import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
 import type { GameEventType, NewEvent, Side, Uuid } from "@/lib/events/types";
 import { readSeat } from "@/lib/games/membership";
+import { grantLevelAwards } from "@/lib/gym/awards";
 import { bossPlayerId, ensureBossAccount } from "@/lib/gym/boss-account";
 import { levelById } from "@/lib/gym/levels";
 import {
@@ -162,6 +163,8 @@ async function settle(gameId: string, threadRootId: Uuid): Promise<void> {
     source: "system",
     payload: { win_condition: "threads_resolved" },
   });
+
+  await grantLevelAwards(gameId);
 }
 
 function loadLevel(board: BoardState): Level | null {

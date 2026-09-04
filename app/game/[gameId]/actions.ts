@@ -15,6 +15,7 @@ import {
   readMembership,
   type Membership,
 } from "@/lib/games/membership";
+import { grantLevelAwards } from "@/lib/gym/awards";
 
 /**
  * Every write a player can make to a live board.
@@ -373,6 +374,11 @@ async function settleIfAgreed(gameId: string, threadRootId: string): Promise<voi
     source: "system",
     payload: { win_condition: "threads_resolved" },
   });
+
+  // A gym level ends the same way a live game does, through this same function
+  // when it is the player's own token that closed the last thread. Writing down
+  // what was earned belongs with the ending, not with whoever happened to move.
+  await grantLevelAwards(gameId);
 }
 
 export async function proposeTopicRevision(
@@ -687,6 +693,9 @@ export async function acceptProposal(
   }
 
   await appendGameEvents(gameId, batch);
+  // The other ending: both sides standing behind one revised statement. Awards
+  // are a no-op unless that batch actually carried game_ended.
+  await grantLevelAwards(gameId);
   refresh(gameId);
   return { ok: true };
 }

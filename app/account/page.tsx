@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { currentPlayerId } from "@/lib/supabase/session";
+import { readPlayerAwards } from "@/lib/db/awards";
 import type { GameTopic } from "@/lib/db/games";
 import type { PlayerStats } from "@/lib/db/stats";
 import type { Uuid } from "@/lib/events/types";
@@ -41,13 +42,17 @@ import { joinedThisWeek, loadAccount } from "./data";
  * later. We will be iterating on them anyway." (BRAIN-T260903-10,
  * BRAIN-T260903-11.)
  *
- * Every number in them comes from lib/progression/sample.ts, the single
- * invented-data source and the single file to delete once the real engine
- * lands, and each one carries a small "Sample data" tag so a tester does not
- * file a bug against a figure with no formula behind it. Not built: a
- * calendar of scheduled events with sign-ups and a countdown, which stayed out
- * because there is no event system anywhere in this codebase to fake data for,
- * only a UI to draw.
+ * Those widgets were built on invented numbers, because at the time nothing
+ * wrote an award anywhere. Since 0014_awards.sql something does: clearing a
+ * level appends level_cleared, badge_granted, points_changed and
+ * certificate_granted, and every widget above now reads this player's own
+ * awards through lib/progression/state.ts. What is left of the invented set is
+ * the shape of the ladder above level 4 and the display names of the badges,
+ * and only those still carry a "Sample" tag.
+ *
+ * Not built: a calendar of scheduled events with sign-ups and a countdown,
+ * which stayed out because there is no event system anywhere in this codebase
+ * to fake data for, only a UI to draw.
  *
  * The archive itself moved to /account/history, which is her own arrangement:
  * History is one of the four tabs. This page keeps the four most recent games,
@@ -122,8 +127,10 @@ export default async function AccountPage() {
     );
   }
 
-  const { player, stats, games, playedAt, topics, opponents, cardsThrown, resolutions } =
-    await loadAccount(playerId);
+  const [
+    { player, stats, games, playedAt, topics, opponents, cardsThrown, resolutions },
+    awards,
+  ] = await Promise.all([loadAccount(playerId), readPlayerAwards(playerId)]);
 
   // The game to offer going back to. `games` is already newest first, so the
   // first hit is the most recent one. A game underway beats a room still
@@ -143,11 +150,11 @@ export default async function AccountPage() {
 
   return (
     <AccountShell tab="profile">
-      <LadderStrip />
-      <StatTiles />
-      <ActiveBoss />
-      <CertificateWall />
-      <BadgeStrip />
+      <LadderStrip awards={awards} />
+      <StatTiles awards={awards} stats={stats} gamesThisWeek={thisWeek} />
+      <ActiveBoss awards={awards} />
+      <CertificateWall awards={awards} />
+      <BadgeStrip awards={awards} />
 
       {/*
         Her top row is two promo cards side by side: an active boss challenge on

@@ -395,83 +395,35 @@ export interface CardWallEntry {
   card: CoachCard | null;
 }
 
+/**
+ * One wall tile per ratified card. `ownership` is a placeholder here: the
+ * page overwrites it with what this player actually earned
+ * (lib/progression/state.ts), because ownership is now a fact about an
+ * account rather than a property of the card.
+ */
 function ratified(card: CoachCard): CardWallEntry {
   const rung = LADDER.find((r) => r.cardId === card.id);
-  const owned = rung?.status === "cleared";
-  const thrownBy: Record<string, number> = {
-    you_is_taboo: 4,
-    stick_to_root: 7,
-  };
   return {
     id: card.id,
     name: card.name,
     icon: card.icon,
     plain: card.plain,
-    ownership: owned ? "owned" : rung?.status === "current" ? "next" : "later",
+    ownership: "later",
     level: rung?.level ?? null,
-    thrown: thrownBy[card.id] ?? 0,
+    thrown: 0,
     card,
   };
 }
 
-/** Rannie's five later cards, names from the Figma card wall, nothing ratified. */
-const LATER_CARDS: readonly CardWallEntry[] = [
-  {
-    id: "fact_check",
-    name: "Fact Check",
-    icon: "🔎",
-    plain: "A claim of fact that neither of you has checked.",
-    ownership: "later",
-    level: null,
-    thrown: 0,
-    card: null,
-  },
-  {
-    id: "divide_and_conquer",
-    name: "Divide and Conquer",
-    icon: "✂️",
-    plain: "Two arguments in one reason. Split them.",
-    ownership: "later",
-    level: null,
-    thrown: 0,
-    card: null,
-  },
-  {
-    id: "who_would_know",
-    name: "Who Would Know?",
-    icon: "🧭",
-    plain: "Name who could settle this, then ask whether they have.",
-    ownership: "later",
-    level: null,
-    thrown: 0,
-    card: null,
-  },
-  {
-    id: "cherry_picking",
-    name: "Cherry Picking",
-    icon: "🍒",
-    plain: "The one example that fits, out of many that do not.",
-    ownership: "later",
-    level: null,
-    thrown: 0,
-    card: null,
-  },
-  {
-    id: "steelman_not_strawman",
-    name: "Steelman, Not Strawman",
-    icon: "🛡️",
-    plain: "Answer the strongest version of their reason, not the weakest.",
-    ownership: "later",
-    level: null,
-    thrown: 0,
-    card: null,
-  },
-];
-
-export const CARD_WALL: readonly CardWallEntry[] = [
-  ...COACH_CARDS.map(ratified),
-  ...LATER_CARDS,
-];
+/**
+ * The wall: the four ratified cards, and only those.
+ *
+ * Rannie's Rule Cards frame draws eleven, and five of her later ones were
+ * built here as locked sample tiles. Steve ruled them out on 2026-09-03:
+ * cards 5 to 11 stay out. A locked tile for a rule nobody has written is a
+ * promise, and the deck is deliberately small.
+ */
+export const CARD_WALL: readonly CardWallEntry[] = COACH_CARDS.map(ratified);
 
 export function ownedCards(): CardWallEntry[] {
   return CARD_WALL.filter((c) => c.ownership === "owned");

@@ -1,17 +1,22 @@
-import { CARD_WALL, ownedCards, type CardWallEntry } from "@/lib/progression/sample";
+import type { PlayerAwards } from "@/lib/db/awards";
+import { CARD_WALL, type CardWallEntry } from "@/lib/progression/sample";
+import { ladderFor } from "@/lib/progression/state";
 import { SectionHeading } from "@/components/account/account-shell";
-import { SampleTag } from "./sample-tag";
 
 /**
- * The rule-card wall: one tile per lib/progression/sample.ts's CARD_WALL,
- * owned, next, or later.
+ * The rule-card wall: one tile per ratified card, owned, next, or later.
  *
- * The four ratified cards (BRAIN-T260903-10) keep their real thrown/coached
- * counts, read from the event history exactly as this page always showed
- * them; nothing about that path changed. The five later cards are Rannie's
- * names from the Figma card wall with no ratified rule behind them yet
- * (BRAIN-T260903-11), so they render dimmed, locked, and flagged with
- * SampleTag rather than counted.
+ * Owned means earned. Since 0014_awards.sql a card arrives by clearing the
+ * level that teaches it, so this reads the player's own level_cleared events
+ * rather than a hand-written ownership field. "Next" is the card taught by the
+ * level they are on now; the rest are locked, and locked here means not yet
+ * trained rather than not yet written.
+ *
+ * The thrown and coached counts were always real, read from the event history,
+ * and that path is unchanged.
+ *
+ * Gone: Rannie's five later cards, which rendered here as locked sample tiles.
+ * Steve, 2026-09-03, cards 5 to 11 stay out.
  */
 
 function Count({ label, value }: { label: string; value: number }) {
@@ -71,70 +76,51 @@ function CardTile({
       ) : null}
       {locked ? (
         <p className="font-label text-ink-soft text-xs font-bold tracking-widest uppercase">
-          Not yet in the deck
+          {entry.level === null ? "Not yet in the deck" : `Clear level ${entry.level}`}
         </p>
       ) : null}
     </li>
   );
 }
 
-/** One row of the wall's grid: a real card tile, or the sample-data divider. */
-type WallRow = { kind: "divider" } | { kind: "card"; entry: CardWallEntry };
-
 export function CardWall({
+  awards,
   thrownById,
   coachedById,
 }: {
+  awards: PlayerAwards;
   /** stats.cards_thrown_by_id, real counts keyed by card id. */
   thrownById: Record<string, number>;
   /** stats.coach_flags_by_id, real counts keyed by card id. */
   coachedById: Record<string, number>;
 }) {
-  const owned = ownedCards().length;
-  const laterStart = CARD_WALL.findIndex((entry) => entry.ownership === "later");
+  const held = new Set(awards.cardIds);
+  const nextCardId =
+    ladderFor(awards).find((rung) => rung.status === "current")?.cardId ?? null;
 
-  const rows: WallRow[] = CARD_WALL.flatMap((entry, index) =>
-    index === laterStart
-      ? [{ kind: "divider" }, { kind: "card", entry }]
-      : [{ kind: "card", entry }],
-  );
+  const entries: CardWallEntry[] = CARD_WALL.map((entry) => ({
+    ...entry,
+    ownership: held.has(entry.id) ? "owned" : entry.id === nextCardId ? "next" : "later",
+  }));
 
   return (
     <section className="mb-8">
       <SectionHeading
         title="Rule cards"
-        note={`${owned} of ${CARD_WALL.length} in your hand`}
+        note={`${held.size} of ${CARD_WALL.length} in your hand`}
         noteTone="good"
       />
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((row) =>
-          row.kind === "divider" ? (
-            <li
-              key="later-divider"
-              className="col-span-full flex items-center gap-2 pt-2"
-            >
-              <SampleTag />
-              <span className="font-label text-ink-soft text-xs">
-                More cards, not yet in anyone&rsquo;s deck.
-              </span>
-            </li>
-          ) : (
-            <CardTile
-              key={row.entry.id}
-              entry={row.entry}
-              thrown={
-                row.entry.ownership === "owned"
-                  ? (thrownById[row.entry.id] ?? 0)
-                  : undefined
-              }
-              coached={
-                row.entry.ownership === "owned"
-                  ? (coachedById[row.entry.id] ?? 0)
-                  : undefined
-              }
-            />
-          ),
-        )}
+        {entries.map((entry) => (
+          <CardTile
+            key={entry.id}
+            entry={entry}
+            thrown={entry.ownership === "owned" ? (thrownById[entry.id] ?? 0) : undefined}
+            coached={
+              entry.ownership === "owned" ? (coachedById[entry.id] ?? 0) : undefined
+            }
+          />
+        ))}
       </ul>
     </section>
   );

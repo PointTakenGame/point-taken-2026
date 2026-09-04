@@ -5,11 +5,13 @@ import { revalidatePath } from "next/cache";
 import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as rules from "@/lib/board/rules";
 import * as setup from "@/lib/board/setup";
+import { readPlayerAwards } from "@/lib/db/awards";
 import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, readGameEvents } from "@/lib/events/append";
 import type { ActorRole, Side, Uuid } from "@/lib/events/types";
 import { endIfAbandoned } from "@/lib/games/abandon";
 import { readSeat, type Seat } from "@/lib/games/membership";
+import { bossPlayerId } from "@/lib/gym/boss-account";
 import { levelById } from "@/lib/gym/levels";
 import type { ActionResult } from "./actions";
 
@@ -157,6 +159,34 @@ export async function signAgreement(gameId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Which cards this game is played with, worked out once, here.
+ *
+ * Live: the intersection of what the two players have earned in the Gym
+ * (Steve, 2026-09-03). Two people who have never trained hold nothing, and
+ * that is the intended answer, not an oversight.
+ *
+ * Gym: the human's earned cards plus the one this level teaches. The boss is
+ * left out of the intersection entirely, because he has no account and his
+ * empty hand would otherwise empty everyone's.
+ */
+async function cardSetFor(
+  board: BoardState,
+  level: ReturnType<typeof levelById> | null,
+): Promise<ReturnType<typeof setup.startingCardSet>> {
+  if (level) {
+    const bossId = bossPlayerId(level.bossId);
+    const human = board.players.find((player) => player.id !== bossId);
+    const owned = human ? (await readPlayerAwards(human.id)).cardIds : [];
+    return setup.startingCardSet([owned], [level.awards.cardId]);
+  }
+
+  const owned = await Promise.all(
+    board.players.map(async (player) => (await readPlayerAwards(player.id)).cardIds),
+  );
+  return setup.startingCardSet(owned);
+}
+
 export async function startGame(gameId: string): Promise<ActionResult> {
   const loaded = await lobby(gameId);
   if (isDenial(loaded)) return loaded;
@@ -175,7 +205,7 @@ export async function startGame(gameId: string): Promise<ActionResult> {
     type: "game_started",
     ...actor(seat),
     payload: {
-      card_set: setup.startingCardSet(),
+      card_set: await cardSetFor(board, level),
       // No live-play coach surface has been decided yet (BRAIN-T260823-15).
       coach: null,
       root_target: level?.rootTarget ?? rules.LIVE_ROOT_TARGET,

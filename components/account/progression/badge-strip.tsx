@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-import { BADGES, earnedBadges } from "@/lib/progression/sample";
+import type { PlayerAwards } from "@/lib/db/awards";
+import { BADGES } from "@/lib/progression/sample";
+import { badgesFor } from "@/lib/progression/state";
 import { LocalDay } from "@/components/local-day";
 import { Panel, SectionHeading } from "@/components/account/account-shell";
 import { SampleTag } from "./sample-tag";
@@ -11,24 +13,27 @@ const RECENT = 4;
 /**
  * The most recently earned badges, newest first, with a link out to the full
  * wall at /cards. That page's own badge half is still off per its header
- * (BRAIN-T260817-02); this strip is the profile's own small taste of the same
- * sample data, not a promise that /cards has caught up.
+ * (BRAIN-T260817-02).
+ *
+ * Which badges this player holds is real, off their badge_granted events. The
+ * names and icons beside them are not: BADGES in lib/progression/sample.ts is
+ * Rannie's placeholder set and the taxonomy is still open, which is what the
+ * tag on this panel now says. A badge whose id has no entry there prints its
+ * id, because inventing a name for it here would be a second placeholder set.
  */
-export function BadgeStrip() {
-  const earned = earnedBadges();
-  const recent = [...earned]
-    .sort((a, b) => (b.earnedOn ?? "").localeCompare(a.earnedOn ?? ""))
-    .slice(0, RECENT);
+export function BadgeStrip({ awards }: { awards: PlayerAwards }) {
+  const held = badgesFor(awards);
+  const recent = held.slice(0, RECENT);
 
   return (
     <Panel className="mb-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <SectionHeading
           title="Recent badges"
-          note={`${earned.length} / ${BADGES.length} earned`}
+          note={`${held.length} / ${BADGES.length} earned`}
           noteTone="good"
         />
-        <SampleTag />
+        <SampleTag label="Sample names" />
       </div>
       {recent.length === 0 ? (
         <p className="font-secondary text-ink-soft text-p-sm">
@@ -37,15 +42,19 @@ export function BadgeStrip() {
       ) : (
         <ul className="flex flex-wrap gap-4">
           {recent.map((badge) => (
-            <li key={badge.id} className="sticker flex w-44 shrink-0 flex-col gap-1 p-4">
+            <li
+              key={badge.badgeId}
+              className="sticker flex w-44 shrink-0 flex-col gap-1 p-4"
+            >
               <span aria-hidden className="text-2xl leading-none">
-                {badge.icon}
+                {badge.display?.icon ?? "🏅"}
               </span>
               <span className="font-figure text-ink text-base leading-tight font-black uppercase">
-                {badge.name}
+                {badge.display?.name ?? badge.badgeId}
               </span>
               <span className="font-label text-ink-soft text-xs">
-                <LocalDay iso={badge.earnedOn ?? ""} />
+                <LocalDay iso={badge.earnedOn} />
+                {badge.times > 1 ? ` · ${badge.times}x` : ""}
               </span>
             </li>
           ))}
