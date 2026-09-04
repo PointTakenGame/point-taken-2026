@@ -17,7 +17,6 @@ export function deriveFeedbackStage(pathname: string): string {
   // in this app (`/game/[gameId]`), so one stage covers all three: the
   // route itself carries no signal to tell them apart without extra data.
   if (pathname.startsWith("/game/")) return "Playing a game";
-  if (pathname.startsWith("/how-to-play")) return "How to play";
   if (pathname.startsWith("/cards")) return "Cards";
   if (pathname.startsWith("/settings")) return "Settings";
   return "Other";

@@ -24,8 +24,11 @@ describe("deriveFeedbackStage", () => {
     expect(deriveFeedbackStage("/game/some-uuid")).toBe("Playing a game");
   });
 
-  it("maps how-to-play, cards, and settings", () => {
-    expect(deriveFeedbackStage("/how-to-play")).toBe("How to play");
+  it("maps cards and settings", () => {
+    // How to play was a route until 2026-09-03, when the page was retired in
+    // favour of the onboarding overlay. A stale link to it now falls through
+    // to Other, which is the honest answer: it is not a part of the game.
+    expect(deriveFeedbackStage("/how-to-play")).toBe("Other");
     expect(deriveFeedbackStage("/cards")).toBe("Cards");
     expect(deriveFeedbackStage("/settings")).toBe("Settings");
   });

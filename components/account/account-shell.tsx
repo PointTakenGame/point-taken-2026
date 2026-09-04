@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Wordmark } from "@/components/brand/art";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
 /**
  * The four-tab account hub, and the chrome every one of its pages sits in.
@@ -109,9 +110,9 @@ export function AccountShell({
             Point Taken
           </Link>
           <span aria-hidden>·</span>
-          <Link href="/how-to-play" className="hover:text-ink transition-colors">
+          <OnboardingLauncher className="hover:text-ink transition-colors">
             How to play
-          </Link>
+          </OnboardingLauncher>
           <span aria-hidden>·</span>
           <span>&copy; 2026</span>
         </footer>

@@ -16,14 +16,13 @@ import type {
   BoardThrow,
   BoardTile,
 } from "@/lib/board/project";
-import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
+import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID } from "@/components/board/layout";
-import { CollapsedThread } from "@/components/board/collapsed-thread";
 import {
   SameSideNotice,
   markSameSideNoticeSeen,
@@ -35,7 +34,6 @@ import {
   useOnboarding,
 } from "@/components/onboarding/onboarding-overlay";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
-import { FloatingPanel } from "@/components/ui/floating-panel";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
 import { canStartLaterMove } from "@/components/board/later-moves";
@@ -84,7 +82,6 @@ import {
   clearResolutionToken,
   declineThrow,
   editTile,
-  giveGenerosityToken,
   leaveGame,
   placeResolutionToken,
   placeTile,
@@ -99,6 +96,8 @@ import {
   throwCard,
 } from "@/app/game/[gameId]/actions";
 import type { Side, Uuid } from "@/lib/events/types";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
+import { useSampleAnswers } from "@/components/gym/sample-answers";
 
 /**
  * The live board: everything a player can see and do while a game is in
@@ -1707,6 +1706,7 @@ function InTileComposer({
   side,
   parentTileId,
   parentSide,
+  initialText = "",
   onDone,
 }: {
   gameId: string;
@@ -1716,9 +1716,16 @@ function InTileComposer({
   parentTileId: string | null;
   /** The answered tile's side, for the lead line. Null when answering the topic. */
   parentSide: Side | null;
+  /**
+   * What the box opens with. The Gym coach's sample answer arrives here, from
+   * the slot the player clicked (Steve, 2026-09-03), and it is ordinary
+   * editable draft text from the moment it lands: the player can rewrite it,
+   * clear it, or place it as it stands, and the tile is theirs either way.
+   */
+  initialText?: string;
   onDone: () => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const verdict = canPlaceTile(board, text, parentTileId);
@@ -2307,33 +2314,6 @@ function DefinitionForm({
   );
 }
 
-function GenerosityButton({ gameId }: { gameId: string }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const give = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await giveGenerosityToken(gameId, {});
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        className={`${SECONDARY_BUTTON} self-start`}
-        disabled={pending}
-        onClick={give}
-      >
-        Give a generosity token
-      </button>
-      <ErrorLine error={error} />
-    </div>
-  );
-}
-
 /**
  * Walking out. A live board needs both sides, so this ends the game for the
  * other player too, which is why it takes a second press.
@@ -2452,23 +2432,28 @@ function ThreadTokenBadge({
       ? `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
       : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
   // A settled thread and a thread waiting on somebody are two different
-  // announcements and the retired client only ever drew the first one. There,
-  // a resolved root carried its token in an 80px box hanging below the tile's
-  // bottom point (`TileShape.vue:23-33`, `-bottom-8 w-20 h-20`), with the
-  // drawing left unshrunk inside it. Ours drew both states as a 22px corner
-  // dot, which is what Steve saw as "way too small" (2026-09-02).
+  // announcements, and they are drawn differently.
   //
-  // So: settled hangs below, big, the way it used to. Pending stays in the
-  // corner, because a token one side has merely suggested is a question and
-  // should not shout louder than the reason it is asked about, but it is no
-  // longer a dot either.
+  // Settled is the shipped game's mark, restored exactly (Steve, 2026-09-03,
+  // pointing at `point-taken-frontend/app/components/Tile.vue:63-65`): a 24px
+  // drawing in a white square-cornered pill tucked inside the tile's lower
+  // right, `bg-white border border-gray-400 rounded-sm p-1`. It had been an
+  // 80px disc hanging below the tile, taken from `TileShape.vue` rather than
+  // from `Tile.vue`, and that is a badge the size of a boss token sitting on
+  // every finished thread. A resolved thread is settled news. It gets a
+  // stamp, not a medal.
+  //
+  // Pending keeps the bigger corner badge, because a token one side has
+  // merely suggested is a live question addressed to the other player, and it
+  // is the loudest thing on that tile for exactly as long as it is unanswered.
   if (settled) {
     return (
       <span
-        className="absolute bottom-0 left-1/2 z-30 flex size-20 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-gray/30 bg-offwhite shadow-md"
+        style={{ right: CORNER_INSET, bottom: CORNER_INSET }}
+        className="border-gray/40 absolute z-30 flex translate-x-1/2 translate-y-1/2 items-center justify-center rounded-sm border bg-white p-1 shadow-sm"
         title={words}
       >
-        <TokenGlyph token={settled} size={64} />
+        <TokenGlyph token={settled} size={24} />
         <span className="sr-only">{words}</span>
       </span>
     );
@@ -2488,61 +2473,6 @@ function ThreadTokenBadge({
   );
 }
 
-function ThreadBlock({
-  gameId,
-  thread,
-  index,
-  me,
-  board,
-}: {
-  gameId: string;
-  thread: BoardThread;
-  index: number;
-  me: { playerId: string; role: Side };
-  board: BoardState;
-}) {
-  const resolved = isResolved(thread);
-
-  return (
-    <section className="border-neutral-black/15 flex flex-col gap-3 border-t pt-4">
-      <header className="flex flex-wrap items-baseline justify-between gap-4">
-        <h3 className="font-primary text-p-sm text-gray tracking-wide uppercase">
-          Thread {index + 1}
-        </h3>
-        <ResolutionRow gameId={gameId} thread={thread} me={me} board={board} />
-      </header>
-
-      {resolved && thread.root ? (
-        // A resolved thread collapses into a fanned stack, the way the
-        // retired client's CollapsedThread.vue did, rather than staying open
-        // as a full tree once the disagreement has been named.
-        <CollapsedThread root={thread.root} />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {thread.root ? (
-            <TileNode tile={thread.root} gameId={gameId} me={me} board={board} />
-          ) : (
-            <li className="text-gray">The reason this thread started from is gone.</li>
-          )}
-        </ul>
-      )}
-
-      {thread.orphans.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-wide opacity-50">
-            Replies to a removed reason
-          </p>
-          <ul className="flex flex-col gap-2">
-            {thread.orphans.map((tile) => (
-              <TileNode key={tile.id} tile={tile} gameId={gameId} me={me} board={board} />
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
 export function LiveBoard({
   gameId,
   board,
@@ -2552,7 +2482,6 @@ export function LiveBoard({
   joinCode = null,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
-  const definitions = agreedDefinitions(board);
 
   // Which tile the next one will hang off. It lives up here rather than in
   // the composer because the board picks it: a player hovers a tile and
@@ -2642,6 +2571,8 @@ export function LiveBoard({
   const [draft, setDraft] = useState<{
     parentId: string;
     pos: { x: number; y: number };
+    /** The coach's sample answer, when the slot clicked was carrying one. */
+    sample?: string | null;
   } | null>(null);
   // A same-side answer the player has asked for but not yet been let into,
   // because this is the first one this match and the notice is in front of
@@ -2650,7 +2581,11 @@ export function LiveBoard({
   const [sameSideHold, setSameSideHold] = useState<{
     parentId: string;
     pos: { x: number; y: number };
+    sample?: string | null;
   } | null>(null);
+  // What the Gym coach has offered to write for the next tile, published by
+  // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
+  const sampleAnswers = useSampleAnswers();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -2748,11 +2683,17 @@ export function LiveBoard({
                   ? null
                   : (sideOf.get(draft.parentId) ?? null)
               }
+              initialText={draft.sample ?? ""}
+              // A fresh box per slot, so the coach's words load into the one
+              // that was clicked rather than being ignored because the
+              // component was already mounted with an empty draft in it.
+              key={`${draft.parentId}:${draft.pos.x},${draft.pos.y}`}
               onDone={() => setDraft(null)}
             />
           )
         }
-        onPlace={(parentId, pos) => {
+        slotSamples={sampleAnswers}
+        onPlace={(parentId, pos, sample) => {
           // The board is where the reason gets written now, so the card
           // parked under the board closes rather than competing with it.
           setComposerOpen(false);
@@ -2763,10 +2704,10 @@ export function LiveBoard({
           // thread off it is never a same-side answer.
           const answering = parentId === TOPIC_CELL_ID ? null : sideOf.get(parentId);
           if (answering && answering === me.role && !sameSideNoticeSeen(gameId)) {
-            setSameSideHold({ parentId, pos });
+            setSameSideHold({ parentId, pos, sample: sample ?? null });
             return;
           }
-          setDraft({ parentId, pos });
+          setDraft({ parentId, pos, sample: sample ?? null });
         }}
         onSelect={(tileId) => {
           if (armedCardId) {
@@ -2898,6 +2839,17 @@ export function LiveBoard({
             {board.levelId.replace(/_/g, " ")}
           </span>
         ) : null}
+        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
+            replaced it on the board: a "?" that opens the same four-step
+            overlay in place. A player who is stuck mid-argument will not
+            leave the game to go and read a page, and the retired client's
+            help was a corner button for the same reason. */}
+        <OnboardingLauncher
+          label="How to play"
+          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg shadow-md"
+        >
+          <span aria-hidden>?</span>
+        </OnboardingLauncher>
       </div>
 
       {/* A soft fade under the right rail.
@@ -3001,87 +2953,17 @@ export function LiveBoard({
         <PendingAsks gameId={gameId} board={board} me={me} />
 
         {/*
-          Every thread's tiles and every per-tile action used to be a page-long
-          list below the board; the actions belong on the tile and will move
-          there with the tile popovers. Until then they live here, folded away,
-          rather than being dropped on the floor.
+          The Match details drawer is gone (Steve, 2026-09-03), and so are all
+          four of its sections: the per-thread tile lists, Generosity, the
+          words the two of you have pinned down, and Who is here.
 
-          It was headed "Threads (0/1)", which named neither the drawer nor its
-          contents: the drawer also holds generosity, the words the two of you
-          have pinned down, and who is in the room, and the count duplicated the
-          one already printed on Ways to win directly above it. A closed drawer
-          has to say what opening it gets you, so it says that instead
-          (BRAIN-T260902-16).
+          It was a page-long list of the board rendered beside the board, kept
+          alive because the per-tile actions in it had nowhere else to go.
+          They have somewhere else to go now. Nothing here was the only copy of
+          anything: the threads are the board, the roster is the header, and
+          the pinned words come back as their own strip on the board itself
+          rather than folded inside a drawer nobody opens mid-argument.
         */}
-        <FloatingPanel title="Match details" defaultOpen={false}>
-          <div className="flex flex-col gap-4">
-            {threads.length === 0 ? (
-              <p className="text-p-sm text-gray">
-                Nothing on the board yet. Click one of the open slots around the topic to
-                start the first thread.
-              </p>
-            ) : (
-              threads.map((thread, index) => (
-                <ThreadBlock
-                  key={thread.rootId}
-                  gameId={gameId}
-                  thread={thread}
-                  index={index}
-                  me={me}
-                  board={board}
-                />
-              ))
-            )}
-
-            <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
-              <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
-                Generosity
-              </h3>
-              <p className="text-p-sm text-gray">
-                Thanks, on the record. It always goes to them, and it counts toward
-                nothing: this game is won together or not at all.
-              </p>
-              <p className="text-p-sm">
-                {SIDE_LABEL.plus} {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
-                {board.generosity.minus}
-              </p>
-              <GenerosityButton gameId={gameId} />
-            </section>
-
-            {definitions.length > 0 && (
-              <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
-                <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
-                  Words you have pinned down
-                </h3>
-                <dl className="text-p-sm flex flex-col gap-2">
-                  {definitions.map((entry) => (
-                    <div key={entry.proposalId} className="flex flex-col">
-                      <dt className="font-semibold">{entry.term}</dt>
-                      <dd className="opacity-80">{entry.text}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            )}
-
-            <section className="border-neutral-black/15 flex flex-col gap-2 border-t pt-3">
-              <h3 className="text-p-sm font-semibold tracking-wide uppercase opacity-60">
-                Who is here
-              </h3>
-              <ul className="text-p-sm flex flex-col gap-1">
-                {board.players.map((player) => (
-                  <li key={player.id}>
-                    {player.displayName ?? "Someone"}
-                    {player.id === me.playerId ? " (you)" : ""}
-                    {": "}
-                    {player.role ? SIDE_LABEL[player.role] : "no side yet"}
-                    {player.left ? `, left: ${player.left}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
-        </FloatingPanel>
       </div>
 
       {/* Bottom left: the small print, stacked the way Rannie stacks it. A

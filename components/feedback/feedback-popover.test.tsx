@@ -38,7 +38,7 @@ beforeEach(() => {
   // Not a /game route by default: the floating variant hides itself there
   // (see the "route gating" describe block below), and most of these tests
   // are about the shared popover behavior, not that gate.
-  mockUsePathname.mockReturnValue("/how-to-play");
+  mockUsePathname.mockReturnValue("/cards");
   mockGetFeedbackShareMoreUrl.mockReturnValue(null);
 });
 

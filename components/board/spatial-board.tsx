@@ -79,16 +79,55 @@ const PAN_STEP_PX = 160;
  * the board moves, which is the opposite of the direction the player is
  * looking: the up arrow shows what is above, so it slides the board down.
  *
- * A row rather than the usual d-pad cross. The cross is the more legible
- * shape, but the only clear strip on this screen is the one below the right
- * rail, and a three-row cross put two of its arrows behind the rail.
+ * A T rather than a row (Steve, 2026-09-03): up on the top line, then left,
+ * down and right on the line under it. A flat row of four arrows reads as
+ * four of the same thing and gives no clue which way is which; the T is half
+ * a d-pad, which everybody already knows how to read, and it is still short
+ * enough to sit in the strip below the right rail without reaching behind it.
  */
-const PAN_STEPS = [
+const PAN_UP = { dx: 0, dy: 1, label: "Pan up", path: "M8 12V4M4.5 7.5 8 4l3.5 3.5" };
+
+const PAN_ROW = [
   { dx: 1, dy: 0, label: "Pan left", path: "M12 8H4M7.5 4.5 4 8l3.5 3.5" },
-  { dx: 0, dy: 1, label: "Pan up", path: "M8 12V4M4.5 7.5 8 4l3.5 3.5" },
   { dx: 0, dy: -1, label: "Pan down", path: "M8 4v8M4.5 8.5 8 12l3.5-3.5" },
   { dx: -1, dy: 0, label: "Pan right", path: "M4 8h8M8.5 4.5 12 8l-3.5 3.5" },
 ] as const;
+
+interface PanStep {
+  dx: number;
+  dy: number;
+  label: string;
+  path: string;
+}
+
+function PanButton({
+  step,
+  nudge,
+}: {
+  step: PanStep;
+  nudge: (dx: number, dy: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => nudge(step.dx, step.dy)}
+      aria-label={step.label}
+      title={step.label}
+      className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
+        <path
+          d={step.path}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
 
 /**
  * The floor for the automatic refit that runs as tiles land.
@@ -144,7 +183,14 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * of the tile the new one would hang off, which is what the retired
    * `<select>` was asking for and what the composer needs.
    */
-  onPlace?: (parentId: string, pos: GridPosition) => void;
+  onPlace?: (parentId: string, pos: GridPosition, sample?: string | null) => void;
+  /**
+   * Sample answers to draw in the open slots, in slot order, first slot
+   * first. The Gym's coach writes these; a live game passes nothing. Clicking
+   * a slot that carries one hands the text back through `onPlace` so the
+   * caller can open its composer already filled in.
+   */
+  slotSamples?: readonly string[];
   /**
    * Where the caller is currently composing, if anywhere. The retired client
    * wrote the reason on the board rather than in a form under it: you clicked
@@ -311,10 +357,17 @@ function GhostSlot({
   label,
   side,
   mark = "+",
+  sample = null,
 }: {
   style: CSSProperties;
   onClick: () => void;
   label: string;
+  /**
+   * A sample answer the coach has written for this slot, drawn inside it as
+   * a ghost so the player can read the move before making it (Steve,
+   * 2026-09-03). Gym only: nothing in a live game writes one.
+   */
+  sample?: string | null;
   /** Whose turn is about to be spent here. Colours the dash and the mark. */
   side: TileSide;
   /**
@@ -359,14 +412,31 @@ function GhostSlot({
           strokeLinejoin="round"
         />
       </svg>
-      <span
-        className={`${GHOST_MARK[side]} font-primary absolute inset-0 z-10 flex items-center justify-center leading-none transition-opacity duration-150 group-hover:opacity-100`}
-        // Sized off the cell, not off the type scale, so it stays a mark on
-        // the board at every zoom instead of shrinking into body text.
-        style={{ fontSize: "3.5rem" }}
-      >
-        {mark}
-      </span>
+      {sample ? (
+        // The mark shrinks and moves up out of the way rather than going: the
+        // slot is still an empty place to put a tile, and the sample is an
+        // offer inside it, not a tile that is already there.
+        <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-[18%] text-center">
+          <span
+            className={`${GHOST_MARK[side]} font-primary leading-none`}
+            style={{ fontSize: "1.75rem" }}
+          >
+            {mark}
+          </span>
+          <span className="font-secondary text-ink-soft line-clamp-4 text-xs italic opacity-80">
+            {sample}
+          </span>
+        </span>
+      ) : (
+        <span
+          className={`${GHOST_MARK[side]} font-primary absolute inset-0 z-10 flex items-center justify-center leading-none transition-opacity duration-150 group-hover:opacity-100`}
+          // Sized off the cell, not off the type scale, so it stays a mark on
+          // the board at every zoom instead of shrinking into body text.
+          style={{ fontSize: "3.5rem" }}
+        >
+          {mark}
+        </span>
+      )}
     </button>
   );
 }
@@ -400,6 +470,7 @@ export function SpatialBoard<T extends SpatialTile>({
   topic,
   renderTile,
   onPlace,
+  slotSamples,
   draftAt = null,
   draft,
   placementEnabled = false,
@@ -428,6 +499,10 @@ export function SpatialBoard<T extends SpatialTile>({
   // board refits as it grows, so the first four tiles never appear offscreen.
   // Once they have, their view is theirs until they press Fit to screen.
   const touched = useRef(false);
+  // The live zoom, readable from inside `fit` without making `fit` a new
+  // function on every zoom change: it is a dependency of the automatic refit,
+  // and rebuilding it is what re-runs that refit.
+  const zoomRef = useRef(1);
   const remPx = useRemPx();
 
   // Placement order is the layout's input order, and the projection does not
@@ -579,7 +654,7 @@ export function SpatialBoard<T extends SpatialTile>({
    * footprint down until it fits the pane, then centre it.
    */
   const fit = useCallback(
-    (floor = MIN_ZOOM) => {
+    (floor = MIN_ZOOM, onlyWhenRescaling = false) => {
       if (!pane) return;
       const w = content.width * remPx;
       const h = content.height * remPx;
@@ -596,6 +671,15 @@ export function SpatialBoard<T extends SpatialTile>({
       );
       const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
 
+      // The opponent's tile may rescale the board and may not pan it (Steve,
+      // 2026-09-03). Fitting is both at once, so the automatic refit asks for
+      // the pan half only when the scale actually changed: a tile that lands
+      // inside the footprint the board already had leaves the view exactly
+      // where the player left it, instead of sliding the argument sideways
+      // under someone who is reading it. Pressing Fit to screen passes false
+      // and still recentres, because that is a view the player asked for.
+      if (onlyWhenRescaling && Math.abs(next - zoomRef.current) < 0.001) return;
+
       // Centre in the reserved area only while the board still fits there.
       //
       // The automatic refit is floored at COMFORT_ZOOM, so a board past a
@@ -611,6 +695,7 @@ export function SpatialBoard<T extends SpatialTile>({
       const across = w * next <= usable - FIT_MARGIN ? usable : pane.w;
       const down = h * next <= usableHeight - FIT_MARGIN ? usableHeight : pane.h;
       setZoom(next);
+      zoomRef.current = next;
       setPan({
         // `pan` positions the canvas, and we just measured the tiles inside
         // it, so back out where the tiles sit within the canvas.
@@ -641,7 +726,7 @@ export function SpatialBoard<T extends SpatialTile>({
     if (touched.current) return;
     // Floored: a tile landing should not shrink the whole board under the
     // player's cursor. Pressing Fit to screen is the way to ask for that.
-    fit(COMFORT_ZOOM);
+    fit(COMFORT_ZOOM, true);
   }, [fit]);
 
   /**
@@ -713,6 +798,7 @@ export function SpatialBoard<T extends SpatialTile>({
         }));
         return clamped;
       });
+      zoomRef.current = clamped;
       touched.current = true;
     },
     [pane],
@@ -867,20 +953,26 @@ export function SpatialBoard<T extends SpatialTile>({
           </div>
         ))}
 
-        {ghosts.map(({ pos, parentId, side }) => (
-          <GhostSlot
-            key={`${pos.x},${pos.y}`}
-            style={pixelStyle(pos, layout, size)}
-            label={
-              parentId === TOPIC_CELL_ID
-                ? `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
-                : "Answer this reason here"
-            }
-            side={side}
-            mark={parentId === TOPIC_CELL_ID && side === "minus" ? "\u2212" : "+"}
-            onClick={() => onPlace?.(parentId, pos)}
-          />
-        ))}
+        {ghosts.map(({ pos, parentId, side }, index) => {
+          const sample = slotSamples?.[index] ?? null;
+          return (
+            <GhostSlot
+              key={`${pos.x},${pos.y}`}
+              style={pixelStyle(pos, layout, size)}
+              label={
+                sample
+                  ? `Lay down a tile here, with the coach's words to start from`
+                  : parentId === TOPIC_CELL_ID
+                    ? `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
+                    : "Answer this reason here"
+              }
+              side={side}
+              sample={sample}
+              mark={parentId === TOPIC_CELL_ID && side === "minus" ? "\u2212" : "+"}
+              onClick={() => onPlace?.(parentId, pos, sample)}
+            />
+          );
+        })}
 
         {/* Drawn outside the ghost list on purpose. Open slots come and go
             with the hover, and the cursor leaves the board the instant
@@ -927,28 +1019,13 @@ export function SpatialBoard<T extends SpatialTile>({
           purpose, because the thing it rescues is "I cannot see my tile",
           which is one or two clicks, not a joystick.
         */}
-        <div className="border-gray/30 bg-offwhite flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">
-          {PAN_STEPS.map(({ dx, dy, label, path }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => nudge(dx, dy)}
-              aria-label={label}
-              title={label}
-              className="text-neutral-black hover:bg-sand flex h-7 w-7 cursor-pointer items-center justify-center rounded-full"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
-                <path
-                  d={path}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          ))}
+        <div className="border-gray/30 bg-offwhite flex flex-col items-center rounded-3xl border px-2 py-1 shadow-md">
+          <PanButton step={PAN_UP} nudge={nudge} />
+          <div className="flex items-center gap-1">
+            {PAN_ROW.map((step) => (
+              <PanButton key={step.label} step={step} nudge={nudge} />
+            ))}
+          </div>
         </div>
 
         <div className="border-gray/30 bg-offwhite flex items-center gap-1 rounded-full border px-2 py-1 shadow-md">

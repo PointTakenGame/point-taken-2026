@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
 /**
  * The 404, which is a routine destination here rather than an edge case.
@@ -69,10 +70,8 @@ export default function NotFound() {
             lists every game you have played, finished ones included.
           </li>
           <li>
-            <Link href="/how-to-play" className="underline">
-              How to play
-            </Link>{" "}
-            is the whole game in one page.
+            <OnboardingLauncher className="underline">How to play</OnboardingLauncher>{" "}
+            walks the four steps without leaving the page you are on.
           </li>
         </ul>
       </section>

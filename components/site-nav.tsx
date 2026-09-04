@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getPlayer } from "@/lib/db/players";
 import { currentPlayerId } from "@/lib/supabase/session";
 import { Wordmark } from "@/components/brand/art";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
 /**
  * The one bar that ties the out-of-game screens together.
@@ -28,13 +29,12 @@ import { Wordmark } from "@/components/brand/art";
  * row of ways to leave it sitting above the argument.
  */
 
-type Here = "home" | "account" | "leaderboard" | "cards" | "gym" | "settings" | "how";
+type Here = "home" | "account" | "leaderboard" | "cards" | "gym" | "settings";
 
 const LINKS: { here: Here; href: string; label: string }[] = [
   { here: "account", href: "/account", label: "Your account" },
   { here: "gym", href: "/gym", label: "Gym" },
   { here: "leaderboard", href: "/leaderboard", label: "Leaderboard" },
-  { here: "how", href: "/how-to-play", label: "How to play" },
 ];
 
 export async function SiteNav({ here }: { here: Here }) {
@@ -66,6 +66,15 @@ export async function SiteNav({ here }: { here: Here }) {
           </Link>
         );
       })}
+      {/* How to play was a page until 2026-09-03 (Steve). The overlay says the
+          same four steps without taking anyone off the screen they are on, so
+          this last item is a button rather than a link, and only appears for a
+          signed-in player, exactly as the links above do. */}
+      {player ? (
+        <OnboardingLauncher className="font-primary border-ink text-ink-soft hover:bg-card rounded-[10px] border px-6 py-3 text-xl transition-colors">
+          How to play
+        </OnboardingLauncher>
+      ) : null}
     </nav>
   );
 }

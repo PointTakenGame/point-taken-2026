@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
 /**
  * The last thing between a thrown render error and a blank page.
@@ -74,9 +75,7 @@ export default function ErrorBoundary({
         <Link href="/account" className="underline">
           Your games
         </Link>
-        <Link href="/how-to-play" className="underline">
-          How to play
-        </Link>
+        <OnboardingLauncher className="underline">How to play</OnboardingLauncher>
       </nav>
     </main>
   );

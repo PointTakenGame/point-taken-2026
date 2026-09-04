@@ -10,8 +10,11 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import { placeTile } from "@/app/game/[gameId]/actions";
 import { bossAct } from "@/app/gym/actions";
+import {
+  clearSampleAnswers,
+  publishSampleAnswers,
+} from "@/components/gym/sample-answers";
 import type { BoardState } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
 import { levelById } from "@/lib/gym/levels";
@@ -82,9 +85,6 @@ function parseDismissed(raw: string): Set<string> {
 const PILL =
   "font-primary rounded-full border-[1.5px] border-ink bg-orange px-5 py-2 tracking-wide uppercase text-ink transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40";
 
-const CHIP =
-  "font-secondary text-p-sm rounded-2xl border-[1.5px] border-ink bg-card px-4 py-2 text-left text-ink shadow-[2px_3px_0_0_#4D4C4A] transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40";
-
 /**
  * Takes the level by id rather than as an object: a level's boss lines can
  * be functions of what the player wrote, and a function cannot cross the
@@ -121,7 +121,10 @@ function Director({
   );
   const dismissed = useMemo(() => parseDismissed(rawDismissed), [rawDismissed]);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  // The boss move is the only transition left here now that the sample
+  // answers are placed from the board; nothing on this card is disabled
+  // while it runs, so the pending flag itself is unread.
+  const [, startTransition] = useTransition();
 
   const progress = useMemo(
     () => levelProgress(level, board, dismissed),
@@ -150,23 +153,24 @@ function Director({
     return () => window.clearTimeout(timer);
   }, [beatId, beatKind, board.lastSeq, gameId, router]);
 
+  // Hand the coach's sample answers to the board, which draws them in the
+  // open slots. Republishing an unchanged list is a no-op, and unmounting
+  // clears the offer so a board that outlives the Director shows plain slots.
+  const samples =
+    beat?.kind === "player" && beat.expect.kind === "tile"
+      ? beat.expect.suggestions
+      : null;
+  useEffect(() => {
+    publishSampleAnswers(samples ?? []);
+    return () => clearSampleAnswers();
+  }, [samples]);
+
   if (!beat) return null;
 
   const dismiss = (id: string) => {
     const next = new Set(dismissed);
     next.add(id);
     writeDismissed(gameId, next);
-  };
-
-  const suggest = (text: string, parentKey: string | null) => {
-    const parentTileId = parentKey === null ? null : (progress.keys[parentKey] ?? null);
-    if (parentKey !== null && !parentTileId) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await placeTile(gameId, { text, parentTileId });
-      if (!result.ok) setError(result.error);
-      router.refresh();
-    });
   };
 
   const step = `Level ${level.number} · ${progress.done.length + 1} of ${level.beats.length}`;
@@ -206,27 +210,21 @@ function Director({
           </div>
         </div>
 
-        {beat.kind === "player" && beat.expect.kind === "tile" ? (
-          <div className="flex flex-col gap-2">
-            {beat.expect.suggestions.map((text) => (
-              <button
-                key={text}
-                type="button"
-                className={CHIP}
-                disabled={pending}
-                onClick={() =>
-                  suggest(text, beat.expect.kind === "tile" ? beat.expect.parent : null)
-                }
-              >
-                {text}
-              </button>
-            ))}
-            <span className="font-label text-ink-soft">
-              {beat.expect.parent === null
-                ? "Or write your own on the board, hung off the topic."
-                : "Or write your own on the board, under the same tile."}
-            </span>
-          </div>
+        {/*
+          The sample answers used to be chips here, and clicking one placed
+          the tile on the spot. Steve moved them onto the board on 2026-09-03:
+          they are drawn inside the open slots now, and the click that takes
+          one is the same click that chooses where it goes and opens the
+          composer over it. So all that is left here is the sentence that
+          tells a player the slots are worth looking at.
+        */}
+        {beat.kind === "player" &&
+        beat.expect.kind === "tile" &&
+        beat.expect.suggestions.length > 0 ? (
+          <span className="font-label text-ink-soft">
+            Click one of the two tile spots to lay down a tile and I&rsquo;ll write you a
+            sample answer. Change any of it before you place it.
+          </span>
         ) : null}
 
         {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
