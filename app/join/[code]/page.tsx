@@ -127,7 +127,7 @@ export default async function JoinPage({
       </section>
 
       {verdict.ok ? (
-        <JoinRoom code={code} label="Join this room" />
+        <JoinRoom code={code} label="Join this room" signedIn={playerId !== null} />
       ) : (
         <p className="font-secondary text-p-sm text-gray text-center">{verdict.error}</p>
       )}

@@ -10,10 +10,14 @@ import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher"
  * 2026-09-02, spec BRAIN-T260902-21) on Steve's 2026-09-02 instruction to make
  * her flow the base for the whole account area rather than a reference for it.
  * What comes from her: the warm grey ground, the dot grid across the top of it,
- * the four ghost outline tabs with the wordmark itself acting as the Profile
- * tab, and the 1229-wide content column inside a 1280 canvas.
+ * the ghost outline tabs, and the 1229-wide content column inside a 1280
+ * canvas.
  *
- * Two deliberate departures.
+ * Three deliberate departures.
+ *
+ * Profile is a written tab, where she has the wordmark carrying it silently.
+ * Steve ruled on 2026-09-03 that it has to read as a tab. The mark is still
+ * there, to the left of the row, and is now only the way home.
  *
  * The wordmark is the game's real drawn logo, not her Figma approximation of
  * it. She rebuilds it as two offset layers of Anton because Figma has no way to
@@ -32,8 +36,13 @@ import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher"
 export type AccountTab = "profile" | "cards" | "history" | "settings";
 
 const TABS: { tab: AccountTab; href: string; label: string }[] = [
-  // Order is hers, left to right. Profile is the wordmark and is rendered
-  // separately below, so it is not in this list.
+  // Order is hers, left to right. Profile is a tab of its own as of
+  // 2026-09-03: she leaves the wordmark to carry it, and a logo is not read as
+  // a tab by anybody who has not been told it is one, least of all by a screen
+  // reader. The wordmark stays beside it and still goes home. Profile points at
+  // "/" rather than /account because home is the profile now, and a tab bar
+  // whose first tab leaves the page you are on is a small lie.
+  { tab: "profile", href: "/", label: "Profile" },
   { tab: "cards", href: "/cards", label: "Cards & Badges" },
   { tab: "history", href: "/account/history", label: "History" },
   { tab: "settings", href: "/settings", label: "Settings" },
@@ -75,15 +84,11 @@ export function AccountShell({
           aria-label="Your account"
           className="flex flex-wrap items-center gap-4 pb-10"
         >
-          {/* The logo is the Profile tab. Hers is the only tab without a
-              border, so the mark sits on the ground rather than in a box. */}
-          <Link
-            href="/account"
-            aria-current={tab === "profile" ? "page" : undefined}
-            className={`pr-6 transition-opacity ${tab === "profile" ? "" : "opacity-60 hover:opacity-100"}`}
-          >
+          {/* The mark sits on the ground rather than in a box, which is how
+              she draws it. It is the way home, not a tab. */}
+          <Link href="/" className="pr-6 transition-opacity hover:opacity-70">
             <Wordmark width={132} />
-            <span className="sr-only">Profile</span>
+            <span className="sr-only">Point Taken home</span>
           </Link>
           {TABS.map((entry) => (
             <Tab

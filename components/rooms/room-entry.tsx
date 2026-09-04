@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { createRoom, joinRoom, type RoomResult } from "@/app/join/actions";
+import { AgreementTick, useAgreed } from "@/components/legal/agreement";
 import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
 
 /**
@@ -12,6 +13,12 @@ import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
  * A player with no account yet gets one on the spot. The action says so with
  * `signIn`, the client POSTs /api/auth/anonymous and tries the same call again,
  * so nobody has to press a button twice to do one thing.
+ *
+ * That silent mint is why both of these take `signedIn`. A visitor with no
+ * account is about to be given one by pressing a button that says something
+ * else, so they get the tick box first and the button stays dead until it is
+ * ticked (Steve, 2026-09-03). Somebody already signed in agreed when their
+ * account was made, and is not asked twice.
  */
 
 async function signInAnonymously(): Promise<void> {
@@ -65,12 +72,49 @@ const BUTTON =
  * carries an underline so it is visibly a thing you can press: a bare word in
  * the middle of an empty page is a lovely drawing and an invisible control.
  */
-export function RoomEntry() {
+export function RoomEntry({ signedIn }: { signedIn: boolean }) {
   const { pending, error, enter } = useRoom();
-  const [code, setCode] = useState("");
+  const agreed = useAgreed();
+  const blocked = !signedIn && !agreed;
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
+      {signedIn ? null : <AgreementTick id="pt-agreement-room" />}
+
+      <JoinByCode signedIn={signedIn} />
+
+      <span className="text-ink font-secondary text-[10px] tracking-[0.3em]">OR</span>
+
+      <button
+        type="button"
+        className="text-ink font-secondary cursor-pointer underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={blocked || pending}
+        onClick={() => enter(createRoom)}
+      >
+        {pending ? "Working..." : "Create a room"}
+      </button>
+
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The room-code half on its own.
+ *
+ * The profile's Live Play card wants this without "Create a room" underneath
+ * it, because that card already carries the one orange button on the page for
+ * starting or resuming a game, and two ways to open a room side by side is a
+ * choice nobody asked for.
+ */
+export function JoinByCode({ signedIn }: { signedIn: boolean }) {
+  const { pending, error, enter } = useRoom();
+  const [code, setCode] = useState("");
+  const agreed = useAgreed();
+  const blocked = !signedIn && !agreed;
+
+  return (
+    <div className="flex w-full flex-col items-center gap-2">
       <form
         className="flex w-full items-center justify-center gap-4"
         onSubmit={(e) => {
@@ -94,37 +138,37 @@ export function RoomEntry() {
         <button
           type="submit"
           className="text-ink font-secondary cursor-pointer underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
-          disabled={pending || code.trim().length !== JOIN_CODE_LENGTH}
+          disabled={blocked || pending || code.trim().length !== JOIN_CODE_LENGTH}
         >
           {pending ? "Working..." : "Join a game"}
         </button>
       </form>
-
-      <span className="text-ink font-secondary text-[10px] tracking-[0.3em]">OR</span>
-
-      <button
-        type="button"
-        className="text-ink font-secondary cursor-pointer underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={pending}
-        onClick={() => enter(createRoom)}
-      >
-        {pending ? "Working..." : "Create a room"}
-      </button>
 
       {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
     </div>
   );
 }
 
-export function JoinRoom({ code, label }: { code: string; label: string }) {
+export function JoinRoom({
+  code,
+  label,
+  signedIn,
+}: {
+  code: string;
+  label: string;
+  signedIn: boolean;
+}) {
   const { pending, error, enter } = useRoom();
+  const agreed = useAgreed();
+  const blocked = !signedIn && !agreed;
 
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-3">
+      {signedIn ? null : <AgreementTick id="pt-agreement-join" />}
       <button
         type="button"
         className={BUTTON}
-        disabled={pending}
+        disabled={blocked || pending}
         onClick={() => enter(() => joinRoom(code))}
       >
         {pending ? "Working..." : label}
