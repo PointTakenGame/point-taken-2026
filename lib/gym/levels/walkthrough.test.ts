@@ -207,12 +207,17 @@ function perform(
       const kind = spec.kind === "relocate" ? "tile_relocation" : spec.proposal;
       const targetId = spec.tile === null ? null : (keys[spec.tile] ?? null);
       const target = targetId ? board.tiles.find((t) => t.id === targetId) : null;
+      // A relocation says where it is going, the way the board's own move
+      // dialogue does: under the root the script names, keeping the tile's
+      // side, because live-board.tsx passes `tile.side` unchanged.
+      const to = spec.kind === "relocate" ? (keys[spec.to] ?? null) : null;
+      const toTile = to ? board.tiles.find((t) => t.id === to) : null;
       const content: ProposalContent =
         kind === "tile_relocation"
           ? {
-              new_parent_tile_id: null,
-              new_thread_root_id: board.threads[0].rootId,
-              new_side: side,
+              new_parent_tile_id: to,
+              new_thread_root_id: toTile ? toTile.threadRootId : board.threads[0].rootId,
+              new_side: target ? target.side : side,
             }
           : kind === "definition"
             ? { term: "authentic", text: `${beat.id} definition` }
@@ -241,6 +246,26 @@ function perform(
             candidate.status === "pending",
         );
       p.push("proposal_accepted", { proposal_id: proposal?.id ?? "missing" }, actor);
+      // Accepting a move writes the move. The server action does this in the
+      // same batch, and leaving it out here is what let the walk pass while a
+      // real game rewound its own script and placed the moved tile twice.
+      if (
+        spec.proposal === "tile_relocation" &&
+        proposal &&
+        "new_thread_root_id" in proposal.content
+      ) {
+        p.push(
+          "tile_relocated",
+          {
+            tile_id: targetId as string,
+            new_parent_tile_id: proposal.content.new_parent_tile_id,
+            new_thread_root_id: proposal.content.new_thread_root_id,
+            new_side: proposal.content.new_side,
+            via_proposal_id: proposal.id,
+          },
+          actor,
+        );
+      }
       return;
     }
   }

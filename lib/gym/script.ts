@@ -184,6 +184,29 @@ function findTile(
 }
 
 /**
+ * Which key each relocated tile ends up under, read off the script itself.
+ *
+ * A tile beat is matched by where the tile hangs, and a relocation moves it, so
+ * once level 2's misfiled tile is moved the beat that placed it stops matching.
+ * The walk then reports that beat as the current one and the director places the
+ * tile a second time. That is exactly what happened in a real game on 2026-09-04
+ * (game f963db58, seq 29 is the duplicate), and it stops the level dead: the
+ * script never gets past the move.
+ *
+ * The script already says where the tile is going, in the relocate beat's `to`,
+ * so the walk can accept the tile in either home. `to` names the destination
+ * parent, which in every script written so far is a thread root.
+ */
+function relocations(level: Level): Map<TileKey, TileKey> {
+  const out = new Map<TileKey, TileKey>();
+  for (const beat of level.beats) {
+    if (beat.kind !== "player") continue;
+    if (beat.expect.kind === "relocate") out.set(beat.expect.tile, beat.expect.to);
+  }
+  return out;
+}
+
+/**
  * Walk the beats against the board. Returns where the level stands and the
  * tile keys it has bound on the way. A pause is done when it has been
  * dismissed, or when any evidence beat after it is done (a refresh must not
@@ -196,6 +219,7 @@ export function levelProgress(
 ): LevelProgress {
   const keys: Record<TileKey, Uuid> = {};
   const bound = new Set<Uuid>();
+  const movesTo = relocations(level);
   const done: string[] = [];
   let cursor = 0;
   let pendingPause: number | null = null;
@@ -226,7 +250,16 @@ export function levelProgress(
         case "tile": {
           const parentId = resolve(spec.parent);
           if (parentId === undefined) break;
-          const tile = findTile(board, bound, side, parentId, cursor);
+          // Where the script says it goes, then where the script later moves
+          // it to. The destination is only consulted when nothing is sitting in
+          // the first home, so an unmoved tile is matched exactly as before.
+          const movedToKey = movesTo.get(spec.key);
+          const movedParent = movedToKey === undefined ? undefined : keys[movedToKey];
+          const tile =
+            findTile(board, bound, side, parentId, cursor) ??
+            (movedParent === undefined
+              ? undefined
+              : findTile(board, bound, side, movedParent, cursor));
           if (tile) {
             keys[spec.key] = tile.id;
             bound.add(tile.id);
