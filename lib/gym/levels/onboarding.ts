@@ -128,7 +128,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p3-tiles-answer-tiles",
       title: "Tiles answer tiles",
-      body: "A 'But...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
+      body: "A 'Hmm...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
       button: "Got it",
       anchor: { tile: "B1" },
     },
@@ -136,7 +136,7 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-answers-a",
       coach:
-        "Click here and answer Bob's reason. Your 'But...' goes directly under his first tile.",
+        "Click here and answer Bob's reason. Your 'Hmm...' goes directly under his first tile.",
       nudge: "Hang it here, under Bob's first tile, the one at the top of his thread.",
       expect: {
         kind: "tile",
@@ -173,7 +173,7 @@ export const ONBOARDING: Level = {
       id: "player-answers-b1",
       coach:
         "Bob answered in your thread. Click here and answer him back, under his tile.",
-      nudge: "Here, under Bob's tile in your thread, the one that starts with 'But'.",
+      nudge: "Here, under Bob's tile in your thread, the one that starts with 'Hmm'.",
       expect: {
         kind: "tile",
         key: "B2",

@@ -131,7 +131,7 @@ export const GROUND_RULES: Level = {
       kind: "player",
       id: "player-answers-a1",
       coach: "Rosa answered your first thread. Answer her, under her tile.",
-      nudge: "Under Rosa's 'But' in your first thread.",
+      nudge: "Under Rosa's 'Hmm' in your first thread.",
       expect: {
         kind: "tile",
         key: "A2",
