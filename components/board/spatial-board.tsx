@@ -24,7 +24,9 @@ import {
   type BoardLayout,
   type GridPosition,
 } from "@/components/board/layout";
+import { tileLead } from "@/components/board/side-label";
 import type { TileSide } from "@/components/board/tile-shape";
+import type { Side, TileCorner } from "@/lib/events/types";
 
 /**
  * The board as a plane instead of an indented list.
@@ -181,9 +183,18 @@ export interface SpatialBoardProps<T extends SpatialTile> {
   /**
    * Called when a player clicks an open diagonal slot. The argument is the id
    * of the tile the new one would hang off, which is what the retired
-   * `<select>` was asking for and what the composer needs.
+   * `<select>` was asking for and what the composer needs. `corner` is the
+   * geometric diagonal the slot occupies relative to its parent (`ne`/`se`/
+   * `sw`/`nw`), so the caller can record it on the placement event the same
+   * way `TilePlacedPayload.corner` does (Steve, 2026-09-04: a rebuttal placed
+   * on the lower right must not come back on the upper right).
    */
-  onPlace?: (parentId: string, pos: GridPosition, sample?: string | null) => void;
+  onPlace?: (
+    parentId: string,
+    pos: GridPosition,
+    sample: string | null | undefined,
+    corner: TileCorner,
+  ) => void;
   /**
    * Sample answers to draw in the open slots, in slot order, first slot
    * first. The Gym's coach writes these; a live game passes nothing. Clicking
@@ -218,9 +229,22 @@ export interface SpatialBoardProps<T extends SpatialTile> {
   /**
    * The side of the player who would fill an open slot, for colouring the
    * ghosts. Defaults to neutral for callers with no seat in play (the
-   * finished-game map, say).
+   * finished-game map, say). Doubles as "the viewer's own side" for the root
+   * placeholders below: a slot on the viewer's own side is the invitation and
+   * stays clickable, the other side's is drawn for orientation only.
    */
   placeSide?: TileSide;
+  /**
+   * How many opening reasons this game wants hung off the topic before
+   * anything can answer anything else (`rootTarget` in `lib/board/rules.ts`):
+   * 4 in a normal game, 2 in gym level 1. Drives which corners of the topic
+   * carry a permanent placeholder and when they stop. Defaults to 4, the
+   * ordinary live-game value, so a caller that has not been updated to pass
+   * this still gets the common case right rather than nothing at all; a gym
+   * level 1 caller has to pass 2 explicitly or its board offers all four
+   * corners instead of the two it should.
+   */
+  rootTarget?: number;
   /**
    * A strip down the right of the pane the board should not centre itself
    * under, in rem.
@@ -351,6 +375,35 @@ const GHOST_WASH: Record<TileSide, string> = {
   neutral: "fill-transparent group-hover:fill-gray/10",
 };
 
+/**
+ * The four diagonals, keyed the way the event log records them (`TileCorner`
+ * in lib/events/types.ts) and in the same NE/SE/SW/NW order as
+ * `DIAGONAL_OFFSETS` in layout.ts, which this has to agree with.
+ */
+const CORNER_ORDER: readonly TileCorner[] = ["ne", "se", "sw", "nw"];
+
+/** Gym level 1 only wants the two bottom corners: SE for Plus, SW for Minus
+ *  (Steve, 2026-09-03: the side is the position, bottom corners first, and
+ *  a two-thread game fills the bottom two). */
+const ROOT_CORNERS_TWO: readonly TileCorner[] = ["se", "sw"];
+
+/** Which side of the topic a corner belongs to: NE and SE are on the right,
+ *  which is Plus's; SW and NW are on the left, Minus's. Has to agree with
+ *  `SIDE_OFFSETS` in layout.ts and the Ways to win minimap's SLOTS. */
+function cornerSide(corner: TileCorner): Side {
+  return corner === "ne" || corner === "se" ? "plus" : "minus";
+}
+
+/**
+ * The corner a grid offset from its parent corresponds to. Every legal
+ * placement is exactly one diagonal step (dx, dy each +-1), so the sign of
+ * each axis alone identifies the corner.
+ */
+function cornerFromOffset(dx: number, dy: number): TileCorner {
+  if (dy < 0) return dx > 0 ? "ne" : "nw";
+  return dx > 0 ? "se" : "sw";
+}
+
 function GhostSlot({
   style,
   onClick,
@@ -358,6 +411,10 @@ function GhostSlot({
   side,
   mark = "+",
   sample = null,
+  stem = null,
+  interactive = true,
+  parentId,
+  corner,
 }: {
   style: CSSProperties;
   onClick: () => void;
@@ -378,16 +435,39 @@ function GhostSlot({
    * is not a move this game has.
    */
   mark?: string;
+  /**
+   * The lead line a root placeholder shows above its mark: "Yes, because" for
+   * Plus, "No, because" for Minus (`tileLead`, side-label.ts), read off the
+   * slot's own side rather than the viewer's. Root-only; a reply ghost passes
+   * nothing, since its lead depends on what it answers, which is not
+   * something a hover ghost needs to work out.
+   */
+  stem?: string | null;
+  /**
+   * False for the other side's root placeholders: visible so a player can
+   * see where the whole argument is going, but not a control. Steve,
+   * 2026-09-04: both sides show, only your own is clickable and
+   * hover-highlighted.
+   */
+  interactive?: boolean;
+  /**
+   * The parent this slot hangs off ("topic" for a root), carried as a data
+   * attribute so a coach overlay can point at the right slot without the
+   * board exposing any more surface than that.
+   */
+  parentId: string;
+  corner: TileCorner;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="group absolute cursor-pointer border-none bg-transparent p-0"
-      style={style}
-    >
+  const dataAttrs = {
+    "data-slot-parent": parentId,
+    "data-slot-corner": corner,
+    // Only plus/minus are meaningful here; a neutral viewer (the finished
+    // map) leaves it off rather than publish a value nothing reads.
+    "data-slot-side": side === "neutral" ? undefined : side,
+  };
+
+  const inner = (
+    <>
       {/* Drawn as a stroked polygon rather than as a dashed border on a
           clipped box: the clip cuts the corners away, so a border showed the
           four straight sides and nothing on the diagonals. Inset to the inner
@@ -412,31 +492,64 @@ function GhostSlot({
           strokeLinejoin="round"
         />
       </svg>
-      {sample ? (
-        // The mark shrinks and moves up out of the way rather than going: the
-        // slot is still an empty place to put a tile, and the sample is an
-        // offer inside it, not a tile that is already there.
-        <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-[18%] text-center">
+      <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-[18%] text-center">
+        {stem ? (
           <span
-            className={`${GHOST_MARK[side]} font-primary leading-none`}
-            style={{ fontSize: "1.75rem" }}
+            className={`${GHOST_MARK[side]} font-secondary text-[0.65rem] leading-none font-semibold tracking-wide uppercase opacity-90`}
           >
-            {mark}
+            {stem}
           </span>
-          <span className="font-secondary text-ink-soft line-clamp-4 text-xs italic opacity-80">
-            {sample}
-          </span>
-        </span>
-      ) : (
+        ) : null}
         <span
-          className={`${GHOST_MARK[side]} font-primary absolute inset-0 z-10 flex items-center justify-center leading-none transition-opacity duration-150 group-hover:opacity-100`}
+          className={`${GHOST_MARK[side]} font-primary leading-none transition-opacity duration-150 ${
+            sample ? "" : interactive ? "group-hover:opacity-100" : ""
+          }`}
           // Sized off the cell, not off the type scale, so it stays a mark on
-          // the board at every zoom instead of shrinking into body text.
-          style={{ fontSize: "3.5rem" }}
+          // the board at every zoom instead of shrinking into body text. The
+          // mark shrinks when a sample is present, so the sample text below
+          // it has room: the slot is still an empty place to put a tile, and
+          // the sample is an offer inside it, not a tile that is already
+          // there.
+          style={{ fontSize: sample ? "1.75rem" : "3.5rem" }}
         >
           {mark}
         </span>
-      )}
+        {sample ? (
+          <span className="font-secondary text-ink-soft line-clamp-4 text-xs italic opacity-80">
+            {sample}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+
+  if (!interactive) {
+    // A dimmed div, not a disabled button: it is drawn for orientation, not
+    // as a control nobody can reach, and a disabled button still reads as a
+    // control to a screen reader.
+    return (
+      <div
+        title={label}
+        className="pointer-events-none absolute border-none bg-transparent p-0 opacity-35"
+        style={style}
+        {...dataAttrs}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="group absolute cursor-pointer border-none bg-transparent p-0"
+      style={style}
+      {...dataAttrs}
+    >
+      {inner}
     </button>
   );
 }
@@ -476,6 +589,7 @@ export function SpatialBoard<T extends SpatialTile>({
   placementEnabled = false,
   canPlaceOn,
   placeSide = "neutral",
+  rootTarget = 4,
   reserveRight = 0,
   reserveBottom = 0,
   // The declared box is the outer ring, so `size * CELL_PITCH_RATIO` is the
@@ -503,6 +617,10 @@ export function SpatialBoard<T extends SpatialTile>({
   // function on every zoom change: it is a dependency of the automatic refit,
   // and rebuilding it is what re-runs that refit.
   const zoomRef = useRef(1);
+  // Whether `fit` has ever run the full recentre (mount, or a manual Fit to
+  // screen press). Every automatic refit after that only rescales in place;
+  // see the comment inside `fit`.
+  const hasCentered = useRef(false);
   const remPx = useRemPx();
 
   // Placement order is the layout's input order, and the projection does not
@@ -536,9 +654,10 @@ export function SpatialBoard<T extends SpatialTile>({
     [ordered, layout],
   );
 
-  // Open slots are shown for the hovered tile only. Showing every open slot on
-  // the board at once turns a four-thread game into sixteen plus signs and
-  // reads as noise rather than as an invitation.
+  // Open slots for a reply are shown for the hovered tile only. Showing every
+  // open slot on the board at once turns a four-thread game into sixteen plus
+  // signs and reads as noise rather than as an invitation. The topic's own
+  // open corners are a different story: see `rootGhosts` below.
   const ghosts = useMemo(() => {
     // A reason already being written is the only invitation on the board
     // worth having. Leaving the other slots up would offer to start a second
@@ -546,54 +665,83 @@ export function SpatialBoard<T extends SpatialTile>({
     // the cursor moves to the keyboard anyway.
     if (draftAt) return [];
     if (!placementEnabled || !hoveredId) return [];
+    // The topic's four diagonals are drawn permanently by `rootGhosts`, all
+    // of them at once rather than only on hover, so a player can see the
+    // whole shape of the argument before touching anything (Steve,
+    // 2026-09-04). Nothing else can go straight on the topic, so there is
+    // nothing left for a hover ghost to add here.
+    if (hoveredId === TOPIC_CELL_ID) return [];
     if (canPlaceOn && !canPlaceOn(hoveredId)) return [];
-    // Around the topic the offer is ordered by side, so the first slot a
-    // player is shown is the corner their tile will actually land in.
-    const open = legalPlacements(
-      layout,
-      hoveredId,
-      hoveredId === TOPIC_CELL_ID && placeSide !== "neutral" ? placeSide : null,
-    );
-
-    // The four thread starters around the topic have sides, and the side is
-    // the position: the two on the right belong to Plus, the two on the left
-    // belong to Minus. Everywhere else a slot belongs to whoever is placing.
-    //
-    // The retired client did not do this. It let either side start a thread
-    // on any diagonal (`GameBoard.vue`, which exempts the topic from its own
-    // same-side confirmation) and coloured every open slot by whose turn it
-    // was, so a board's left and right meant nothing and the Ways to win
-    // minimap could not be read as a picture of it. Steve asked for the
-    // convention on 2026-09-02.
-    //
-    // This is the board preferring one move, not the rules refusing another:
-    // `lib/board/rules.ts` is a core file and still accepts a root tile on any
-    // free diagonal, so nothing here can wedge a game whose history predates
-    // the convention. Filed as BRAIN-T260902-15.
-    const topic = layout.positions.get(TOPIC_CELL_ID);
-    if (hoveredId !== TOPIC_CELL_ID || !topic) {
-      return open.map((pos) => ({ pos, parentId: hoveredId, side: placeSide }));
-    }
-    const all = open.map((pos) => ({
+    const parentPos = layout.positions.get(hoveredId);
+    if (!parentPos) return [];
+    const open = legalPlacements(layout, hoveredId, null);
+    return open.map((pos) => ({
       pos,
       parentId: hoveredId,
-      side: (pos.x > topic.x ? "plus" : "minus") as TileSide,
+      side: placeSide,
+      corner: cornerFromOffset(pos.x - parentPos.x, pos.y - parentPos.y),
     }));
-    // A player with a seat is offered their own two. A caller with no seat in
-    // play (the finished map) passes neutral and sees all four.
-    if (placeSide === "neutral") return all;
-    const mine = all.filter((slot) => slot.side === placeSide);
-    // Offering nothing is worse than offering the other side's corner. Until a
-    // placement records which diagonal it was aimed at (BRAIN-T260902-02), a
-    // tile can land on the far side of the topic from the slot that was
-    // clicked, so both of a player's own starters can end up occupied by the
-    // other player's tiles, and a filter with no way out would leave them
-    // unable to start a thread at all. When that happens they are offered what
-    // is left, still drawn in the colour and sign of the position rather than
-    // of the player, so the convention reads even where the board could not
-    // honour it.
-    return mine.length > 0 ? mine : all;
   }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn, placeSide]);
+
+  // The topic's open corners, drawn for as long as the game is still in its
+  // root stage (`roots < rootTarget`, `lib/board/rules.ts`): every corner in
+  // play, both sides at once, not only the one under the cursor. Steve,
+  // 2026-09-04: switching seats had been showing "Yes, because" on both
+  // placeholders, because the old topic ghosts borrowed the viewer's own
+  // `placeSide` for the label instead of reading it off the corner the slot
+  // actually sits in. Each slot below carries its own side from its own
+  // corner, so a Minus corner reads "No, because" no matter who is looking at
+  // it, and only the viewer's own corners are offered as something to click.
+  const rootGhosts = useMemo(() => {
+    if (draftAt) return [];
+    if (!placementEnabled) return [];
+    if (canPlaceOn && !canPlaceOn(TOPIC_CELL_ID)) return [];
+    const topicPos = layout.positions.get(TOPIC_CELL_ID);
+    if (!topicPos) return [];
+    // A root tile's own `parentId` is null, not "topic": `topicRootedLayout`
+    // is what reparents it onto the topic's diagonals for drawing. Counting
+    // by the raw field, the way the layout itself does, is what keeps this in
+    // step with `rootTarget`/`inRootStage` in `lib/board/rules.ts`, which
+    // count the same way.
+    const rootsPlaced = placed.filter((p) => p.tile.parentId === null).length;
+    if (rootsPlaced >= rootTarget) return [];
+    // A two-root game only ever offers the two bottom corners (SE for Plus,
+    // SW for Minus); the top two are not in play at all, gym level 1 or not.
+    const cornersInPlay = rootTarget <= 2 ? ROOT_CORNERS_TWO : CORNER_ORDER;
+    const open = legalPlacements(layout, TOPIC_CELL_ID, null);
+    const openByCorner = new Map(
+      open.map((pos) => [cornerFromOffset(pos.x - topicPos.x, pos.y - topicPos.y), pos]),
+    );
+    let sampleIndex = -1;
+    const slots: {
+      pos: GridPosition;
+      parentId: string;
+      corner: TileCorner;
+      side: Side;
+      interactive: boolean;
+      sampleIndex: number;
+    }[] = [];
+    for (const corner of cornersInPlay) {
+      const pos = openByCorner.get(corner);
+      if (!pos) continue;
+      const side = cornerSide(corner);
+      // A caller with no seat in play (the finished map) passes neutral and
+      // sees every corner as an invitation, same as it always could. A player
+      // with a seat sees their own as the invitation and the other side's for
+      // orientation only.
+      const interactive = placeSide === "neutral" || side === placeSide;
+      if (interactive) sampleIndex += 1;
+      slots.push({
+        pos,
+        parentId: TOPIC_CELL_ID,
+        corner,
+        side,
+        interactive,
+        sampleIndex,
+      });
+    }
+    return slots;
+  }, [draftAt, placementEnabled, canPlaceOn, layout, placed, rootTarget, placeSide]);
 
   const pitch = size * CELL_PITCH_RATIO;
   const canvasWidth = (layout.width - 1) * pitch + size;
@@ -680,6 +828,29 @@ export function SpatialBoard<T extends SpatialTile>({
       // and still recentres, because that is a view the player asked for.
       if (onlyWhenRescaling && Math.abs(next - zoomRef.current) < 0.001) return;
 
+      // The very first fit, on mount, has no view yet for a pan to disturb,
+      // so it centres the topic in the reserved area the way Fit to screen
+      // always has. Every automatic refit after that (a tile landing and
+      // growing the footprint) is not allowed to move the view at all, only
+      // to shrink or grow it: rescale about the pane's own centre, so
+      // whatever the player already has in the middle of their screen stays
+      // there (Steve, 2026-09-04: "you can zoom it out but never pan it
+      // unless they expect that to happen"). Pressing Fit to screen still
+      // takes the full recentre below, because that pan is the one the
+      // player asked for.
+      if (onlyWhenRescaling && hasCentered.current) {
+        const cx = pane.w / 2;
+        const cy = pane.h / 2;
+        const ratio = next / zoomRef.current;
+        setZoom(next);
+        zoomRef.current = next;
+        setPan((p) => ({
+          x: cx - (cx - p.x) * ratio,
+          y: cy - (cy - p.y) * ratio,
+        }));
+        return;
+      }
+
       // Centre in the reserved area only while the board still fits there.
       //
       // The automatic refit is floored at COMFORT_ZOOM, so a board past a
@@ -703,6 +874,7 @@ export function SpatialBoard<T extends SpatialTile>({
         y: (down - h * next) / 2 - content.top * remPx * next,
       });
       touched.current = false;
+      hasCentered.current = true;
     },
     // The four numbers, not the object: `content` is rebuilt on every render,
     // and depending on it made `fit` a new function every render, which ran
@@ -738,40 +910,57 @@ export function SpatialBoard<T extends SpatialTile>({
    * tile it hangs off. A player who just clicked a slot and cannot find what
    * they opened has no reason to guess that dragging the board would show it.
    *
-   * Pan only, never zoom. The board is allowed to overflow past COMFORT_ZOOM,
-   * so the fix for an off-screen draft is to move the view, not to shrink
-   * everything under someone who is about to start typing. It also leaves
-   * `touched` alone: nudging is not the player choosing a view, and claiming
-   * it was would switch the automatic refit off for the rest of the game.
+   * Zoom only, never pan. The view is not the player's to move on their
+   * behalf (Steve, 2026-09-04: "you can zoom it out but never pan it unless
+   * they expect that to happen"), so the fix for an off-screen composer is to
+   * shrink the board around the pan the player already chose, not to slide
+   * that pan out from under them. This used to nudge the pan instead; that
+   * was the one automatic pan Steve's playtest note called out by name.
    */
   useEffect(() => {
     if (!draftAt || !pane) return;
-    const scale = remPx * zoom;
-    const left = pan.x + (draftAt.x + layout.offsetX) * pitch * scale;
-    const top = pan.y + (draftAt.y + layout.offsetY) * pitch * scale;
-    const right = left + size * scale;
-    // The composer hangs its Place and cancel buttons below the octagon.
-    const bottom = top + (size + DRAFT_TAIL_REM) * scale;
     const usable = Math.max(FIT_MARGIN + 1, pane.w - reserveRight * remPx);
     const usableHeight = Math.max(FIT_MARGIN + 1, pane.h - reserveBottom * remPx);
-    // Push in from whichever edge it is past, and prefer the near edge when
-    // the draft is too big to fit between both.
-    const dx =
-      right > usable - DRAFT_EDGE
-        ? Math.max(usable - DRAFT_EDGE - right, DRAFT_EDGE - left)
-        : Math.max(0, DRAFT_EDGE - left);
-    const dy =
-      bottom > usableHeight - DRAFT_EDGE
-        ? Math.max(usableHeight - DRAFT_EDGE - bottom, DRAFT_EDGE - top)
-        : Math.max(0, DRAFT_EDGE - top);
-    if (dx === 0 && dy === 0) return;
+    const fits = (scale: number) => {
+      const left = pan.x + (draftAt.x + layout.offsetX) * pitch * scale;
+      const top = pan.y + (draftAt.y + layout.offsetY) * pitch * scale;
+      const right = left + size * scale;
+      // The composer hangs its Place and cancel buttons below the octagon.
+      const bottom = top + (size + DRAFT_TAIL_REM) * scale;
+      return (
+        left >= DRAFT_EDGE &&
+        top >= DRAFT_EDGE &&
+        right <= usable - DRAFT_EDGE &&
+        bottom <= usableHeight - DRAFT_EDGE
+      );
+    };
+    const currentScale = remPx * zoom;
+    if (fits(currentScale)) return;
+    // Shrink a step at a time rather than solving for the exact scale: the
+    // pan is fixed here (unlike `fit`, which is free to choose it), so which
+    // direction shrinking helps depends on which side of the pan origin the
+    // draft sits on, and a dozen 8% steps finds it without working that out
+    // algebraically. If the floor is reached and it still does not fit, the
+    // composer stays exactly where it is rather than pan to chase it: an
+    // imperfect view beats a view that moved on its own.
+    let candidate = currentScale;
+    for (let i = 0; i < 12 && candidate > MIN_ZOOM * remPx; i++) {
+      candidate *= 0.92;
+      if (fits(candidate)) break;
+    }
+    candidate = Math.max(MIN_ZOOM * remPx, candidate);
+    const nextZoom = candidate / remPx;
+    if (Math.abs(nextZoom - zoom) < 0.001) return;
     // On the next frame rather than in the effect body: the composer is
-    // mounting as this runs, and a pan set synchronously here is a cascading
-    // render for a view the player has not been shown yet. It settles after
-    // one nudge, because the next pass finds the draft already in view.
-    const frame = requestAnimationFrame(() =>
-      setPan((p) => ({ x: p.x + dx, y: p.y + dy })),
-    );
+    // mounting as this runs, and a `setState` set synchronously here is a
+    // cascading render for a view the player has not been shown yet.
+    const frame = requestAnimationFrame(() => {
+      setZoom(nextZoom);
+      zoomRef.current = nextZoom;
+    });
+    // Deliberately leaves `touched` alone: this is the board protecting the
+    // composer, not the player choosing a view, and claiming it was would
+    // switch the automatic refit off for the rest of the game.
     return () => cancelAnimationFrame(frame);
   }, [draftAt, pane, pan, zoom, remPx, layout, pitch, size, reserveRight, reserveBottom]);
 
@@ -953,7 +1142,32 @@ export function SpatialBoard<T extends SpatialTile>({
           </div>
         ))}
 
-        {ghosts.map(({ pos, parentId, side }, index) => {
+        {rootGhosts.map(({ pos, parentId, corner, side, interactive, sampleIndex }) => {
+          const sample = interactive ? (slotSamples?.[sampleIndex] ?? null) : null;
+          return (
+            <GhostSlot
+              key={`root:${corner}`}
+              style={pixelStyle(pos, layout, size)}
+              label={
+                interactive
+                  ? sample
+                    ? `Lay down a tile here, with the coach's words to start from`
+                    : `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
+                  : `The ${side === "minus" ? "Minus" : "Plus"} side's opening reason`
+              }
+              side={side}
+              sample={sample}
+              stem={tileLead(side, true, null)}
+              mark={side === "minus" ? "\u2212" : "+"}
+              interactive={interactive}
+              parentId={parentId}
+              corner={corner}
+              onClick={() => onPlace?.(parentId, pos, sample, corner)}
+            />
+          );
+        })}
+
+        {ghosts.map(({ pos, parentId, side, corner }, index) => {
           const sample = slotSamples?.[index] ?? null;
           return (
             <GhostSlot
@@ -962,14 +1176,13 @@ export function SpatialBoard<T extends SpatialTile>({
               label={
                 sample
                   ? `Lay down a tile here, with the coach's words to start from`
-                  : parentId === TOPIC_CELL_ID
-                    ? `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
-                    : "Answer this reason here"
+                  : "Answer this reason here"
               }
               side={side}
               sample={sample}
-              mark={parentId === TOPIC_CELL_ID && side === "minus" ? "\u2212" : "+"}
-              onClick={() => onPlace?.(parentId, pos, sample)}
+              parentId={parentId}
+              corner={corner}
+              onClick={() => onPlace?.(parentId, pos, sample, corner)}
             />
           );
         })}

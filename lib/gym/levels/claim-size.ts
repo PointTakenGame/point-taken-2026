@@ -171,6 +171,7 @@ export const CLAIM_SIZE: Level = {
       bossSays: "Every restaurant that's tried going no-tip has gone back to it.",
       body: "Watch that one. He said every. If that were my tile I'd have written that several well-known ones went back within two years, and here is the thing that is going to matter for the next twenty minutes: the smaller version is harder to argue with. You cannot knock it down by finding one exception. Keep that in your head.",
       button: "Got it",
+      anchor: { tile: "B2" },
     },
     {
       kind: "pause",
@@ -179,6 +180,7 @@ export const CLAIM_SIZE: Level = {
       cardId: CARD,
       body: "The agreement: I'll make claims at a size I can actually defend. Throw this card at a claim bigger than the reason underneath it, and the author restates it at a size they will stand behind. Rung one has a tell. The word gives it away, and there is one sitting on the board right now.",
       button: "Show me",
+      anchor: { tile: "B2" },
     },
     {
       kind: "player",
@@ -188,6 +190,7 @@ export const CLAIM_SIZE: Level = {
       badges: ["no-exaggeration-1"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "B2", cardId: CARD, rungId: "no_exaggeration_1" },
+      anchor: { tile: "B2" },
     },
     {
       kind: "boss",
@@ -226,6 +229,7 @@ export const CLAIM_SIZE: Level = {
       badges: ["no-exaggeration-2"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "B3", cardId: CARD, rungId: "no_exaggeration_2" },
+      anchor: { tile: "B3" },
     },
     {
       kind: "boss",
@@ -279,6 +283,7 @@ export const CLAIM_SIZE: Level = {
       title: "Pull it back",
       body: "You had a real argument and you oversized it, and he went after the size instead of the argument. That is what it costs. Now restate it at something you would defend, and the points come straight back.",
       button: "Fix it",
+      anchor: { tile: "C1" },
     },
     {
       kind: "player",
@@ -298,6 +303,7 @@ export const CLAIM_SIZE: Level = {
           "But a server can do everything right on a slow Tuesday and take home nothing.",
         ],
       },
+      anchor: { tile: "C1" },
     },
     {
       kind: "boss",
@@ -316,6 +322,7 @@ export const CLAIM_SIZE: Level = {
       nudge: "Nobody, ever. Same tell as the first one.",
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "D1", cardId: CARD, rungId: "no_exaggeration_1" },
+      anchor: { tile: "D1" },
     },
     {
       kind: "boss",
@@ -341,6 +348,7 @@ export const CLAIM_SIZE: Level = {
         "Time to close threads. You two want different things from a server's pay, and neither of you is wrong about what you want. Propose 👀 on your first thread.",
       nudge: "👀 on your first thread, the one about strangers deciding the pay.",
       expect: { kind: "token", thread: "A", emoji: "👀" },
+      anchor: { tile: "A" },
     },
     {
       kind: "boss",
@@ -361,6 +369,7 @@ export const CLAIM_SIZE: Level = {
       coach: "Bogdan has conceded your predictability thread. Put your 👍 down to match.",
       nudge: "👍 on your second thread, the one about budgeting.",
       expect: { kind: "token", thread: "B", emoji: "👍" },
+      anchor: { tile: "B" },
     },
     {
       kind: "boss",
@@ -374,6 +383,7 @@ export const CLAIM_SIZE: Level = {
         "His thread about the best servers. You value the floor, he values the ceiling. Match his 👀.",
       nudge: "👀 on Bogdan's thread about the best servers.",
       expect: { kind: "token", thread: "C", emoji: "👀" },
+      anchor: { tile: "C" },
     },
     {
       kind: "player",
@@ -381,6 +391,7 @@ export const CLAIM_SIZE: Level = {
       coach: "One left. Propose 👍 on his same-pocket thread and the board is done.",
       nudge: "👍 on Bogdan's last thread.",
       expect: { kind: "token", thread: "D", emoji: "👍" },
+      anchor: { tile: "D" },
     },
     {
       kind: "boss",

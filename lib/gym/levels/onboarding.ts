@@ -92,14 +92,17 @@ export const ONBOARDING: Level = {
       title: "What a reason tile is",
       body: "That's a reason tile. A short claim supporting one side, and it starts a thread. One idea per tile. If you've got two, that's two tiles.",
       button: "My turn",
+      anchor: { tile: "A" },
     },
     {
       kind: "player",
       id: "player-root-b",
+      // Level 1 only has the two bottom spots under the topic tile, so the
+      // instruction is just "click here" (Steve, 2026-09-04 playtest), not a
+      // description of where the spot is.
       coach:
-        "Start your own thread. Hang one reason off the topic: why a hot dog is not a sandwich. Pick one, or write your own.",
-      nudge:
-        "That one wants to hang off the topic, not off Bob's tile. Start a thread of your own.",
+        "Click here, under the topic, and start your own thread: why a hot dog is not a sandwich. Pick one, or write your own.",
+      nudge: "That one goes here, under the topic, not under Bob's tile.",
       expect: {
         kind: "tile",
         key: "B",
@@ -109,6 +112,7 @@ export const ONBOARDING: Level = {
           "No, because a bun is one piece of bread that's been cut, not two slices.",
         ],
       },
+      anchor: { slot: { parent: "topic", corner: "sw" } },
     },
     {
       kind: "boss",
@@ -126,12 +130,14 @@ export const ONBOARDING: Level = {
       title: "Tiles answer tiles",
       body: "A 'But...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
       button: "Got it",
+      anchor: { tile: "B1" },
     },
     {
       kind: "player",
       id: "player-answers-a",
-      coach: "Now answer Bob's reason. Your 'But...' goes directly under his first tile.",
-      nudge: "Hang it under Bob's first tile, the one at the top of his thread.",
+      coach:
+        "Click here and answer Bob's reason. Your 'But...' goes directly under his first tile.",
+      nudge: "Hang it here, under Bob's first tile, the one at the top of his thread.",
       expect: {
         kind: "tile",
         key: "A1",
@@ -141,6 +147,12 @@ export const ONBOARDING: Level = {
           "But a sandwich has to still work when you lay it flat, and a hot dog doesn't.",
         ],
       },
+      // Bob's root A sits on the topic's SE corner (his side is plus); its NE
+      // diagonal does not point back at the topic (SE + NE != 0,0, unlike B
+      // at SW) and nothing else is there yet, so layout.ts's own NE-first
+      // order lands the reply at NE. Confirmed by walking legalPlacements
+      // against this level's actual placement order, not assumed.
+      anchor: { slot: { parent: "A", corner: "ne" } },
     },
     {
       kind: "boss",
@@ -159,8 +171,9 @@ export const ONBOARDING: Level = {
     {
       kind: "player",
       id: "player-answers-b1",
-      coach: "Bob answered in your thread. Answer him back, under his tile.",
-      nudge: "Under Bob's tile in your thread, the one that starts with 'But'.",
+      coach:
+        "Bob answered in your thread. Click here and answer him back, under his tile.",
+      nudge: "Here, under Bob's tile in your thread, the one that starts with 'But'.",
       expect: {
         kind: "tile",
         key: "B2",
@@ -188,6 +201,7 @@ export const ONBOARDING: Level = {
       // putting a mark on. Nathan's script says the same; left as written.
       body: "Two ways a thread can end. 👍 Point taken: the other person actually changed your mind. 👀 Now I see why we disagree: neither of you moved, but you found the reason underneath it. A thread closes when you both put the same token on the same thread. Bob's put the first 👍 down. Put yours next to it.",
       button: "Got it",
+      anchor: { tile: "B" },
     },
     {
       kind: "player",
@@ -197,6 +211,7 @@ export const ONBOARDING: Level = {
       nudge: "Same token, same thread: 👍 on your thread, the one Bob conceded.",
       badges: ["resolve-first-thread"],
       expect: { kind: "token", thread: "B", emoji: "👍" },
+      anchor: { tile: "B" },
     },
     {
       kind: "boss",
@@ -215,6 +230,7 @@ export const ONBOARDING: Level = {
       cardId: "you_is_taboo",
       body: "That card is yours now. Something on the board breaks it. Throw the card at that tile.",
       button: "Show me",
+      anchor: { tile: "A3" },
     },
     {
       kind: "player",
@@ -242,6 +258,7 @@ export const ONBOARDING: Level = {
       title: "What a card actually does",
       body: "The card didn't delete anything. Bob rewrote the tile without the 'you' in it and the argument survived. That's the whole point. His reason was fine. The way he aimed it wasn't.",
       button: "Got it",
+      anchor: { tile: "A3" },
     },
     {
       kind: "player",
@@ -250,6 +267,7 @@ export const ONBOARDING: Level = {
         "You two are not going to agree about what the word 'sandwich' means. Close it out: 👀 on Bob's thread, the one that explains the disagreement.",
       nudge: "That thread isn't going to move either of you. 👀 on Bob's thread.",
       expect: { kind: "token", thread: "A", emoji: "👀" },
+      anchor: { tile: "A" },
     },
     {
       kind: "pause",
@@ -258,6 +276,7 @@ export const ONBOARDING: Level = {
       bossSays: "...sorry. I don't like to assume.",
       body: "He won't place his until you ask him to. Agreement gets asked for, not assumed. True here, and very true with a real person.",
       button: "Ask Bob to confirm",
+      anchor: { tile: "A" },
     },
     {
       kind: "boss",

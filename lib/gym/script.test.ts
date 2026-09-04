@@ -192,3 +192,93 @@ describe("levelProgress on level 1", () => {
     expect(progress.done).toHaveLength(ONBOARDING.beats.length);
   });
 });
+
+/**
+ * BRAIN-T260904: a player who places a legal token that is not the one the
+ * script narrates must still end the level. Before this fix, the walker's
+ * player-token match required the exact scripted emoji, so bossAct
+ * (app/gym/actions.ts) saw the current beat as still the player's, decided
+ * there was nothing to do, and the boss never mirrored back, so the thread
+ * and then the game never resolved.
+ *
+ * app/gym/actions.ts's bossAct and settle hit the real database
+ * (appendGameEvent, readGameEvents), so this does not call them directly.
+ * It drives the same event log a real game produces, computing the boss's
+ * move with mirroredBossToken, a pure stand-in for bossAct's fixed token
+ * case (mirror the player's actual pending token, falling back to the
+ * scripted one only when the player has not moved yet). That is the walker
+ * plus a pure next-boss-move function, in place of an end-to-end test.
+ */
+describe("a legal token that is not the scripted one still ends level 1", () => {
+  function mirroredBossToken(
+    board: ReturnType<typeof projectBoard>,
+    rootId: string,
+    playerSide: "plus" | "minus",
+    scripted: "👍" | "👀",
+  ): "👍" | "👀" {
+    const thread = board.threads.find((t) => t.rootId === rootId);
+    const pending = thread?.pending[playerSide];
+    return pending === "👍" || pending === "👀" ? pending : scripted;
+  }
+
+  it("resolves both threads and ends the game when the player answers 👍 where the script says 👀", () => {
+    const l = opened();
+    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
+    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
+    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
+    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
+    l.tile(BOB, a1, a, "A taco is a wrap.");
+    l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
+
+    // Thread B: the boss goes first with the scripted 👍 and the player
+    // matches it exactly. No deviation on this side, the control for the
+    // deviation on thread A below.
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, BOB);
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, PLAYER);
+    const mirroredB = mirroredBossToken(l.board(), b, "minus", "👍");
+    expect(mirroredB).toBe("👍");
+    l.push("thread_resolved", { thread_root_id: b, emoji: mirroredB, note: null });
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-violation");
+
+    const a3 = l.tile(
+      BOB,
+      a1,
+      a,
+      "You only say that because you have never had one at the ballpark.",
+    );
+    const throwSeq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: a3 },
+      PLAYER,
+    );
+    l.push(
+      "tile_revised",
+      {
+        tile_id: a3,
+        text: "At the ballpark nobody calls it a sandwich.",
+        in_response_to_seq: throwSeq,
+      },
+      BOB,
+    );
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-a");
+
+    // Thread A: the script narrates 👀 here. The player places 👍 instead,
+    // a different token that is just as legal. The walker's loosened
+    // player-token match (lib/gym/script.ts) still counts this beat as
+    // done, because the player has some pending token on the thread.
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-token-a");
+
+    // The boss mirrors what the player actually placed, 👍, not the
+    // scripted 👀. That mirroring, not a match against the script, is what
+    // closes the thread.
+    const mirroredA = mirroredBossToken(l.board(), a, "minus", "👀");
+    expect(mirroredA).toBe("👍");
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: mirroredA }, BOB);
+    l.push("thread_resolved", { thread_root_id: a, emoji: mirroredA, note: null });
+    l.push("game_ended", { win_condition: "threads_resolved" });
+
+    expect(l.board().status).toBe("ended");
+    expect(l.board().threads.every((thread) => thread.resolution !== null)).toBe(true);
+  });
+});

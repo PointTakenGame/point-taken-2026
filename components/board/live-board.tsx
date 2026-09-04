@@ -2,7 +2,9 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type ReactElement,
@@ -61,6 +63,7 @@ import {
   canThrowCard,
   cardsInPlay,
   isResolved,
+  rootTarget,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
 import {
@@ -70,11 +73,10 @@ import {
   TILE_LEAD_PX,
 } from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
-import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
-import { SIDE_LABEL, SIDE_MARK, tileLead } from "./side-label";
+import { SIDE_LABEL, stripDuplicateLead, tileLead } from "./side-label";
 import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
@@ -95,7 +97,7 @@ import {
   reviseTile,
   throwCard,
 } from "@/app/game/[gameId]/actions";
-import type { Side, Uuid } from "@/lib/events/types";
+import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
 
@@ -122,6 +124,11 @@ export interface LiveBoardProps {
   /** Room code, small print during play. Display only: no link, no share
    *  token, until Steve decides there should be (BRAIN-T260822-14). */
   joinCode?: string | null;
+  /** The Gym boss's emoji, shown on the opponent badge. Only an emoji
+   *  crosses this boundary, never the Level object: its beats can carry
+   *  functions, which cannot be handed from the server to a client
+   *  component. Undefined outside the Gym. */
+  opponentEmoji?: string;
 }
 
 /** Every live tile that has no live parent and is not a thread root. */
@@ -287,7 +294,10 @@ function WhyNotAll({
 
 function TileText({ tile }: { tile: BoardTile }) {
   if (tile.redacted) return <span className="italic opacity-50">{REDACTED_TEXT}</span>;
-  return <span>{tile.text}</span>;
+  // Display-only: a player who typed the tile's own lead-in ("Yes, because
+  // ...") sees it once, not twice. `tile.text` itself is untouched, so the
+  // event log keeps their exact words. See stripDuplicateLead in side-label.ts.
+  return <span>{stripDuplicateLead(tile.text)}</span>;
 }
 
 /** The card's own name, or its id if a game was played with a card we no longer ship. */
@@ -457,6 +467,16 @@ function CardHand({
     setOpen(next);
     onOpenChange?.(next);
   };
+
+  // Steve, 2026-09-04 (playtest): a Gym root tile answers the topic itself,
+  // not another reason, so "Play a card" (a rule card rewrites the reason it
+  // targets) has nothing to attach to there and confused playtesters. Live
+  // play is unaffected: a root tile there keeps its hand. A non-root tile,
+  // including level 1's scripted card-throw target A3 (parent "A1"), is
+  // unaffected either way. See the matching note on ThreadTokenBadge above,
+  // which is why a Gym root tile's bottom edge never has to share a thrown
+  // card with a resolution token.
+  if (board.mode === "gym" && tile.parentId === null) return null;
 
   const deck = cardsInPlay(board);
   if (deck.length === 0) return null;
@@ -1107,34 +1127,54 @@ function TileNode({
                 {/* BRAIN-T260903-06: the four moves below are gated by
                     canStartLaterMove. Relocation stays available outside live
                     play (it is load-bearing for Gym level 2); the other three
-                    are Gym level 5+ and hidden everywhere for now. */}
-                {canStartLaterMove(board, "tile_relocation") && (
-                  <ActionItem
-                    label="Move it"
-                    hint="Ask them to hang this reason under a different one."
-                    verdict={moveVerdict}
-                    disabled={pending || moving}
-                    onClick={() => setMoving(true)}
-                  />
-                )}
-                {readingVerdict && canStartLaterMove(board, "reading_handback") && (
-                  <ActionItem
-                    label="Say it back"
-                    hint="Write what you think they meant. They tell you whether you have it."
-                    verdict={readingVerdict}
-                    disabled={pending || proposing !== null}
-                    onClick={() => setProposing("reading")}
-                  />
-                )}
-                {canStartLaterMove(board, "steelman_tile") && (
-                  <ActionItem
-                    label="Write one for them"
-                    hint="Put their point better than they did, and offer it as their reason."
-                    verdict={steelmanVerdict}
-                    disabled={pending || proposing !== null}
-                    onClick={() => setProposing("steelman")}
-                  />
-                )}
+                    are Gym level 5+ and hidden everywhere for now.
+
+                    Steve, 2026-09-04 (playtest): on top of that gate, a Gym
+                    root tile hides "Move it" / "Say it back" / "Write one for
+                    them" outright. A root tile answers the topic itself, not
+                    another reason, so these three (which are all about a
+                    reason's relationship to what it is under) read as
+                    non-sequiturs there and were confusing playtesters. Live
+                    play is untouched: it never reaches this branch, since
+                    canStartLaterMove is already false for board.mode ===
+                    "live". A non-root tile, including level 1's scripted
+                    card-throw target A3 (parent "A1"), is unaffected. */}
+                {(() => {
+                  const hideOnGymRoot = board.mode === "gym" && tile.parentId === null;
+                  return (
+                    <>
+                      {!hideOnGymRoot && canStartLaterMove(board, "tile_relocation") && (
+                        <ActionItem
+                          label="Move it"
+                          hint="Ask them to hang this reason under a different one."
+                          verdict={moveVerdict}
+                          disabled={pending || moving}
+                          onClick={() => setMoving(true)}
+                        />
+                      )}
+                      {!hideOnGymRoot &&
+                        readingVerdict &&
+                        canStartLaterMove(board, "reading_handback") && (
+                          <ActionItem
+                            label="Say it back"
+                            hint="Write what you think they meant. They tell you whether you have it."
+                            verdict={readingVerdict}
+                            disabled={pending || proposing !== null}
+                            onClick={() => setProposing("reading")}
+                          />
+                        )}
+                      {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile") && (
+                        <ActionItem
+                          label="Write one for them"
+                          hint="Put their point better than they did, and offer it as their reason."
+                          verdict={steelmanVerdict}
+                          disabled={pending || proposing !== null}
+                          onClick={() => setProposing("steelman")}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
                 {canStartLaterMove(board, "definition") && (
                   <ActionItem
                     label="Pin down a word"
@@ -1739,6 +1779,74 @@ function Placed({ who, token }: { who: string; token: string | null | undefined 
  * Shift+Enter is a newline, which is the convention every chat box in the
  * world has already taught.
  */
+
+function reducedMotionPreferred(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * Types a sample answer into the box instead of dropping it in whole: the
+ * Gym's coach is suggesting the words, not filling out the player's form,
+ * and typing reads as an offer in a way a box that is simply already full
+ * does not (Steve, 2026-09-04, live playtest). 25 to 35ms per character
+ * with a little jitter, which keeps even a 60-character sample under the
+ * 2.5s it takes to start feeling slow. A keypress or click in the box, or a
+ * standing prefers-reduced-motion setting, jumps straight to the finished
+ * text.
+ *
+ * `sample` is only ever read at mount. `InTileComposer` is remounted (see
+ * its `key` at the call site) whenever the slot it belongs to changes, so
+ * there is no case where the text this hook is typing needs to change out
+ * from under it mid-animation.
+ */
+function useTypedSample(sample: string): {
+  text: string;
+  setText: (value: string) => void;
+  typing: boolean;
+  finishTyping: () => void;
+} {
+  const [reduced] = useState(reducedMotionPreferred);
+  const [text, setText] = useState(reduced ? sample : "");
+  const [typing, setTyping] = useState(!reduced && sample.length > 0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!typing) return;
+    let shown = 0;
+    const tick = () => {
+      shown += 1;
+      setText(sample.slice(0, shown));
+      if (shown >= sample.length) {
+        timerRef.current = null;
+        setTyping(false);
+        return;
+      }
+      timerRef.current = setTimeout(tick, 25 + Math.random() * 10);
+    };
+    timerRef.current = setTimeout(tick, 25 + Math.random() * 10);
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
+    // sample is fixed for the life of this hook; see the doc comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing]);
+
+  const finishTyping = () => {
+    if (!typing) return;
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setTyping(false);
+    setText(sample);
+  };
+
+  return { text, setText, typing, finishTyping };
+}
+
 function InTileComposer({
   gameId,
   board,
@@ -1746,6 +1854,7 @@ function InTileComposer({
   parentTileId,
   parentSide,
   initialText = "",
+  corner,
   onDone,
 }: {
   gameId: string;
@@ -1760,11 +1869,14 @@ function InTileComposer({
    * the slot the player clicked (Steve, 2026-09-03), and it is ordinary
    * editable draft text from the moment it lands: the player can rewrite it,
    * clear it, or place it as it stands, and the tile is theirs either way.
+   * Typed in rather than dropped in whole; see `useTypedSample`.
    */
   initialText?: string;
+  /** Which diagonal of the parent this box occupies, recorded on the tile. */
+  corner: TileCorner;
   onDone: () => void;
 }) {
-  const [text, setText] = useState(initialText);
+  const { text, setText, typing, finishTyping } = useTypedSample(initialText);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const verdict = canPlaceTile(board, text, parentTileId);
@@ -1787,10 +1899,10 @@ function InTileComposer({
     text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
-    if (!verdict.ok) return;
+    if (!verdict.ok || typing) return;
     setError(null);
     startTransition(async () => {
-      const result = await placeTile(gameId, { text, parentTileId });
+      const result = await placeTile(gameId, { text, parentTileId, corner });
       if (!result.ok) setError(result.error);
       else onDone();
     });
@@ -1820,7 +1932,18 @@ function InTileComposer({
             disabled={pending}
             placeholder="A reason for your side."
             onChange={(event) => setText(event.target.value)}
+            // While the sample is still typing itself in, a click or a
+            // keypress here means "I've seen enough, give me the rest,"
+            // not "let me edit this half-finished word."
+            onClick={() => {
+              if (typing) finishTyping();
+            }}
             onKeyDown={(event) => {
+              if (typing) {
+                event.preventDefault();
+                finishTyping();
+                return;
+              }
               if (event.key === "Escape") {
                 event.preventDefault();
                 onDone();
@@ -1851,8 +1974,14 @@ function InTileComposer({
           <button
             type="button"
             className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-5 py-1.5 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
-            disabled={pending || !verdict.ok}
-            title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
+            disabled={pending || !verdict.ok || typing}
+            title={
+              typing
+                ? "Still typing..."
+                : !verdict.ok
+                  ? verdict.error
+                  : "Place it (or press Return)"
+            }
             onClick={submit}
           >
             {pending ? "Placing..." : "Place"}
@@ -1876,179 +2005,6 @@ function InTileComposer({
         />
         <ErrorLine error={error} />
       </div>
-    </div>
-  );
-}
-
-function Composer({
-  gameId,
-  board,
-  side,
-  target,
-  onTargetChange,
-}: {
-  gameId: string;
-  board: BoardState;
-  /** The composing player's side, for the lead line above the box. */
-  side: Side;
-  /** Id of the tile being answered, or "" for a new thread. Owned by LiveBoard
-   * because the board above picks it by click and the composer only reports
-   * it back. */
-  target: string;
-  onTargetChange: (next: string) => void;
-}) {
-  const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const targets = useMemo(() => allTargets(board), [board]);
-  const parentTileId = target.length > 0 ? target : null;
-  // A tile the board no longer shows (removed, or a stale id after a
-  // relocation) must not leave the composer claiming to answer it.
-  const answering = useMemo(
-    () => targets.find((tile) => tile.id === parentTileId) ?? null,
-    [targets, parentTileId],
-  );
-  const verdict = canPlaceTile(board, text, parentTileId);
-
-  // Gym level 3 ("Claim size") teaches No Exaggeration. Two pre-written root
-  // threads about the level's tipping topic are offered as optional
-  // starting points, but only while the tile being composed is a root tile
-  // (no reply target picked): a suggestion for a brand new thread has
-  // nothing to say about a reply to something already on the board.
-  const showRootSuggestions =
-    board.mode === "gym" && board.levelId === "claim_size" && parentTileId === null;
-
-  // An empty box is judged against a placeholder instead of against its own
-  // emptiness, because "a reason needs some words in it" is not news. What is
-  // news is a block that no amount of typing clears: the thread cap, a
-  // resolved thread, a game that has ended. WhyNot, above, is where the rest
-  // of that argument is written down.
-  //
-  // Once there are words in the box, those words are what gets judged, so a
-  // reason that ends in a question mark says the moderator's sentence here
-  // rather than only in the Place button's tooltip. See the matching note in
-  // CellComposer, and level 4, which promises the player they will hear it.
-  const blocked =
-    text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
-
-  const submit = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await placeTile(gameId, { text, parentTileId });
-      if (!result.ok) setError(result.error);
-      else {
-        setText("");
-        onTargetChange("");
-      }
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      {/*
-        This used to be a dropdown of every tile on the board, which asked a
-        player to find the reason they were answering in a list of truncated
-        strings. The board above is where that choice belongs now: hover a
-        tile, click one of its open diagonals. All this has to do is say
-        which one you picked and let you back out of it.
-      */}
-      <div className="text-p-sm text-gray flex flex-wrap items-baseline gap-2">
-        {answering === null ? (
-          <span>
-            Starting a new thread. Click an open slot around a reason on the board to
-            answer it instead.
-          </span>
-        ) : (
-          <>
-            <span>Answering</span>
-            <span className="text-neutral-black">
-              {SIDE_MARK[answering.side]}{" "}
-              {answering.redacted ? REDACTED_TEXT : answering.text.slice(0, 60)}
-            </span>
-            <button
-              type="button"
-              className={CHIP_BUTTON}
-              disabled={pending}
-              onClick={() => onTargetChange("")}
-            >
-              start a new thread instead
-            </button>
-          </>
-        )}
-      </div>
-      {showRootSuggestions && (
-        <div className="flex flex-col gap-2 border-gray/30 bg-offwhite rounded-xl border p-3 text-xs">
-          <p className="opacity-60">
-            Optional starting points for a new thread on this topic. Click one to load it
-            into the box below, then edit it however you like before placing it.
-          </p>
-          {CLAIM_SIZE_ROOT_SUGGESTIONS.map((pair) => (
-            <div key={pair.id} className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={CHIP_BUTTON}
-                disabled={pending}
-                onClick={() => setText(pair.baited)}
-              >
-                {pair.baited}
-              </button>
-              <button
-                type="button"
-                className={CHIP_BUTTON}
-                disabled={pending}
-                onClick={() => setText(pair.safe)}
-              >
-                {pair.safe}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* The words the tile will open with, shown before it is placed rather
-          than discovered after. `CellComposer`, the one you get by clicking an
-          open diagonal, writes them straight into the octagon; this card is
-          the same move made from the bottom of the screen, so it says the same
-          thing. Which lead you get is the game telling you what this reason is
-          for: answering the topic outright, adding to your own side, or
-          stopping to think at somebody else's. */}
-      <div className="border-gray/30 bg-neutral-white focus-within:border-neutral-black flex flex-col rounded-xl border p-3 transition-colors">
-        <span className="font-tiles text-p-lg text-neutral-black leading-tight">
-          {tileLead(side, parentTileId === null, answering?.side ?? null)}
-        </span>
-        <textarea
-          className="font-tiles text-p-md text-neutral-black placeholder:text-gray mt-1 w-full resize-none bg-transparent leading-snug outline-none"
-          rows={2}
-          value={text}
-          maxLength={TILE_MAX_CHARS}
-          disabled={pending}
-          placeholder="A reason for your side."
-          onChange={(event) => setText(event.target.value)}
-          // Return places it, the same as in the composer you get by clicking
-          // an open diagonal. This box had no key handling at all, so Return
-          // put a line break into a one-sentence reason and the only way to
-          // place a tile from here was to go and find the button.
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" || event.shiftKey) return;
-            event.preventDefault();
-            if (!pending && verdict.ok) submit();
-          }}
-        />
-      </div>
-      <span className="text-xs text-gray">
-        {TILE_MAX_CHARS - text.length} characters left
-      </span>
-      <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="bg-gold text-neutral-white font-primary cursor-pointer self-start rounded-full px-6 py-2 tracking-wide shadow-md disabled:cursor-default disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
-        onClick={submit}
-      >
-        Place tile
-      </button>
-      <ErrorLine error={error} />
     </div>
   );
 }
@@ -2486,8 +2442,6 @@ function ThreadTokenBadge({
   const theirs = thread.pending[OTHER_SIDE[me.role]];
   const token = settled ?? mine ?? theirs ?? null;
   if (!token) return null;
-  // The tile's upper-right corner. See EDGE_INSET and CORNER_INSET for why
-  // it is in there rather than out on the edge where it started.
   // A token they have put down and you have not matched is your move, and it
   // is the move that ends a thread, so it gets the same gold a thrown card
   // and an unanswered ask get. Before this the badge looked identical whether
@@ -2503,26 +2457,30 @@ function ThreadTokenBadge({
   // A settled thread and a thread waiting on somebody are two different
   // announcements, and they are drawn differently.
   //
-  // Settled is the shipped game's mark, restored exactly (Steve, 2026-09-03,
-  // pointing at `point-taken-frontend/app/components/Tile.vue:63-65`): a 24px
-  // drawing in a white square-cornered pill tucked inside the tile's lower
-  // right, `bg-white border border-gray-400 rounded-sm p-1`. It had been an
-  // 80px disc hanging below the tile, taken from `TileShape.vue` rather than
-  // from `Tile.vue`, and that is a badge the size of a boss token sitting on
-  // every finished thread. A resolved thread is settled news. It gets a
-  // stamp, not a medal.
+  // Steve, 2026-09-04, live playtest: the 2026-09-03 corner stamp (24px,
+  // tucked in the lower right, matching the retired `Tile.vue`) read as too
+  // small to notice mid-game. His reference was the onboarding video's own
+  // resolve-a-thread ping (`public/onboarding/step3.mp4`): a large
+  // rounded-square badge with a real border and shadow, sitting bottom
+  // centre and overlapping the tile's own edge rather than tucked inside a
+  // corner. This replaces the corner placement with that one. Settled is
+  // still the calmer of the two, a plain stamp; pending keeps a dashed ring
+  // and a pulse, because a token one side has merely suggested is a live
+  // question addressed to the other player, and it is the loudest thing on
+  // that tile for exactly as long as it is unanswered.
   //
-  // Pending keeps the bigger corner badge, because a token one side has
-  // merely suggested is a live question addressed to the other player, and it
-  // is the loudest thing on that tile for exactly as long as it is unanswered.
+  // Shares the bottom edge with TileThrowBadges above. A root tile in a live
+  // (non-gym) game can carry both a thrown card and a thread token at once;
+  // gym mode never can, because a root tile cannot take a card there
+  // (see the CardHand root+gym gate further down this file).
   if (settled) {
     return (
       <span
-        style={{ right: CORNER_INSET, bottom: CORNER_INSET }}
-        className="border-gray/40 absolute z-30 flex translate-x-1/2 translate-y-1/2 items-center justify-center rounded-sm border bg-white p-1 shadow-sm"
+        style={{ left: "50%", bottom: 0 }}
+        className="border-gray/40 absolute z-30 flex -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-2xl border-2 bg-white p-1.5 shadow-md"
         title={words}
       >
-        <TokenGlyph token={settled} size={24} />
+        <TokenGlyph token={settled} size={56} />
         <span className="sr-only">{words}</span>
       </span>
     );
@@ -2530,13 +2488,13 @@ function ThreadTokenBadge({
 
   return (
     <span
-      style={{ right: CORNER_INSET, top: CORNER_INSET }}
-      className={`absolute z-20 flex translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1 shadow-sm ${
-        yours ? "border-gold bg-sand" : "border-gray/30 bg-offwhite opacity-60"
+      style={{ left: "50%", bottom: 0 }}
+      className={`absolute z-20 flex -translate-x-1/2 translate-y-1/2 animate-pulse items-center justify-center rounded-2xl border-2 border-dashed p-1.5 shadow-md ${
+        yours ? "border-gold bg-sand" : "border-gray/40 bg-offwhite opacity-70"
       }`}
       title={words}
     >
-      <TokenGlyph token={token} size={40} />
+      <TokenGlyph token={token} size={64} />
       <span className="sr-only">{words}</span>
     </span>
   );
@@ -2549,15 +2507,9 @@ export function LiveBoard({
   coachEnabled,
   buildStamp = null,
   joinCode = null,
+  opponentEmoji,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
-
-  // Which tile the next one will hang off. It lives up here rather than in
-  // the composer because the board picks it: a player hovers a tile and
-  // clicks one of its open diagonals, and the composer only reports back
-  // what that click chose. "" means a new thread, which is what the four
-  // slots around the topic tile mean.
-  const [replyTarget, setReplyTarget] = useState("");
 
   // Placement is offered per parent, because the rules answer per parent: a
   // resolved thread takes no more replies, and the topic stops offering new
@@ -2626,10 +2578,6 @@ export function LiveBoard({
   // win pencil), so the board owns whether it is open, not the tile.
   const [topicEditing, setTopicEditing] = useState(false);
   const topicPending = pendingTopicRevision(board) !== null;
-  // The composer is a floating card now, not a section of a page, so it has
-  // an open state. Clicking an open slot on the board opens it, because the
-  // click has to lead somewhere or it looks like it did nothing.
-  const [composerOpen, setComposerOpen] = useState(false);
   // What a reason can do belongs on the reason. Clicking one opens its actions
   // beside it rather than sending the player to a list somewhere else on the
   // screen to find the same tile a second time.
@@ -2642,6 +2590,8 @@ export function LiveBoard({
     pos: { x: number; y: number };
     /** The coach's sample answer, when the slot clicked was carrying one. */
     sample?: string | null;
+    /** Which diagonal of the parent this slot is, for the placement event. */
+    corner: TileCorner;
   } | null>(null);
   // A same-side answer the player has asked for but not yet been let into,
   // because this is the first one this match and the notice is in front of
@@ -2651,6 +2601,7 @@ export function LiveBoard({
     parentId: string;
     pos: { x: number; y: number };
     sample?: string | null;
+    corner: TileCorner;
   } | null>(null);
   // What the Gym coach has offered to write for the next tile, published by
   // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
@@ -2729,6 +2680,10 @@ export function LiveBoard({
         placementEnabled={placementEnabled && !topicEditing && !topicPending}
         canPlaceOn={canPlaceUnder}
         placeSide={me.role}
+        // How many opening reasons this game wants before replies open:
+        // four normally, two in gym level 1. The board draws a placeholder
+        // for every corner still in play (Steve, 2026-09-04).
+        rootTarget={rootTarget(board)}
         // The rail is `right-8 w-[15rem]`, so 15 plus its 2rem gutter. Keep
         // this in step with the rail wrapper's classes below.
         reserveRight={17}
@@ -2753,6 +2708,7 @@ export function LiveBoard({
                   : (sideOf.get(draft.parentId) ?? null)
               }
               initialText={draft.sample ?? ""}
+              corner={draft.corner}
               // A fresh box per slot, so the coach's words load into the one
               // that was clicked rather than being ignored because the
               // component was already mounted with an empty draft in it.
@@ -2762,10 +2718,7 @@ export function LiveBoard({
           )
         }
         slotSamples={sampleAnswers}
-        onPlace={(parentId, pos, sample) => {
-          // The board is where the reason gets written now, so the card
-          // parked under the board closes rather than competing with it.
-          setComposerOpen(false);
+        onPlace={(parentId, pos, sample, corner) => {
           setSelectedTileId(null);
           setArmedCardId(null);
           // Answering your own reason is legal and gets one word about it,
@@ -2773,10 +2726,10 @@ export function LiveBoard({
           // thread off it is never a same-side answer.
           const answering = parentId === TOPIC_CELL_ID ? null : sideOf.get(parentId);
           if (answering && answering === me.role && !sameSideNoticeSeen(gameId)) {
-            setSameSideHold({ parentId, pos, sample: sample ?? null });
+            setSameSideHold({ parentId, pos, sample: sample ?? null, corner });
             return;
           }
-          setDraft({ parentId, pos, sample: sample ?? null });
+          setDraft({ parentId, pos, sample: sample ?? null, corner });
         }}
         onSelect={(tileId) => {
           if (armedCardId) {
@@ -2951,7 +2904,17 @@ export function LiveBoard({
             permanent corner. */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-end gap-2">
-            <SideAvatar side={opponentSide} className="h-12 w-12" />
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+              <SideAvatar side={opponentSide} className="h-12 w-12" />
+              {opponentEmoji ? (
+                <span
+                  aria-hidden="true"
+                  className="border-ink bg-orange absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 text-base leading-none shadow-md"
+                >
+                  {opponentEmoji}
+                </span>
+              ) : null}
+            </div>
             <h3
               className="font-primary text-p-md tracking-wide uppercase"
               style={{
@@ -3016,8 +2979,16 @@ export function LiveBoard({
             it was the first thing on the screen and sat directly over the
             tiles the moment anyone opened it, and then a while folded inside
             a FloatingPanel, which hid its switch behind a click. It draws its
-            own card now, so there is no wrapper here. */}
-        <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+            own card now, so there is no wrapper here.
+
+            Never in the Gym: GymDirector already runs a scripted coach at
+            the top of the board, and the player's own coach preference is
+            not a Gym setting, so this panel (and any toggle for it) simply
+            does not exist while board.mode is "gym", regardless of
+            coachEnabled. */}
+        {board.mode !== "gym" ? (
+          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+        ) : null}
 
         <PendingAsks gameId={gameId} board={board} me={me} />
 
@@ -3055,54 +3026,24 @@ export function LiveBoard({
         <span className="flex items-center gap-3 pl-1">{statusDot}</span>
       </div>
 
-      {/* Bottom centre, one column: what you write, and what you hold.
+      {/* Bottom centre: the hand you hold.
 
-          Clicking an open diagonal now writes the reason on the board, in the
-          cell it will occupy, which is the retired client's whole gesture. So
-          this card is no longer the main way in: it is the way to start a
-          thread without hunting for a slot, and the only place that still
-          offers a target picker. The hand sits below it, where Rannie draws
-          it. */}
-      <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3">
-        {composerOpen ? (
-          <div className="w-[34rem]">
-            <div className="border-gray/30 bg-offwhite rounded-2xl border p-4 shadow-lg">
-              <div className="mb-2 flex items-baseline justify-between">
-                <h3 className="font-primary text-p-md tracking-wide uppercase">
-                  Place a reason
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setComposerOpen(false)}
-                  className="text-p-sm text-gray hover:text-neutral-black cursor-pointer"
-                >
-                  close
-                </button>
-              </div>
-              <Composer
-                gameId={gameId}
-                board={board}
-                side={me.role}
-                target={replyTarget}
-                onTargetChange={setReplyTarget}
-              />
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setComposerOpen(true)}
-            disabled={!placementEnabled}
-            // Offwhite, like every other piece of furniture on this board.
-            // It was a heavy black pill floating over whichever tile happened
-            // to be under it, and it is not the main way in any more: since
-            // clicking an open diagonal writes the reason in the cell it will
-            // occupy, this is the shortcut, not the door.
-            className="border-gray/40 bg-offwhite text-neutral-black text-p-md font-primary hover:bg-sand/40 cursor-pointer rounded-full border px-6 py-3 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
-          >
-            Place a reason
-          </button>
-        )}
+          Clicking an open diagonal writes the reason directly on the board,
+          in the cell it will occupy, which is the retired client's whole
+          gesture (Steve, 2026-09-04: a separate "Place a reason" pill here
+          was a second, redundant way in and is gone; the board itself is now
+          the only place a reason gets started).
+
+          Not dead-centred on the viewport: the zoom and pan cluster lives at
+          the board's bottom right (spatial-board.tsx, `right-8 bottom-8`),
+          and a full-width centre reliably drifted this tray on top of it at
+          ordinary desktop widths. The right inset below reserves that
+          cluster's own footprint plus its gutter, so this column centres
+          itself in what is left rather than in the whole screen. */}
+      <div
+        className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+        style={{ right: "23rem" }}
+      >
         <RuleCardTray
           deck={deck}
           counts={cardCounts}

@@ -157,7 +157,7 @@ export const CLARITY: Level = {
       kind: "pause",
       id: "p1-a-question-is-not-a-move",
       title: "You can't argue with a question",
-      bossSays: "But how would anyone even verify a label like that?",
+      bossSays: "Hmm, how would anyone even verify a label like that?",
       moderator:
         "That's a question, Salma. Your side of the board is for statements. What's the claim behind it?",
       bossReplies: "Fine. That there's no way to check one.",
@@ -209,6 +209,7 @@ export const CLARITY: Level = {
       badges: ["help-me-understand-1"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "D2", cardId: CARD, rungId: "help_me_understand_1" },
+      anchor: { tile: "D2" },
     },
     {
       kind: "player",
@@ -225,6 +226,7 @@ export const CLARITY: Level = {
           "I read that as: creators don't want a stamp on work they made themselves.",
         ],
       },
+      anchor: { tile: "D2" },
     },
     {
       kind: "boss",
@@ -248,6 +250,7 @@ export const CLARITY: Level = {
       title: "Why that worked",
       body: "You never told her the sentence was bad. You showed her where a careful reader landed, and she fixed it herself in about four seconds. Try that was unclear on a real person some time and see how long it takes.",
       button: "Next",
+      anchor: { tile: "D2" },
     },
     {
       kind: "pause",
@@ -276,6 +279,7 @@ export const CLARITY: Level = {
       badges: ["help-me-understand-2"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "B2", cardId: CARD, rungId: "help_me_understand_2" },
+      anchor: { tile: "B2" },
     },
     {
       kind: "player",
@@ -324,6 +328,7 @@ export const CLARITY: Level = {
       nudge: "Did that one land for you? Be honest.",
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "C1", cardId: CARD, rungId: "help_me_understand_1" },
+      anchor: { tile: "C1" },
     },
     {
       kind: "player",
@@ -339,6 +344,7 @@ export const CLARITY: Level = {
           "I think you mean the label only helps if someone actually reads it.",
         ],
       },
+      anchor: { tile: "C1" },
     },
     {
       kind: "boss",
@@ -361,6 +367,7 @@ export const CLARITY: Level = {
       title: "Same card, different failure",
       body: "That one was not ambiguous, it was just broken. Same card, same move, hand back a reading. You did not need me to tell you which rung it was, and you will not in a real game either.",
       button: "Play it out",
+      anchor: { tile: "C1" },
     },
     {
       kind: "player",
@@ -381,6 +388,7 @@ export const CLARITY: Level = {
       coach: "Salma has conceded your first thread. Put your 👍 down to match.",
       nudge: "👍 on your first thread, the one about trust.",
       expect: { kind: "token", thread: "A", emoji: "👍" },
+      anchor: { tile: "A" },
     },
     {
       kind: "player",
@@ -389,6 +397,7 @@ export const CLARITY: Level = {
         "Your second thread now runs on the word you two pinned down, and you still weigh the cost of disclosing differently. Propose 👀 there.",
       nudge: "👀 on your second thread, the one about honest disclosers.",
       expect: { kind: "token", thread: "B", emoji: "👀" },
+      anchor: { tile: "B" },
     },
     {
       kind: "boss",
@@ -402,6 +411,7 @@ export const CLARITY: Level = {
         "Her thread about labels nobody reads. You two ended up agreeing. Propose 👍.",
       nudge: "👍 on Salma's thread about labels people scroll past.",
       expect: { kind: "token", thread: "C", emoji: "👍" },
+      anchor: { tile: "C" },
     },
     {
       kind: "boss",
@@ -420,6 +430,7 @@ export const CLARITY: Level = {
       coach: "Last one. Match her 👀 and the board is done.",
       nudge: "👀 on Salma's warning-label thread.",
       expect: { kind: "token", thread: "D", emoji: "👀" },
+      anchor: { tile: "D" },
     },
     { kind: "win", id: "win" },
   ],

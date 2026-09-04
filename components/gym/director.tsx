@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
   useTransition,
+  type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 
@@ -15,16 +16,27 @@ import {
   clearSampleAnswers,
   publishSampleAnswers,
 } from "@/components/gym/sample-answers";
+import {
+  legalPlacements,
+  topicRootedLayout,
+  TOPIC_CELL_ID,
+  type GridPosition,
+} from "@/components/board/layout";
+import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
+import type { TileCorner, Uuid } from "@/lib/events/types";
 import { levelById } from "@/lib/gym/levels";
 import {
   currentBeat,
   levelPoints,
   levelProgress,
   type Beat,
+  type BeatAnchor,
   type Level,
   type LevelProgress,
+  type PlayerExpect,
+  type TileKey,
 } from "@/lib/gym/script";
 
 /**
@@ -35,10 +47,19 @@ import {
  * board a live game uses; the director only reads it (through the page's
  * server render, which the realtime feed already refreshes) and adds three
  * things on top: the coach's line for the current beat, a suggestion picker
- * when the beat wants a tile, and a full-screen pause when the script stops
- * to explain something. When the beat is the boss's it waits a moment, so
+ * when the beat wants a tile, and a speech bubble pointing at whatever the
+ * script is talking about. When the beat is the boss's it waits a moment, so
  * the boss reads as thinking rather than instant, and asks the server to
  * play the boss's move.
+ *
+ * The coach itself never leaves the top centre and never unmounts while a
+ * beat is showing (Steve, 2026-09-04 playtest: "keep the coach on the top as
+ * that's their place where they live"). Everything it says is drawn as a
+ * speech bubble pointing at the thing the beat is about, using
+ * `AnchoredCard`'s selector-anchoring against the board's `data-tile-id` /
+ * `data-slot-parent` / `data-slot-corner` attributes; a beat with nothing to
+ * point at, or whose target has not entered the DOM yet, docks its bubble
+ * below the coach instead of vanishing.
  *
  * Which pauses have been read is client state, kept in sessionStorage per
  * game so a refresh does not replay them. Everything else is the log.
@@ -120,6 +141,83 @@ function scoreboard(
 const PILL =
   "font-primary rounded-full border-[1.5px] border-ink bg-orange px-5 py-2 tracking-wide uppercase text-ink transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40";
 
+/** The coach persona's own DOM hook: every bubble that has nothing else to point at docks under this. */
+const COACH_PERSONA_SELECTOR = "[data-coach-persona]";
+
+/**
+ * Same escaping `components/board/live-board.tsx` does for its own
+ * `data-tile-id` selectors. Not exported there, so duplicated here rather
+ * than reaching into a file this agent does not own.
+ */
+function cssEscape(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+function resolveAnchor(
+  anchor: BeatAnchor | null | undefined,
+  keys: Readonly<Record<TileKey, Uuid>>,
+): string | null {
+  if (!anchor) return null;
+  if ("tile" in anchor) {
+    const id = keys[anchor.tile];
+    return id ? `[data-tile-id="${cssEscape(id)}"]` : null;
+  }
+  const parentValue =
+    anchor.slot.parent === "topic" ? TOPIC_CELL_ID : keys[anchor.slot.parent];
+  if (!parentValue) return null;
+  return `[data-slot-parent="${cssEscape(parentValue)}"][data-slot-corner="${anchor.slot.corner}"]`;
+}
+
+// The reverse of layout.ts's own (private) CORNER_OFFSETS table. Not
+// exported there, so mirrored here; the four diagonals never change shape,
+// only which offset corresponds to which corner name, so this is a fixed
+// table rather than a magic number.
+const OFFSET_TO_CORNER: Readonly<Record<string, TileCorner>> = {
+  "1,-1": "ne",
+  "1,1": "se",
+  "-1,1": "sw",
+  "-1,-1": "nw",
+};
+
+function cornerFromOffset(parent: GridPosition, target: GridPosition): TileCorner | null {
+  return OFFSET_TO_CORNER[`${target.x - parent.x},${target.y - parent.y}`] ?? null;
+}
+
+/**
+ * Where a tile-placement beat's slot actually sits right now, read off the
+ * same geometry the board itself uses (`legalPlacements`, `topicRootedLayout`
+ * in `components/board/layout.ts`), not guessed. A root tries the player's
+ * side first (bottom corner in level 1); a reply tries the fixed NE/SE/SW/NW
+ * order every ordinary placement does. Either way this asks the board's own
+ * layout function for the first open, legal cell, so it can never disagree
+ * with where the tile would actually land.
+ */
+function defaultTileAnchor(
+  level: Level,
+  board: BoardState,
+  keys: Readonly<Record<TileKey, Uuid>>,
+  expect: Extract<PlayerExpect, { kind: "tile" }>,
+): BeatAnchor | null {
+  const layout = topicRootedLayout(
+    board.tiles.map((tile) => ({
+      id: tile.id,
+      parentId: tile.parentId,
+      side: tile.side,
+      corner: tile.corner,
+    })),
+  );
+  const parentId = expect.parent === null ? TOPIC_CELL_ID : keys[expect.parent];
+  if (!parentId) return null;
+  const parentPos = layout.positions.get(parentId);
+  if (!parentPos) return null;
+  const side = expect.parent === null ? level.playerSide : null;
+  const open = legalPlacements(layout, parentId, side)[0];
+  if (!open) return null;
+  const corner = cornerFromOffset(parentPos, open);
+  if (!corner) return null;
+  return { slot: { parent: expect.parent ?? "topic", corner } };
+}
+
 /**
  * Takes the level by id rather than as an object: a level's boss lines can
  * be functions of what the player wrote, and a function cannot cross the
@@ -200,6 +298,29 @@ function Director({
     return () => clearSampleAnswers();
   }, [samples]);
 
+  // Every player/pause beat gets a spatial target: the one it wrote into the
+  // script, or, for a placement prompt that did not name one, the slot the
+  // board's own layout would actually offer next. Boss and win beats have no
+  // `anchor` field (script.ts only adds it to pause and player) so they
+  // always dock under the coach.
+  const anchor: BeatAnchor | null = useMemo(() => {
+    if (!beat) return null;
+    if (beat.kind === "pause") return beat.anchor ?? null;
+    if (beat.kind === "player") {
+      if (beat.anchor) return beat.anchor;
+      if (beat.expect.kind === "tile") {
+        return defaultTileAnchor(level, board, progress.keys, beat.expect);
+      }
+      return null;
+    }
+    return null;
+  }, [beat, level, board, progress.keys]);
+
+  const targetSelector = useMemo(
+    () => resolveAnchor(anchor, progress.keys),
+    [anchor, progress.keys],
+  );
+
   if (!beat) return null;
 
   const dismiss = (id: string) => {
@@ -211,126 +332,138 @@ function Director({
   const step = `Level ${level.number} · ${progress.done.length + 1} of ${level.beats.length}`;
   const score = scoreboard(level, progress);
 
-  if (beat.kind === "pause") {
-    return (
-      <Pause beat={beat} level={level} step={step} onDismiss={() => dismiss(beat.id)} />
-    );
-  }
+  return (
+    <>
+      <CoachPersona step={step} score={score} />
+      {beat.kind === "pause" ? (
+        <PauseBubble
+          beat={beat}
+          level={level}
+          targetSelector={targetSelector}
+          onDismiss={() => dismiss(beat.id)}
+        />
+      ) : (
+        <LineBubble
+          beat={beat}
+          level={level}
+          board={board}
+          progress={progress}
+          targetSelector={targetSelector}
+          error={error}
+        />
+      )}
+    </>
+  );
+}
 
-  const nudging =
-    beat.kind === "player" && !!beat.nudge && board.lastSeq > progress.cursor;
-  const line =
-    beat.kind === "player"
-      ? nudging
-        ? beat.nudge
-        : beat.coach
-      : beat.kind === "boss"
-        ? (beat.coach ?? `${level.bossName} is thinking...`)
-        : (beat.coach ?? "Every thread is closing. One moment.");
-
+/**
+ * The coach itself: small, pinned top centre, always mounted while a beat is
+ * showing. Never the thing carrying the level's words any more; those are
+ * the speech bubbles pointing at it or at the board. This is just where the
+ * coach visibly lives, and where the score sits.
+ */
+function CoachPersona({
+  step,
+  score,
+}: {
+  step: string;
+  score: { total: number; delta: number; label: string } | null;
+}) {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4">
-      <div className="sticker pointer-events-auto flex w-full max-w-xl flex-col gap-3 p-4">
-        <div className="flex items-start gap-3">
-          <span aria-hidden className="text-3xl leading-none">
-            🧘
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-label text-ink-soft">Coach · {step}</span>
-              {score ? (
-                <span className="font-label text-ink shrink-0">
-                  {score.total} pts
-                  {score.delta ? (
-                    <span className="text-ink-soft">
-                      {" "}
-                      · {score.delta > 0 ? "+" : ""}
-                      {score.delta} {score.label}
-                    </span>
-                  ) : null}
-                </span>
-              ) : null}
-            </div>
-            {beat.kind === "boss" && beat.bossSays ? (
-              <p className="font-secondary text-p-sm text-ink-soft italic">
-                {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
-              </p>
+      <div
+        data-coach-persona
+        className="sticker pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2"
+      >
+        <span aria-hidden className="text-2xl leading-none">
+          🧘
+        </span>
+        <span className="font-label text-ink-soft">Coach · {step}</span>
+        {score ? (
+          <span className="font-label text-ink shrink-0">
+            {score.total} pts
+            {score.delta ? (
+              <span className="text-ink-soft">
+                {" "}
+                · {score.delta > 0 ? "+" : ""}
+                {score.delta} {score.label}
+              </span>
             ) : null}
-            <p className="font-secondary text-ink">{line}</p>
-          </div>
-        </div>
-
-        {/*
-          The sample answers used to be chips here, and clicking one placed
-          the tile on the spot. Steve moved them onto the board on 2026-09-03:
-          they are drawn inside the open slots now, and the click that takes
-          one is the same click that chooses where it goes and opens the
-          composer over it. So all that is left here is the sentence that
-          tells a player the slots are worth looking at.
-        */}
-        {beat.kind === "player" &&
-        beat.expect.kind === "tile" &&
-        beat.expect.suggestions.length > 0 ? (
-          <span className="font-label text-ink-soft">
-            Click one of the two tile spots to lay down a tile and I&rsquo;ll write you a
-            sample answer. Change any of it before you place it.
           </span>
         ) : null}
-
-        {/*
-          A tile's samples are drawn in the board's open slots, but an edit
-          and a proposal are typed into forms the board owns, and there is no
-          empty slot to draw them in. So the coach reads them out instead and
-          the player copies whichever one they want.
-        */}
-        {beat.kind === "player" &&
-        (beat.expect.kind === "edit" || beat.expect.kind === "propose") &&
-        beat.expect.suggestions &&
-        beat.expect.suggestions.length > 0 ? (
-          <div className="flex flex-col gap-1">
-            <span className="font-label text-ink-soft">
-              {beat.expect.kind === "edit"
-                ? "Something like:"
-                : "Something like one of these:"}
-            </span>
-            {beat.expect.suggestions.map((sample) => (
-              <p key={sample} className="font-secondary text-p-sm text-ink-soft">
-                “{sample}”
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
       </div>
     </div>
   );
 }
 
-function Pause({
+/**
+ * Wraps `AnchoredCard` with the gym's own two rules: point at the target
+ * with an arrow when there is one, or dock below the coach, arrowless, when
+ * there is not (no target named, or the named one has not rendered yet). No
+ * close button on either: a pause is dismissed by its own button, and a
+ * player/boss/win beat has nothing to dismiss, it just changes when the
+ * board does.
+ */
+function Bubble({
+  targetSelector,
+  width,
+  children,
+}: {
+  targetSelector: string | null;
+  width: number;
+  children: ReactNode;
+}) {
+  const noop = () => {};
+  if (targetSelector) {
+    return (
+      <AnchoredCard
+        anchorSelector={targetSelector}
+        fallbackSelector={COACH_PERSONA_SELECTOR}
+        onClose={noop}
+        showClose={false}
+        arrow
+        placement="side"
+        width={width}
+      >
+        {children}
+      </AnchoredCard>
+    );
+  }
+  return (
+    <AnchoredCard
+      anchorSelector={COACH_PERSONA_SELECTOR}
+      onClose={noop}
+      showClose={false}
+      placement="below"
+      width={width}
+    >
+      {children}
+    </AnchoredCard>
+  );
+}
+
+function PauseBubble({
   beat,
   level,
-  step,
+  targetSelector,
   onDismiss,
 }: {
   beat: Extract<Beat, { kind: "pause" }>;
   level: Level;
-  step: string;
+  targetSelector: string | null;
   onDismiss: () => void;
 }) {
   const card = beat.cardId ? coachCard(beat.cardId) : undefined;
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`gym-pause-${beat.id}`}
-      className="bg-ink/40 fixed inset-0 z-[60] flex items-center justify-center p-6"
-    >
-      <div className="sticker flex w-full max-w-lg flex-col gap-4 p-8">
-        <span className="font-label text-ink-soft">Coach · {step}</span>
+    <Bubble targetSelector={targetSelector} width={24}>
+      <div
+        role="dialog"
+        aria-labelledby={`gym-pause-${beat.id}`}
+        className="flex flex-col gap-3"
+      >
         <h2
           id={`gym-pause-${beat.id}`}
-          className="font-figure text-ink text-2xl font-black tracking-wide uppercase"
+          className="font-figure text-ink text-xl font-black tracking-wide uppercase"
         >
           {beat.title}
         </h2>
@@ -367,13 +500,96 @@ function Pause({
             {level.bossEmoji} {level.bossName}: “{beat.bossReplies}”
           </p>
         ) : null}
-        <p className="font-secondary text-ink">🧘 {beat.body}</p>
+        <p className="font-secondary text-ink">{beat.body}</p>
         <div>
           <button type="button" className={PILL} onClick={onDismiss} autoFocus>
             {beat.button}
           </button>
         </div>
       </div>
-    </div>
+    </Bubble>
+  );
+}
+
+function LineBubble({
+  beat,
+  level,
+  board,
+  progress,
+  targetSelector,
+  error,
+}: {
+  beat: Extract<Beat, { kind: "player" | "boss" | "win" }>;
+  level: Level;
+  board: BoardState;
+  progress: LevelProgress;
+  targetSelector: string | null;
+  error: string | null;
+}) {
+  const nudging =
+    beat.kind === "player" && !!beat.nudge && board.lastSeq > progress.cursor;
+  const line =
+    beat.kind === "player"
+      ? nudging
+        ? beat.nudge
+        : beat.coach
+      : beat.kind === "boss"
+        ? (beat.coach ?? `${level.bossName} is thinking...`)
+        : (beat.coach ?? "Every thread is closing. One moment.");
+
+  return (
+    <Bubble targetSelector={targetSelector} width={20}>
+      <div className="flex flex-col gap-2">
+        {beat.kind === "boss" && beat.bossSays ? (
+          <p className="font-secondary text-p-sm text-ink-soft italic">
+            {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
+          </p>
+        ) : null}
+        <p className="font-secondary text-ink">{line}</p>
+
+        {/*
+          The sample answers used to be chips here, and clicking one placed
+          the tile on the spot. Steve moved them onto the board on 2026-09-03:
+          they are drawn inside the open slots now, and the click that takes
+          one is the same click that chooses where it goes and opens the
+          composer over it. So all that is left here is the sentence that
+          tells a player the slots are worth looking at.
+        */}
+        {beat.kind === "player" &&
+        beat.expect.kind === "tile" &&
+        beat.expect.suggestions.length > 0 ? (
+          <span className="font-label text-ink-soft">
+            Click the spot I&rsquo;m pointing at to lay down a tile and I&rsquo;ll write
+            you a sample answer. Change any of it before you place it.
+          </span>
+        ) : null}
+
+        {/*
+          A tile's samples are drawn in the board's open slots, but an edit
+          and a proposal are typed into forms the board owns, and there is no
+          empty slot to draw them in. So the coach reads them out instead and
+          the player copies whichever one they want.
+        */}
+        {beat.kind === "player" &&
+        (beat.expect.kind === "edit" || beat.expect.kind === "propose") &&
+        beat.expect.suggestions &&
+        beat.expect.suggestions.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="font-label text-ink-soft">
+              {beat.expect.kind === "edit"
+                ? "Something like:"
+                : "Something like one of these:"}
+            </span>
+            {beat.expect.suggestions.map((sample) => (
+              <p key={sample} className="font-secondary text-p-sm text-ink-soft">
+                “{sample}”
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
+      </div>
+    </Bubble>
   );
 }

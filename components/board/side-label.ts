@@ -42,3 +42,37 @@ export function tileLead(
   if (isOpeningReason) return side === "plus" ? "Yes, because" : "No, because";
   return parentSide === side ? "Because" : "Hmm";
 }
+
+/**
+ * Strips a duplicate lead-in from the front of a tile's own body text.
+ *
+ * `tileLead`, above, already prints "Yes, because" / "No, because" / "Because"
+ * / "Hmm" as the tile's own sentence-starter, drawn beside the body rather
+ * than inside it. A player who types the same words into the box (typing
+ * "Yes, because the budget is too small" into a tile that already reads "Yes,
+ * because" before it) ends up with the phrase twice on one tile. This is a
+ * display-only cleanup: it never touches what actually got typed, so the
+ * event log and anything read back from `tile.text` elsewhere keeps the
+ * player's exact words. Only the rendered body, in `TileText`, sees the
+ * stripped version.
+ *
+ * Matches case-insensitively and tolerates the stem with or without its own
+ * trailing comma, since a typed lead-in is not guaranteed to be punctuated
+ * the way `tileLead` prints it.
+ */
+const DUPLICATE_LEAD_STEMS: readonly RegExp[] = [
+  /^yes,?\s*because,?\s*/i,
+  /^no,?\s*because,?\s*/i,
+  /^but,?\s*/i,
+  /^hmm,?\s*/i,
+];
+
+export function stripDuplicateLead(text: string): string {
+  for (const stem of DUPLICATE_LEAD_STEMS) {
+    if (stem.test(text)) {
+      const rest = text.replace(stem, "");
+      return rest.length > 0 ? rest.charAt(0).toUpperCase() + rest.slice(1) : rest;
+    }
+  }
+  return text;
+}

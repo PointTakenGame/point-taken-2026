@@ -201,6 +201,7 @@ export const GROUND_RULES: Level = {
       badges: ["stick-to-root-1"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "A3", cardId: CARD, rungId: "stick_to_root_1" },
+      anchor: { tile: "A3" },
     },
     {
       kind: "boss",
@@ -246,6 +247,7 @@ export const GROUND_RULES: Level = {
       badges: ["stick-to-root-2"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "A4", cardId: CARD, rungId: "stick_to_root_2" },
+      anchor: { tile: "A4" },
     },
     {
       kind: "boss",
@@ -262,6 +264,7 @@ export const GROUND_RULES: Level = {
       title: "Rung two",
       body: "Relevant and true, and still worth catching. Relevance isn't the test; adding something is.",
       button: "Next",
+      anchor: { tile: "A4" },
     },
     {
       kind: "pause",
@@ -291,6 +294,7 @@ export const GROUND_RULES: Level = {
       badges: ["stick-to-root-3"],
       points: THROW_POINTS,
       expect: { kind: "throw", tile: "B3", cardId: CARD, rungId: "stick_to_root_3" },
+      anchor: { tile: "B3" },
     },
     {
       kind: "player",
@@ -299,6 +303,7 @@ export const GROUND_RULES: Level = {
         "Nothing wrong with that tile, it's just in the wrong thread. Move it under Rosa's root about evenings, the one it was actually arguing for.",
       nudge: "Move it, don't answer it. Its home is Rosa's evenings thread.",
       expect: { kind: "relocate", tile: "B3", to: "C" },
+      anchor: { tile: "B3" },
     },
     {
       kind: "boss",
@@ -313,6 +318,7 @@ export const GROUND_RULES: Level = {
       title: "Moving, not deleting",
       body: "Nothing was wrong with that tile. It was answering a question nobody in that thread had asked. Now it's under the root it was actually arguing with, and it's strong there. You just made Rosa's case better, which is allowed.",
       button: "Play it out",
+      anchor: { tile: "B3" },
     },
     {
       kind: "boss",
@@ -327,6 +333,7 @@ export const GROUND_RULES: Level = {
         "Rosa's put 👀 on your first thread. If you see it the same way, put yours down.",
       nudge: "Same token, same thread: 👀 on your first thread.",
       expect: { kind: "token", thread: "A", emoji: "👀" },
+      anchor: { tile: "A" },
     },
     {
       kind: "player",
@@ -335,6 +342,7 @@ export const GROUND_RULES: Level = {
         "Your second thread. Rosa conceded the energy math was gone. Propose 👍 there.",
       nudge: "👍 on your second thread, the one about energy savings.",
       expect: { kind: "token", thread: "B", emoji: "👍" },
+      anchor: { tile: "B" },
     },
     {
       kind: "boss",
@@ -364,6 +372,7 @@ export const GROUND_RULES: Level = {
         "You two value the evenings differently, and now you both know it. Propose 👀 on that thread.",
       nudge: "👀 on Rosa's evenings thread.",
       expect: { kind: "token", thread: "C", emoji: "👀" },
+      anchor: { tile: "C" },
     },
     {
       kind: "boss",
@@ -397,6 +406,7 @@ export const GROUND_RULES: Level = {
       coach: "Rosa's conceded the last thread. Put your 👍 down and the board is done.",
       nudge: "👍 on Rosa's schedules thread.",
       expect: { kind: "token", thread: "D", emoji: "👍" },
+      anchor: { tile: "D" },
     },
     { kind: "win", id: "win" },
   ],

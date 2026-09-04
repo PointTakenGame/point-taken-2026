@@ -31,6 +31,8 @@
  *   produced.
  */
 
+import type { TileCorner } from "@/lib/events/types";
+
 export interface GridPosition {
   x: number;
   y: number;
@@ -46,6 +48,14 @@ interface LayoutInput {
    * leaves it off and takes the first legal diagonal, as it always has.
    */
   side?: "plus" | "minus" | null;
+  /**
+   * The corner the player actually clicked, read off the tile's own event.
+   * Tried ahead of the side/diagonal default order, for a root or a reply
+   * alike; only when that cell is free and legal, and only when set. A tile
+   * with no corner falls back to the existing order unchanged, which is how
+   * a log written before this field draws exactly as it always did.
+   */
+  corner?: TileCorner | null;
 }
 
 export interface BoardLayout {
@@ -94,6 +104,32 @@ const SIDE_OFFSETS: Record<"plus" | "minus", readonly GridPosition[]> = {
     { x: 1, y: -1 }, // top right
   ],
 };
+
+/** The offset each corner name points at. Matches `DIAGONAL_OFFSETS`. */
+const CORNER_OFFSETS: Record<TileCorner, GridPosition> = {
+  ne: { x: 1, y: -1 },
+  se: { x: 1, y: 1 },
+  sw: { x: -1, y: 1 },
+  nw: { x: -1, y: -1 },
+};
+
+function sameOffset(a: GridPosition, b: GridPosition): boolean {
+  return a.x === b.x && a.y === b.y;
+}
+
+/**
+ * The order to try candidate cells in for a given tile: its stored corner
+ * first, when it has one, then the rest of the caller's default order with
+ * that corner's offset removed so it is not tried twice.
+ */
+function offsetOrder(
+  corner: TileCorner | null | undefined,
+  defaultOrder: readonly GridPosition[],
+): readonly GridPosition[] {
+  if (!corner) return defaultOrder;
+  const preferred = CORNER_OFFSETS[corner];
+  return [preferred, ...defaultOrder.filter((offset) => !sameOffset(offset, preferred))];
+}
 
 const ALL_NEIGHBOR_OFFSETS: readonly GridPosition[] = [
   { x: 0, y: -1 },
@@ -234,7 +270,8 @@ export function layoutBoard(tiles: LayoutInput[]): BoardLayout {
       continue;
     }
 
-    const offsets = tile.side ? SIDE_OFFSETS[tile.side] : DIAGONAL_OFFSETS;
+    const defaultOffsets = tile.side ? SIDE_OFFSETS[tile.side] : DIAGONAL_OFFSETS;
+    const offsets = offsetOrder(tile.corner, defaultOffsets);
     const spot = offsets
       .map((offset) => ({
         x: parentPos.x + offset.x,
@@ -306,11 +343,14 @@ export function topicRootedLayout(tiles: LayoutInput[]): BoardLayout {
     ...tiles.map((tile) => ({
       id: tile.id,
       parentId: tile.parentId ?? TOPIC_CELL_ID,
-      // Only a thread starter gets a corner of its own. Everything deeper is
-      // laid out relative to the reason it answers, where left and right carry
-      // no meaning, so passing the side down would only make a reply prefer a
-      // diagonal for no reason a player could read.
+      // Only a thread starter gets a side of its own: left and right carry no
+      // meaning for a reply, so passing the side down would only make it
+      // prefer a diagonal for no reason a player could read. The corner is
+      // different: it is where this particular tile was actually clicked, a
+      // root's corner of the topic or a reply's corner of its parent alike,
+      // so it passes through for both.
       side: tile.parentId == null ? (tile.side ?? null) : null,
+      corner: tile.corner ?? null,
     })),
   ]);
 }

@@ -1,5 +1,5 @@
 import type { BoardState, BoardTile } from "@/lib/board/project";
-import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
+import type { ProposalKind, Side, TileCorner, Uuid } from "@/lib/events/types";
 
 /**
  * A Gym level is a cooked game: a real `games` row, a real event log, a real
@@ -72,6 +72,19 @@ export type PlayerExpect =
       suggestions?: readonly string[];
     };
 
+/**
+ * Where the coach's speech bubble points, for a beat that talks about one
+ * specific thing on the board. `tile` names a placed tile by its script key.
+ * `slot` names an empty corner a placement beat wants filled: `parent` is
+ * the tile whose diagonal it is, or the literal "topic" for one of the
+ * topic's own four corners, and `corner` is which of the four. The director
+ * resolves either shape against the live board's `data-tile-id` /
+ * `data-slot-parent` / `data-slot-corner` attributes, so nothing here knows
+ * about uuids or the DOM.
+ */
+export type BeatAnchor =
+  { tile: TileKey } | { slot: { parent: TileKey | "topic"; corner: TileCorner } };
+
 interface BeatBase {
   id: string;
   /** What the coach says at the top of the board while this beat is current. */
@@ -108,6 +121,8 @@ export type Beat =
       moderator?: string;
       /** What the boss says after the moderator, shown under that line. */
       bossReplies?: string;
+      /** What this pause's speech bubble points at. Unset docks it under the coach. */
+      anchor?: BeatAnchor;
     })
   | (BeatBase & {
       kind: "player";
@@ -115,6 +130,8 @@ export type Beat =
       /** Shown instead of `coach` once the player has moved and it was not the move. */
       nudge?: string;
       expect: PlayerExpect;
+      /** What this beat's speech bubble points at. Unset docks it under the coach. */
+      anchor?: BeatAnchor;
     })
   | (BeatBase & { kind: "boss"; act: BossAct; bossSays?: string })
   | (BeatBase & { kind: "win" });
@@ -286,7 +303,19 @@ export function levelProgress(
           if (!thread) break;
           if (thread.resolution && thread.resolution.emoji === spec.emoji) {
             matchedSeq = Math.max(cursor, thread.resolution.seq);
-          } else if (thread.pending[side] === spec.emoji) {
+          } else if (
+            // A player's own beat is done the moment they have put some
+            // legal token down on the thread, not only the one the script
+            // narrates: bossAct (app/gym/actions.ts) mirrors whatever the
+            // player actually placed, so requiring the exact scripted emoji
+            // here stalled the walk the moment a player picked the other
+            // legal token, and with it the boss's own move and settle().
+            // The boss's own beat is left matching the scripted emoji
+            // exactly: that side of this case is not this fix's to change.
+            beat.kind === "player"
+              ? thread.pending[side]
+              : thread.pending[side] === spec.emoji
+          ) {
             matchedSeq = cursor;
           }
           break;

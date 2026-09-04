@@ -207,6 +207,65 @@ describe("topicRootedLayout", () => {
     expect(layout.positions.get("t1")).toEqual({ x: 1, y: -1 });
     expect(layout.positions.get("reply")).toEqual({ x: 2, y: -2 });
   });
+
+  // BRAIN-T260904: the layout now honours a tile's own stored corner, read
+  // off tile_placed's optional `corner` field, ahead of the side/diagonal
+  // default order.
+  it("tries a reply's own stored corner first, even when an earlier diagonal in the default order is free", () => {
+    const layout = topicRootedLayout([
+      tile("t1", null),
+      { id: "reply", parentId: "t1", corner: "se" },
+    ]);
+    // t1 lands at NE of the topic (1, -1). A corner-less reply's default
+    // order is NE, SE, SW, NW, so it would normally take NE of t1 (2, -2),
+    // which is free here. Asking for "se" should win anyway.
+    expect(layout.positions.get("t1")).toEqual({ x: 1, y: -1 });
+    expect(layout.positions.get("reply")).toEqual({ x: 2, y: 0 }); // SE of t1
+  });
+
+  it("lets a root take its own stored corner of the topic, ahead of its side's default order", () => {
+    const layout = topicRootedLayout([
+      { id: "root", parentId: null, side: "plus", corner: "sw" },
+    ]);
+    // Plus's default order tries its own bottom-right corner (SE) first.
+    // A stored "sw" corner should win instead.
+    expect(layout.positions.get("root")).toEqual({ x: -1, y: 1 }); // SW
+  });
+
+  it("falls back to the default order when the tile's stored corner is already taken", () => {
+    const layout = topicRootedLayout([
+      tile("t1", null),
+      { id: "first", parentId: "t1" }, // takes NE of t1, the default first pick
+      { id: "second", parentId: "t1", corner: "ne" },
+    ]);
+    expect(layout.positions.get("first")).toEqual({ x: 2, y: -2 }); // NE of t1
+    expect(layout.positions.get("second")).toEqual({ x: 2, y: 0 }); // SE of t1, next in order
+  });
+
+  it("leaves a tile with no stored corner laid out exactly as before", () => {
+    const withoutCorner = topicRootedLayout([tile("t1", null), tile("reply", "t1")]);
+    const withNullCorner = topicRootedLayout([
+      tile("t1", null),
+      { id: "reply", parentId: "t1", corner: null },
+    ]);
+    expect(withNullCorner.positions.get("reply")).toEqual(
+      withoutCorner.positions.get("reply"),
+    );
+  });
+
+  // Steve, 2026-09-04: a two-thread board (gym level 1's game_started.root_target
+  // of 2, see rootTarget(board) in lib/board/rules.ts) is exactly Plus and Minus,
+  // one root each, and SIDE_OFFSETS already tries each side's own bottom corner
+  // first. root_target itself is a placement-count gate that layout.ts never
+  // reads; this pins the geometry it depends on.
+  it("puts a level-1 board's two roots on the bottom corners: Plus on SE, Minus on SW", () => {
+    const layout = topicRootedLayout([
+      { id: "plus-root", parentId: null, side: "plus" },
+      { id: "minus-root", parentId: null, side: "minus" },
+    ]);
+    expect(layout.positions.get("plus-root")).toEqual({ x: 1, y: 1 }); // SE
+    expect(layout.positions.get("minus-root")).toEqual({ x: -1, y: 1 }); // SW
+  });
 });
 
 describe("legalPlacements", () => {

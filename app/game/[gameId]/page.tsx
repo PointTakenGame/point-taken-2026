@@ -188,6 +188,7 @@ export default async function GamePage({
         me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
         coachEnabled={player?.coach_enabled ?? false}
         joinCode={seat.seat.game.join_code}
+        opponentEmoji={level?.bossEmoji}
         // The root layout's footer is suppressed on this route (a fixed
         // full-screen board collapses it into the top-left corner), so the
         // build id is handed to the board and printed in its own bottom-left

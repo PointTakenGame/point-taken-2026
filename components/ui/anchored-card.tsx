@@ -29,16 +29,43 @@ import { createPortal } from "react-dom";
  * card is open, and it is the only approach that cannot go stale, because the
  * board moves under it by pan, by zoom, by wheel, and by a tile arriving.
  */
+type Pos = {
+  left: number;
+  top: number;
+  /** Which edge the arrow sits on, or null when this placement carries no arrow. */
+  arrowSide: "left" | "right" | null;
+  /** Arrow's vertical offset from the card's top edge, in px. */
+  arrowTop: number;
+} | null;
+
 export function AnchoredCard({
   anchorSelector,
+  fallbackSelector,
   onClose,
+  showClose = true,
+  arrow = false,
+  placement = "side",
   children,
   width = 22,
   reserveRight = 0,
 }: {
   /** CSS selector for the element to sit beside. */
   anchorSelector: string;
+  /**
+   * CSS selector to dock under (below, centered, no arrow) when
+   * `anchorSelector` matches nothing. For the gym coach: a placement target
+   * that has not entered the DOM yet (agent B's `data-slot-*` attributes, or
+   * a tile not placed yet) should not just vanish, it should fall back to
+   * the coach persona itself.
+   */
+  fallbackSelector?: string;
   onClose: () => void;
+  /** Whether the corner close button renders. Defaults on, as every existing caller wants it. */
+  showClose?: boolean;
+  /** Whether a small tail points from the card at its anchor. Only ever drawn when genuinely anchored, never for the fallback dock. */
+  arrow?: boolean;
+  /** "side" (default, beside the anchor) or "below" (centered under it, no arrow). */
+  placement?: "side" | "below";
   children: ReactNode;
   /** Card width in rem. */
   width?: number;
@@ -54,7 +81,7 @@ export function AnchoredCard({
    */
   reserveRight?: number;
 }) {
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<Pos>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   // There is no document to portal into on the server, so the card renders
   // nothing until the client has it. Written as a store read rather than a
@@ -67,7 +94,9 @@ export function AnchoredCard({
   );
 
   const place = useCallback(() => {
-    const anchor = document.querySelector(anchorSelector);
+    const primary = document.querySelector(anchorSelector);
+    const anchor =
+      primary ?? (fallbackSelector ? document.querySelector(fallbackSelector) : null);
     if (!anchor) {
       setPos(null);
       return;
@@ -77,18 +106,43 @@ export function AnchoredCard({
     const cardWidth = card?.width ?? width * 16;
     const cardHeight = card?.height ?? 240;
     const gap = 12;
+    // A fallback dock always renders below, arrowless, whatever `placement`
+    // asked for: it is anchored to the coach persona, not to the thing the
+    // beat actually means, so pointing an arrow at it would lie.
+    const mode: "side" | "below" = primary ? placement : "below";
+
+    if (mode === "below") {
+      const rightLimit = window.innerWidth - 8 - reserveRight * 16;
+      let left = rect.left + rect.width / 2 - cardWidth / 2;
+      left = Math.min(Math.max(8, left), Math.max(8, rightLimit - cardWidth));
+      const top = Math.min(
+        rect.bottom + gap,
+        Math.max(8, window.innerHeight - cardHeight - 8),
+      );
+      setPos({ left, top, arrowSide: null, arrowTop: 0 });
+      return;
+    }
+
     // To the right of the tile by default, flipped to the left when there is
     // no room, and always kept inside the viewport vertically.
     const rightLimit = window.innerWidth - 8 - reserveRight * 16;
     let left = rect.right + gap;
-    if (left + cardWidth > rightLimit) left = rect.left - gap - cardWidth;
+    let arrowSide: "left" | "right" = "left";
+    if (left + cardWidth > rightLimit) {
+      left = rect.left - gap - cardWidth;
+      arrowSide = "right";
+    }
     if (left < 8) left = 8;
     const top = Math.min(
       Math.max(8, rect.top + rect.height / 2 - cardHeight / 2),
       Math.max(8, window.innerHeight - cardHeight - 8),
     );
-    setPos({ left, top });
-  }, [anchorSelector, width, reserveRight]);
+    const arrowTop = Math.min(
+      Math.max(16, rect.top + rect.height / 2 - top),
+      cardHeight - 16,
+    );
+    setPos({ left, top, arrowSide: arrow ? arrowSide : null, arrowTop });
+  }, [anchorSelector, fallbackSelector, width, reserveRight, placement, arrow]);
 
   useEffect(() => {
     let frame = 0;
@@ -130,14 +184,26 @@ export function AnchoredCard({
         overflowY: "auto",
       }}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="text-gray hover:text-neutral-black absolute top-2 right-3 cursor-pointer text-lg leading-none"
-      >
-        ×
-      </button>
+      {pos?.arrowSide ? (
+        <div
+          aria-hidden
+          className="border-gray/40 bg-offwhite pointer-events-none absolute h-3 w-3 rotate-45 border"
+          style={{
+            top: `${pos.arrowTop - 6}px`,
+            ...(pos.arrowSide === "left" ? { left: "-6px" } : { right: "-6px" }),
+          }}
+        />
+      ) : null}
+      {showClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="text-gray hover:text-neutral-black absolute top-2 right-3 cursor-pointer text-lg leading-none"
+        >
+          ×
+        </button>
+      ) : null}
       <div className="p-4">{children}</div>
     </div>,
     document.body,
