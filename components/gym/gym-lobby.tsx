@@ -1,3 +1,5 @@
+"use client";
+
 import { LevelIntro } from "@/components/gym/level-intro";
 import type { BoardState } from "@/lib/board/project";
 import { levelById } from "@/lib/gym/levels";
@@ -12,7 +14,17 @@ import { levelById } from "@/lib/gym/levels";
  * component ends up rendering the room.
  */
 
-/** Level by id, not by object: see GymDirector for why. */
+/**
+ * Level by id, not by object: see GymDirector for why. The "use client" at
+ * the top of this file is load-bearing for the same reason. This lookup has
+ * to run in the browser, because a Level carries beats whose text is a
+ * function (level 1's are), and a function cannot cross from a server
+ * component into a client one. Dropping the directive turned this file into
+ * a server component that handed the whole Level to LevelIntro, and level 1
+ * failed to draw with "Functions cannot be passed directly to Client
+ * Components" (2026-09-04). Level 2 masked it, because none of its beats
+ * happen to use a function.
+ */
 export function GymLobby({
   gameId,
   levelId,
