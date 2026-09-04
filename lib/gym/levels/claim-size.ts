@@ -57,6 +57,13 @@ export const CLAIM_SIZE: Level = {
   bossSide: "minus",
   banner:
     "Bogdan claims more than he can carry. Today you learn to ask him for the size.",
+  // Echoes braggy-bogdan's habit in lib/progression/sample.ts. He inflates
+  // cheerfully rather than attacking (Nathan's script, "Bogdan's whole
+  // behaviour"): a tell word first, then a true point stated too large, and
+  // by rung three the level turns the same catch on the player's own tile.
+  bossHabit: "claims more than the evidence underneath it can carry",
+  bossTip:
+    "listen for words like every, never, and only, then throw the card and ask for a size he will actually defend",
   awards: {
     badges: ["no-exaggeration-1", "no-exaggeration-2", "no-exaggeration-3"],
     cardId: CARD,

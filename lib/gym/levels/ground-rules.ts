@@ -46,6 +46,13 @@ export const GROUND_RULES: Level = {
   playerSide: "plus",
   bossSide: "minus",
   banner: "Four threads this time, two reasons from each of you. That's a standard game.",
+  // Echoes rambling-rosa's habit in lib/progression/sample.ts. Her three
+  // scripted tiles (Nathan's script, L2.5/L2.7/L2.9) are all off-root in
+  // ascending difficulty: not about the root, on-topic but already said, and
+  // right reason in the wrong thread.
+  bossHabit: "wanders off the thread's root",
+  bossTip:
+    "check every tile against the root at the top of its thread, and throw the card the moment one stops answering it",
   awards: {
     badges: ["stick-to-root-1", "stick-to-root-2", "stick-to-root-3"],
     cardId: CARD,

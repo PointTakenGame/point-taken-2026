@@ -141,6 +141,18 @@ export interface Level {
   bossSide: Side;
   /** The banner under the topic on the lobby screen. */
   banner: string;
+  /**
+   * Two lines the level intro card reads out before the level starts
+   * (components/gym/level-intro.tsx, Figma `1058:211649`). Both optional so
+   * older levels or tests that build a bare `Level` still type-check.
+   *
+   * `bossHabit` is a short clause completing "{bossName} {bossHabit}.", the
+   * boss's one behaviour this level teaches against (echoes the `habit`
+   * field on the matching entry in lib/progression/sample.ts). `bossTip` is
+   * one sentence, the move that beats it, read after "The tip to beat them:".
+   */
+  bossHabit?: string;
+  bossTip?: string;
   beats: readonly Beat[];
   /** What the certificate lists. Display only until award events exist. */
   awards: { badges: readonly string[]; cardId: string };

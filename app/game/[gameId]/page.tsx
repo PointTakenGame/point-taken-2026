@@ -14,6 +14,7 @@ import { GymDirector } from "@/components/gym/director";
 import { GymLobby } from "@/components/gym/gym-lobby";
 import { levelById } from "@/lib/gym/levels";
 import { projectBoard } from "@/lib/board/project";
+import { readPlayerAwards } from "@/lib/db/awards";
 import { getPlayer } from "@/lib/db/players";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { readGameEvents } from "@/lib/events/append";
@@ -121,6 +122,12 @@ export default async function GamePage({
   }
 
   if (board.status === "lobby" && level) {
+    // Only fetched on this branch: the awards read is a second query, and the
+    // one thing it decides is whether the level-intro's rule card panel
+    // (components/gym/level-intro.tsx) shows the real card or a question
+    // mark, which only matters before a level has started.
+    const awards = await readPlayerAwards(seat.seat.playerId);
+    const cardEarned = awards.cardIds.includes(level.cardId);
     return (
       <>
         <GymLobby
@@ -128,6 +135,7 @@ export default async function GamePage({
           levelId={level.id}
           board={board}
           me={{ playerId: seat.seat.playerId }}
+          cardEarned={cardEarned}
         />
         {hotseat}
       </>

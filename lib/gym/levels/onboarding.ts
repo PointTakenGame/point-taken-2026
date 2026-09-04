@@ -60,6 +60,13 @@ export const ONBOARDING: Level = {
   playerSide: "minus",
   bossSide: "plus",
   banner: "Two threads. Place a tile, close a thread, throw one card.",
+  // Echoes bashful-bob's habit in lib/progression/sample.ts. His whole
+  // behaviour per Nathan's script (inbox/point-taken-levels-1-4.md, L1.11) is
+  // one nervous deflection: he answers a reason with a comment about the
+  // player instead of about the hot dog.
+  bossHabit: "talks about you instead of the question",
+  bossTip:
+    "when a reason turns into a comment about you instead of about the topic, throw the card at that tile",
   awards: { badges: ["finish-one-game"], cardId: "you_is_taboo" },
   beats: [
     {

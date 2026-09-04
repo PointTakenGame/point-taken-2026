@@ -56,6 +56,13 @@ export const CLARITY: Level = {
   bossSide: "minus",
   banner:
     "Salma argues fast and leaves you guessing. Today you learn to ask, not to complain.",
+  // Echoes sloppy-salma's habit in lib/progression/sample.ts. Fast and
+  // careless rather than hostile (Nathan's script, "Salma's whole
+  // behaviour"): a sentence that reads two ways, a word she never pins down,
+  // one that simply does not parse, and she takes every correction well.
+  bossHabit: "leaves you to guess what she meant",
+  bossTip:
+    "throw the card and hand back how you read the tile, instead of telling her it was unclear",
   awards: {
     badges: ["help-me-understand-1", "help-me-understand-2"],
     cardId: CARD,
