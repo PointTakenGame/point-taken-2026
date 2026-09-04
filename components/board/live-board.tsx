@@ -243,9 +243,15 @@ function ErrorLine({ error }: { error: string | null }) {
  * Callers pass null when there is nothing worth saying yet, which is the normal
  * state of a form nobody has filled in.
  */
-function WhyNot({ verdict }: { verdict: Verdict | null }) {
+function WhyNot({
+  verdict,
+  className = "text-xs text-gray",
+}: {
+  verdict: Verdict | null;
+  className?: string;
+}) {
   if (!verdict || verdict.ok) return null;
-  return <p className="text-xs text-gray">{verdict.error}</p>;
+  return <p className={className}>{verdict.error}</p>;
 }
 
 /**
@@ -1762,6 +1768,23 @@ function InTileComposer({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const verdict = canPlaceTile(board, text, parentTileId);
+  /**
+   * Why Place is dead, on the screen rather than in the button's tooltip.
+   *
+   * Same shape as the steelman box further down this file: once there are
+   * words in the box the line under it judges those words, and until there
+   * are, it judges the box's standing situation instead. "A reason needs some
+   * words in it" is not news about an empty box.
+   *
+   * Found by playing level 4 on 2026-09-04. A reason may not end in a question
+   * mark, the moderator has a sentence for it, and the level tells the player
+   * in so many words to try it themselves and hear the same sentence. What
+   * they actually got was a greyed-out Place button and silence, because the
+   * moderator's sentence was only in `title`, which WhyNot's own note above
+   * says is not an explanation.
+   */
+  const blocked =
+    text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
     if (!verdict.ok) return;
@@ -1844,6 +1867,13 @@ function InTileComposer({
             Cancel
           </button>
         </div>
+        {/* Its own pill for the same reason the buttons have one: this lands
+            on top of a neighbouring octagon as often as not, and grey text on
+            a tile is not readable. */}
+        <WhyNot
+          verdict={blocked}
+          className="bg-offwhite text-neutral-black rounded-full px-3 py-1 text-xs shadow-md"
+        />
         <ErrorLine error={error} />
       </div>
     </div>
@@ -1889,12 +1919,18 @@ function Composer({
   const showRootSuggestions =
     board.mode === "gym" && board.levelId === "claim_size" && parentTileId === null;
 
-  // Computed against a placeholder instead of the real text on purpose. An
-  // empty box is the normal state of a composer and "a reason needs some
-  // words in it" is not news. What is news is a block that no amount of
-  // typing clears: the thread cap, a resolved thread, a game that has ended.
-  // WhyNot, above, is where the rest of that argument is written down.
-  const blocked = canPlaceTile(board, "a reason", parentTileId);
+  // An empty box is judged against a placeholder instead of against its own
+  // emptiness, because "a reason needs some words in it" is not news. What is
+  // news is a block that no amount of typing clears: the thread cap, a
+  // resolved thread, a game that has ended. WhyNot, above, is where the rest
+  // of that argument is written down.
+  //
+  // Once there are words in the box, those words are what gets judged, so a
+  // reason that ends in a question mark says the moderator's sentence here
+  // rather than only in the Place button's tooltip. See the matching note in
+  // CellComposer, and level 4, which promises the player they will hear it.
+  const blocked =
+    text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
     setError(null);
