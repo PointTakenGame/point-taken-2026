@@ -260,6 +260,14 @@ Settled, and not up for redesign in a surface pull request:
   2026-08-31 call; the Figma still draws four, and the Figma is the stale one here.
 - the level ladder for levels 1 to 4, which is
   `spec/2026-08-22_gym-levels-1-4-implementation-guide.md` in the brain repo
+- one navigation out of game, and none in it. The four tabs (Profile, Cards & Badges, History,
+  Settings) are the only chrome on any account page; the Gym and the leaderboard are not tabs
+  but are reached from the Profile (the level progress ladder is the level select, the
+  cooperation tile opens the leaderboard); the board, the landing, and the host screen carry no
+  tab bar. Steve, 2026-09-04, `BRAIN-T260904-22`, matching Rannie's connector arrows.
+- a level opens on Rannie's two cards over the empty board (boss intro, then rule card intro),
+  with START THE GAME signing the three lines and starting in one act. A rule card not yet
+  earned is shown as a question mark, never named early. Steve, 2026-09-04, `BRAIN-T260904-21`.
 
 Still moving, and known to be inconsistent between the code and the design documents:
 
