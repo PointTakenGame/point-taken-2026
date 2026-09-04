@@ -61,8 +61,8 @@ const LEVELS: readonly GymLevel[] = [
     title: "Claim size",
     topic: "Should tipping be replaced by higher wages?",
     cardId: "no_exaggeration",
-    bossId: "braggy-brenda",
-    bossName: "Braggy Brenda",
+    bossId: "braggy-bogdan",
+    bossName: "Braggy Bogdan",
     bossEmoji: "🧑🏼‍🔬",
   },
   {

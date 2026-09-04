@@ -157,6 +157,51 @@ describe("topicRootedLayout", () => {
     expect(layout.unplaced).toEqual(["t5"]);
   });
 
+  it("puts Plus on the right and Minus on the left, bottom corners first", () => {
+    const layout = topicRootedLayout([
+      { id: "p1", parentId: null, side: "plus" },
+      { id: "m1", parentId: null, side: "minus" },
+      { id: "p2", parentId: null, side: "plus" },
+      { id: "m2", parentId: null, side: "minus" },
+    ]);
+    expect(layout.positions.get("p1")).toEqual({ x: 1, y: 1 });
+    expect(layout.positions.get("m1")).toEqual({ x: -1, y: 1 });
+    expect(layout.positions.get("p2")).toEqual({ x: 1, y: -1 });
+    expect(layout.positions.get("m2")).toEqual({ x: -1, y: -1 });
+  });
+
+  // A two-thread game is level 1 of the Gym, and Steve asked for the pair to
+  // sit along the bottom rather than on a diagonal.
+  it("gives a two-thread game the two bottom corners", () => {
+    const layout = topicRootedLayout([
+      { id: "p1", parentId: null, side: "plus" },
+      { id: "m1", parentId: null, side: "minus" },
+    ]);
+    expect(layout.positions.get("p1")).toEqual({ x: 1, y: 1 });
+    expect(layout.positions.get("m1")).toEqual({ x: -1, y: 1 });
+  });
+
+  // The rules still allow a root anywhere, and games played before the
+  // convention have roots on whichever diagonal was free. Nothing may vanish.
+  it("falls back to the other side's corner rather than dropping a thread", () => {
+    const layout = topicRootedLayout([
+      { id: "p1", parentId: null, side: "plus" },
+      { id: "p2", parentId: null, side: "plus" },
+      { id: "p3", parentId: null, side: "plus" },
+    ]);
+    expect(layout.positions.get("p3")).toEqual({ x: -1, y: 1 });
+    expect(layout.unplaced).toEqual([]);
+  });
+
+  it("does not push a reply onto its author's side, only thread starters", () => {
+    const layout = topicRootedLayout([
+      { id: "m1", parentId: null, side: "minus" },
+      { id: "reply", parentId: "m1", side: "plus" },
+    ]);
+    expect(layout.positions.get("m1")).toEqual({ x: -1, y: 1 });
+    expect(layout.positions.get("reply")).toEqual({ x: 0, y: 2 });
+  });
+
   it("keeps a thread's own children hanging off it, not off the topic", () => {
     const layout = topicRootedLayout([tile("t1", null), tile("reply", "t1")]);
     expect(layout.positions.get("t1")).toEqual({ x: 1, y: -1 });

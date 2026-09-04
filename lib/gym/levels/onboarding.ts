@@ -1,5 +1,4 @@
 import type { Level } from "../script";
-import { THROW_POINTS } from "@/lib/progression/sample";
 
 /**
  * Level 1, Onboarding: Should a hot dog be called a sandwich?
@@ -15,8 +14,19 @@ import { THROW_POINTS } from "@/lib/progression/sample";
  * the whole level: place a tile, close a thread, throw one card, finish.
  */
 
-const HOAGIE =
+/**
+ * Two hoagie lines, not one constant.
+ *
+ * Nathan's Revision 2 of the level script (inbox/point-taken-levels-1-4.md)
+ * writes this reason twice, and the second time it is one word shorter. The
+ * earlier beat says "hinged exactly the same way", the later one says "hinged
+ * the same way", and reconciling the two into one string would quietly rewrite
+ * his script, so both are kept as written.
+ */
+const HOAGIE_EXACTLY =
   "But a hoagie roll is hinged exactly the same way, and nobody has ever doubted a hoagie is a sandwich.";
+const HOAGIE =
+  "But a hoagie roll is hinged the same way, and nobody has ever doubted a hoagie is a sandwich.";
 const WRAP =
   "But then a wrap wouldn't be a sandwich either, and most people would say it is.";
 const MENUS =
@@ -93,7 +103,7 @@ export const ONBOARDING: Level = {
         kind: "tile",
         key: "B1",
         parent: "B",
-        text: (ctx) => (structural(ctx.textOf("B")) ? HOAGIE : MENUS),
+        text: (ctx) => (structural(ctx.textOf("B")) ? HOAGIE_EXACTLY : MENUS),
       },
     },
     {
@@ -125,7 +135,11 @@ export const ONBOARDING: Level = {
         kind: "tile",
         key: "A2",
         parent: "A1",
-        text: (ctx) => (ctx.bossTexts.has(HOAGIE) ? WRAP : HOAGIE),
+        // Either wording counts as already said: Bob may have used the
+        // longer one at B1, and repeating the reason in shorter words would
+        // read as a stutter rather than as a second argument.
+        text: (ctx) =>
+          ctx.bossTexts.has(HOAGIE_EXACTLY) || ctx.bossTexts.has(HOAGIE) ? WRAP : HOAGIE,
       },
     },
     {
@@ -154,6 +168,10 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p4-two-tokens",
       title: "The two tokens",
+      // "the same token on the same thread" is not a slip for "on the same
+      // tile". A token in this codebase is proposed on a thread, never on a
+      // tile (lib/board/rules.ts), so the thread is the thing both players are
+      // putting a mark on. Nathan's script says the same; left as written.
       body: "Two ways a thread can end. 👍 Point taken: the other person actually changed your mind. 👀 Now I see why we disagree: neither of you moved, but you found the reason underneath it. A thread closes when you both put the same token on the same thread. Bob's put the first 👍 down. Put yours next to it.",
       button: "Got it",
     },
@@ -189,8 +207,10 @@ export const ONBOARDING: Level = {
       id: "player-throws",
       coach: "Something on the board breaks the rule on that card. Throw it at the tile.",
       nudge: "Hang on. Read Bob's last tile again. Is it about the hot dog?",
+      // No points at level 1. Nathan's Revision 2 awards the badge and
+      // nothing else here, and a first throw that scores would teach the
+      // opposite of what the card is for.
       badges: ["call-broken-rule"],
-      points: THROW_POINTS,
       expect: { kind: "throw", tile: "A3", cardId: "you_is_taboo", rungId: null },
     },
     {

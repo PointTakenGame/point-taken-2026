@@ -11,12 +11,17 @@ import { THROW_POINTS } from "@/lib/progression/sample";
  * not about it at all (removed), on topic but already said (sharpened), and
  * right reason in the wrong thread (moved, to C's root).
  *
- * Two departures from the guide, both deliberate:
- * - L2.3 asks the player to fold a thread. The board has no fold gesture
- *   yet (compact mode is P1, Steve 2026-09-03), so it is a pause that says
- *   the board is growing and moves on. The Fold a Thread badge is not listed.
- * - L2.10 plays out with one player tile each in C and D so those threads
- *   have something to resolve, which the guide leaves implied.
+ * Two departures from the script, both deliberate and both re-confirmed
+ * against Nathan's Revision 2 (inbox/point-taken-levels-1-4.md) on 2026-09-03:
+ * - L2.3 asks the player to fold a thread. The board has no fold gesture yet
+ *   (compact mode is P1, Steve 2026-09-03), so it is a pause that says the
+ *   board is growing and moves on, and the `compression` badge is not awarded.
+ *   It comes back when compact mode ships, not before.
+ * - L2.10 plays out with one player tile each in C and D (the C1 and D1
+ *   beats below). His resolution table has both threads ending in a token but
+ *   never gives the player a tile in either, so they would be resolved without
+ *   ever being argued. The two tiles fill that gap; they are ours, and if he
+ *   would rather the threads resolve bare, these two beats are what to cut.
  *
  * Rung ids are `stick_to_root_1..3`. No canonical list of rung ids exists in
  * the code yet (the throw payload carries `rung_id` as a free string), so
@@ -193,7 +198,10 @@ export const GROUND_RULES: Level = {
     {
       kind: "boss",
       id: "rosa-removes",
-      bossSays: "Fair. That one was about my microwave.",
+      // Rosa says nothing here. She had a line in an earlier draft of this
+      // file; Nathan's Revision 2 does not give her one, and an invented line
+      // in a scripted boss's mouth is the kind of thing that reads as canon a
+      // week later.
       act: { kind: "remove", tile: "A3" },
     },
     {
@@ -288,7 +296,8 @@ export const GROUND_RULES: Level = {
     {
       kind: "boss",
       id: "rosa-accepts-move",
-      bossSays: "Huh. Yes, that's where it belongs.",
+      // Same as rosa-removes: the line here was ours, not his. The move
+      // landing is the whole answer.
       act: { kind: "accept", proposal: "tile_relocation", tile: "B3" },
     },
     {

@@ -39,6 +39,13 @@ export interface GridPosition {
 interface LayoutInput {
   id: string;
   parentId: string | null;
+  /**
+   * Which side's corner this tile wants, when it has a choice of four.
+   *
+   * Only the thread starters hanging off the topic pass one. Everything deeper
+   * leaves it off and takes the first legal diagonal, as it always has.
+   */
+  side?: "plus" | "minus" | null;
 }
 
 export interface BoardLayout {
@@ -57,6 +64,36 @@ const DIAGONAL_OFFSETS: readonly GridPosition[] = [
   { x: -1, y: 1 }, // SW
   { x: -1, y: -1 }, // NW
 ];
+
+/**
+ * The order a thread starter tries the topic's four diagonals in.
+ *
+ * Steve ruled on 2026-09-03 that the side is the position on the real board,
+ * not only on the hover ghosts: Plus starts threads on the right, Minus on the
+ * left, and a two-thread game fills the two bottom corners. So each side tries
+ * its own bottom corner first, then its own top one, and only then the other
+ * side's, which it reaches at all only because `lib/board/rules.ts` still
+ * allows a root anywhere and a board whose history predates this convention
+ * must still draw.
+ *
+ * This has to agree with the Ways to win minimap (`ways-to-win-card.tsx`,
+ * SLOTS): tr and br are Plus, tl and bl are Minus. y grows downward here, so
+ * the bottom corners are the positive ones.
+ */
+const SIDE_OFFSETS: Record<"plus" | "minus", readonly GridPosition[]> = {
+  plus: [
+    { x: 1, y: 1 }, // bottom right
+    { x: 1, y: -1 }, // top right
+    { x: -1, y: 1 }, // bottom left
+    { x: -1, y: -1 }, // top left
+  ],
+  minus: [
+    { x: -1, y: 1 }, // bottom left
+    { x: -1, y: -1 }, // top left
+    { x: 1, y: 1 }, // bottom right
+    { x: 1, y: -1 }, // top right
+  ],
+};
 
 const ALL_NEIGHBOR_OFFSETS: readonly GridPosition[] = [
   { x: 0, y: -1 },
@@ -197,10 +234,13 @@ export function layoutBoard(tiles: LayoutInput[]): BoardLayout {
       continue;
     }
 
-    const spot = DIAGONAL_OFFSETS.map((offset) => ({
-      x: parentPos.x + offset.x,
-      y: parentPos.y + offset.y,
-    })).find((candidate) => isLegal(candidate, tile.parentId as string, occupancy));
+    const offsets = tile.side ? SIDE_OFFSETS[tile.side] : DIAGONAL_OFFSETS;
+    const spot = offsets
+      .map((offset) => ({
+        x: parentPos.x + offset.x,
+        y: parentPos.y + offset.y,
+      }))
+      .find((candidate) => isLegal(candidate, tile.parentId as string, occupancy));
 
     if (!spot) {
       unplaced.push(tile.id);
@@ -266,6 +306,11 @@ export function topicRootedLayout(tiles: LayoutInput[]): BoardLayout {
     ...tiles.map((tile) => ({
       id: tile.id,
       parentId: tile.parentId ?? TOPIC_CELL_ID,
+      // Only a thread starter gets a corner of its own. Everything deeper is
+      // laid out relative to the reason it answers, where left and right carry
+      // no meaning, so passing the side down would only make a reply prefer a
+      // diagonal for no reason a player could read.
+      side: tile.parentId == null ? (tile.side ?? null) : null,
     })),
   ]);
 }
@@ -275,15 +320,22 @@ export function topicRootedLayout(tiles: LayoutInput[]): BoardLayout {
  * Same rule `layoutBoard` replays historically, run live against a layout
  * that already exists, for the hover-to-place affordance.
  */
-export function legalPlacements(layout: BoardLayout, parentId: string): GridPosition[] {
+export function legalPlacements(
+  layout: BoardLayout,
+  parentId: string,
+  side?: "plus" | "minus" | null,
+): GridPosition[] {
   const parentPos = layout.positions.get(parentId);
   if (!parentPos) return [];
 
   const occupancy = new Map<string, string>();
   for (const [id, pos] of layout.positions) occupancy.set(cellKey(pos), id);
 
-  return DIAGONAL_OFFSETS.map((offset) => ({
-    x: parentPos.x + offset.x,
-    y: parentPos.y + offset.y,
-  })).filter((candidate) => isLegal(candidate, parentId, occupancy));
+  const offsets = side ? SIDE_OFFSETS[side] : DIAGONAL_OFFSETS;
+  return offsets
+    .map((offset) => ({
+      x: parentPos.x + offset.x,
+      y: parentPos.y + offset.y,
+    }))
+    .filter((candidate) => isLegal(candidate, parentId, occupancy));
 }

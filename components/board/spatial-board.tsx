@@ -125,6 +125,12 @@ export interface SpatialTile {
   parentId: string | null;
   /** Placement order. The layout replays history, so this has to be stable. */
   placedAtSeq: number;
+  /**
+   * Whose reason this is. Read only for a thread starter, whose side decides
+   * which corner of the topic it takes (Steve, 2026-09-03): Plus on the right,
+   * Minus on the left, bottom corners first. See `SIDE_OFFSETS` in layout.ts.
+   */
+  side?: "plus" | "minus" | null;
 }
 
 export interface SpatialBoardProps<T extends SpatialTile> {
@@ -434,7 +440,10 @@ export function SpatialBoard<T extends SpatialTile>({
   );
 
   const layout = useMemo(
-    () => topicRootedLayout(ordered.map((t) => ({ id: t.id, parentId: t.parentId }))),
+    () =>
+      topicRootedLayout(
+        ordered.map((t) => ({ id: t.id, parentId: t.parentId, side: t.side ?? null })),
+      ),
     [ordered],
   );
 
@@ -463,7 +472,13 @@ export function SpatialBoard<T extends SpatialTile>({
     if (draftAt) return [];
     if (!placementEnabled || !hoveredId) return [];
     if (canPlaceOn && !canPlaceOn(hoveredId)) return [];
-    const open = legalPlacements(layout, hoveredId);
+    // Around the topic the offer is ordered by side, so the first slot a
+    // player is shown is the corner their tile will actually land in.
+    const open = legalPlacements(
+      layout,
+      hoveredId,
+      hoveredId === TOPIC_CELL_ID && placeSide !== "neutral" ? placeSide : null,
+    );
 
     // The four thread starters around the topic have sides, and the side is
     // the position: the two on the right belong to Plus, the two on the left
