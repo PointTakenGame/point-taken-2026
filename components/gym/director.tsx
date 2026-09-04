@@ -18,7 +18,14 @@ import {
 import type { BoardState } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
 import { levelById } from "@/lib/gym/levels";
-import { currentBeat, levelProgress, type Beat, type Level } from "@/lib/gym/script";
+import {
+  currentBeat,
+  levelPoints,
+  levelProgress,
+  type Beat,
+  type Level,
+  type LevelProgress,
+} from "@/lib/gym/script";
 
 /**
  * The Gym director: the coach at the top centre of the board and the pauses
@@ -80,6 +87,34 @@ function parseDismissed(raw: string): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+/**
+ * The score as it stands, and what moved it last.
+ *
+ * Points are only written to the log when the level ends (lib/gym/awards.ts
+ * banks them all at once), so during play the running total is the script's
+ * own arithmetic over the beats already done. Level 3 stakes points on the
+ * dare and gives them back on the repair, and a stake nobody can see is not
+ * a stake, so the beat that last moved the number says so in words.
+ */
+function scoreboard(
+  level: Level,
+  progress: LevelProgress,
+): { total: number; delta: number; label: string } | null {
+  const total = levelPoints(level, progress);
+  const byId = new Map(level.beats.map((beat) => [beat.id, beat]));
+  let delta = 0;
+  let label = "";
+  for (const id of [...progress.done].reverse()) {
+    const beat = byId.get(id);
+    if (!beat?.points) continue;
+    delta = beat.points;
+    label = beat.pointsLabel ?? "caught it";
+    break;
+  }
+  if (total === 0 && delta === 0) return null;
+  return { total, delta, label };
 }
 
 const PILL =
@@ -174,6 +209,7 @@ function Director({
   };
 
   const step = `Level ${level.number} · ${progress.done.length + 1} of ${level.beats.length}`;
+  const score = scoreboard(level, progress);
 
   if (beat.kind === "pause") {
     return (
@@ -200,7 +236,21 @@ function Director({
             🧘
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="font-label text-ink-soft">Coach · {step}</span>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-label text-ink-soft">Coach · {step}</span>
+              {score ? (
+                <span className="font-label text-ink shrink-0">
+                  {score.total} pts
+                  {score.delta ? (
+                    <span className="text-ink-soft">
+                      {" "}
+                      · {score.delta > 0 ? "+" : ""}
+                      {score.delta} {score.label}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </div>
             {beat.kind === "boss" && beat.bossSays ? (
               <p className="font-secondary text-p-sm text-ink-soft italic">
                 {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
@@ -225,6 +275,30 @@ function Director({
             Click one of the two tile spots to lay down a tile and I&rsquo;ll write you a
             sample answer. Change any of it before you place it.
           </span>
+        ) : null}
+
+        {/*
+          A tile's samples are drawn in the board's open slots, but an edit
+          and a proposal are typed into forms the board owns, and there is no
+          empty slot to draw them in. So the coach reads them out instead and
+          the player copies whichever one they want.
+        */}
+        {beat.kind === "player" &&
+        (beat.expect.kind === "edit" || beat.expect.kind === "propose") &&
+        beat.expect.suggestions &&
+        beat.expect.suggestions.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="font-label text-ink-soft">
+              {beat.expect.kind === "edit"
+                ? "Something like:"
+                : "Something like one of these:"}
+            </span>
+            {beat.expect.suggestions.map((sample) => (
+              <p key={sample} className="font-secondary text-p-sm text-ink-soft">
+                “{sample}”
+              </p>
+            ))}
+          </div>
         ) : null}
 
         {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
@@ -276,6 +350,21 @@ function Pause({
         {beat.bossSays ? (
           <p className="font-secondary text-ink-soft italic">
             {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
+          </p>
+        ) : null}
+        {/*
+          The moderator is the board itself talking, not a third player, so it
+          is set apart from both of them: level 4 opens with it refusing a
+          question tile in front of you, and the boss answering it.
+        */}
+        {beat.moderator ? (
+          <p className="border-ink font-secondary text-ink border-l-[1.5px] pl-3">
+            ⚖️ Moderator: {beat.moderator}
+          </p>
+        ) : null}
+        {beat.bossReplies ? (
+          <p className="font-secondary text-ink-soft italic">
+            {level.bossEmoji} {level.bossName}: “{beat.bossReplies}”
           </p>
         ) : null}
         <p className="font-secondary text-ink">🧘 {beat.body}</p>

@@ -1,15 +1,17 @@
 import { SiteNav } from "@/components/site-nav";
 import { StartLevelButton } from "@/components/gym/start-level-button";
 import { coachCard } from "@/lib/coach/cards";
-import { levelById } from "@/lib/gym/levels";
+import { SCRIPTED_LEVELS } from "@/lib/gym/levels";
 
 /**
  * The Gym: a level-select ladder for practice mode, levels 1 to 4.
  *
- * Levels 1 and 2 are scripted (lib/gym/levels) and Start opens a cooked
- * game against the level's boss. Levels 3 and 4 have a door and no script
- * yet, so their buttons stay dark and say so. Nothing here decides whether
- * a level unlocks another: Steve, 2026-09-03, all four open.
+ * All four levels are scripted now (lib/gym/levels), so this page is a
+ * straight render of `SCRIPTED_LEVELS` and Start opens a cooked game against
+ * the level's boss. It used to carry its own copy of the four levels, with
+ * levels 3 and 4 as dark doors; that table has been deleted rather than
+ * updated, because two lists of the same four topics drift. Nothing here
+ * decides whether a level unlocks another: Steve, 2026-09-03, all four open.
  *
  * Content (topic, rule card taught, boss) is ratified against Steve's
  * 2026-08-22 gym-levels and skill-ladder design docs. The rule card each
@@ -17,65 +19,9 @@ import { levelById } from "@/lib/gym/levels";
  *
  * Boss ids are kebab-case, matching lib/progression/sample.ts and the
  * casing rule in BIZ-T260823-66 (card ids snake, everything else kebab).
- * They were snake_case here before 2026-09-03; nothing had been written
- * to `games.boss_id` under the old spelling.
  */
 
 export const dynamic = "force-dynamic";
-
-interface GymLevel {
-  id: string;
-  number: number;
-  title: string;
-  topic: string;
-  cardId: string;
-  bossId: string;
-  bossName: string;
-  bossEmoji: string;
-}
-
-const LEVELS: readonly GymLevel[] = [
-  {
-    id: "onboarding",
-    number: 1,
-    title: "Onboarding",
-    topic: "Should a hot dog be called a sandwich?",
-    cardId: "you_is_taboo",
-    bossId: "bashful-bob",
-    bossName: "Bashful Bob",
-    bossEmoji: "🧑🏻‍💼",
-  },
-  {
-    id: "ground_rules",
-    number: 2,
-    title: "Ground rules",
-    topic: "Should we stop changing the clocks twice a year?",
-    cardId: "stick_to_root",
-    bossId: "rambling-rosa",
-    bossName: "Rambling Rosa",
-    bossEmoji: "🧑🏿‍🔧",
-  },
-  {
-    id: "claim_size",
-    number: 3,
-    title: "Claim size",
-    topic: "Should tipping be replaced by higher wages?",
-    cardId: "no_exaggeration",
-    bossId: "braggy-bogdan",
-    bossName: "Braggy Bogdan",
-    bossEmoji: "🧑🏼‍🔬",
-  },
-  {
-    id: "clarity",
-    number: 4,
-    title: "Clarity",
-    topic: "Should AI-generated content be labeled?",
-    cardId: "help_me_understand",
-    bossId: "sloppy-salma",
-    bossName: "Sloppy Salma",
-    bossEmoji: "🧑🏾‍🍳",
-  },
-];
 
 /*
   Restyled 2026-09-02 into the account flow's language (BRAIN-T260902-30), so
@@ -96,34 +42,20 @@ export default function GymPage() {
           <p className="font-secondary text-ink-soft max-w-2xl">
             A practice board you can open on your own, to try the moves without a second
             person waiting on you. Each level teaches one rule card against a scripted
-            opponent, with the coach at the top of the board. Levels 1 and 2 are playable;
-            3 and 4 are not written yet.
+            opponent, with the coach at the top of the board. All four are playable.
           </p>
         </header>
 
         <ul className="flex flex-col gap-4">
-          {LEVELS.map((level) => {
+          {SCRIPTED_LEVELS.map((level) => {
             const card = coachCard(level.cardId);
-            const scripted = levelById(level.id) !== undefined;
             return (
               <li key={level.id} className="sticker flex flex-col gap-3 p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-4">
                   <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
                     Level {level.number}: {level.title}
                   </h2>
-                  {scripted ? (
-                    <StartLevelButton levelId={level.id} className={START_BUTTON} />
-                  ) : (
-                    <button
-                      type="button"
-                      className={START_BUTTON}
-                      disabled
-                      aria-disabled="true"
-                      title="No script for this level yet"
-                    >
-                      Start
-                    </button>
-                  )}
+                  <StartLevelButton levelId={level.id} className={START_BUTTON} />
                 </div>
                 <p className="text-p-sm text-ink-soft">Topic: {level.topic}</p>
                 {card ? (
@@ -139,9 +71,6 @@ export default function GymPage() {
                     {level.bossEmoji}
                   </span>
                   Boss: {level.bossName}
-                  {!scripted ? (
-                    <span className="font-label"> · script not written yet</span>
-                  ) : null}
                 </p>
               </li>
             );

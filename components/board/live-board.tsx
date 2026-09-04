@@ -16,7 +16,7 @@ import type {
   BoardThrow,
   BoardTile,
 } from "@/lib/board/project";
-import { REDACTED_TEXT, liveThreads } from "@/lib/board/project";
+import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
@@ -1504,6 +1504,39 @@ function ProposalCard({
  * Renders nothing at all when there is nothing pending, so the rail does not
  * carry an empty box through the 95% of a game where this is quiet.
  */
+/**
+ * The words the two of you have pinned down, kept in front of you.
+ *
+ * Define That is only worth making if the answer binds, and an agreement that
+ * scrolls away binds nothing. This was one of the four sections of the Match
+ * details drawer until 2026-09-03; it comes back as its own card because it is
+ * the one of the four that has to stay legible in the middle of an argument,
+ * which is exactly when nobody opens a drawer. Gym level 4 teaches the move,
+ * so the card is what the level is pointing at when it says the definition is
+ * pinned to the edge of the board.
+ *
+ * Silent until a definition is actually agreed, like every other card in this
+ * rail.
+ */
+function PinnedWords({ board }: { board: BoardState }) {
+  const words = agreedDefinitions(board);
+  if (words.length === 0) return null;
+
+  return (
+    <section className="border-gray/30 bg-offwhite flex w-full flex-col gap-2 rounded-2xl border px-5 py-4 shadow-md">
+      <h2 className="font-primary text-neutral-black text-p-lg">Words you pinned down</h2>
+      <dl className="flex flex-col gap-2">
+        {words.map((word) => (
+          <div key={word.term.toLowerCase()} className="flex flex-col">
+            <dt className="font-primary text-neutral-black text-p-sm">{word.term}</dt>
+            <dd className="font-secondary text-gray text-p-sm">{word.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function PendingAsks({
   gameId,
   board,
@@ -2951,6 +2984,8 @@ export function LiveBoard({
         <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
 
         <PendingAsks gameId={gameId} board={board} me={me} />
+
+        <PinnedWords board={board} />
 
         {/*
           The Match details drawer is gone (Steve, 2026-09-03), and so are all

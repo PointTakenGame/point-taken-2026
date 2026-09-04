@@ -1,8 +1,9 @@
 /**
  * Coverage for the BRAIN-T260903-06 gate: the six "ask the other player"
- * moves are Gym level 5+ and are not offered yet, with one exception
- * (`tile_relocation`, load-bearing for Gym level 2, stays available outside
- * live play). `BoardState` is a large core-owned interface
+ * moves are Gym level 5+ and are not offered yet, with three exceptions. A
+ * move a Gym level teaches has to be reachable inside the Gym, so relocation
+ * (level 2), the reading handback and the definition (both level 4) stay
+ * available outside live play. `BoardState` is a large core-owned interface
  * (`lib/board/project.ts`, read-only for this task), so `makeBoard` builds a
  * minimal one, overriding only the field this gate reads.
  */
@@ -44,8 +45,14 @@ function makeBoard(overrides: Partial<BoardState> = {}): BoardState {
   };
 }
 
-const NON_RELOCATION_KINDS: readonly ProposalKind[] = LATER_MOVE_KINDS.filter(
-  (kind) => kind !== "tile_relocation",
+const TAUGHT: readonly ProposalKind[] = [
+  "tile_relocation",
+  "reading_handback",
+  "definition",
+];
+
+const NOT_TAUGHT_YET: readonly ProposalKind[] = LATER_MOVE_KINDS.filter(
+  (kind) => !TAUGHT.includes(kind),
 );
 
 describe("canStartLaterMove", () => {
@@ -60,25 +67,32 @@ describe("canStartLaterMove", () => {
     ]);
   });
 
-  it("refuses every one of the five non-relocation moves, live or not", () => {
-    for (const kind of NON_RELOCATION_KINDS) {
+  it("refuses every move no level teaches yet, live or not", () => {
+    for (const kind of NOT_TAUGHT_YET) {
       expect(canStartLaterMove(makeBoard({ mode: "live" }), kind)).toBe(false);
       expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind)).toBe(false);
       expect(canStartLaterMove(makeBoard({ mode: null }), kind)).toBe(false);
     }
   });
 
-  it("refuses to start a relocation in live play", () => {
-    expect(canStartLaterMove(makeBoard({ mode: "live" }), "tile_relocation")).toBe(false);
+  it("refuses all three taught moves in live play", () => {
+    for (const kind of TAUGHT) {
+      expect(canStartLaterMove(makeBoard({ mode: "live" }), kind)).toBe(false);
+    }
   });
 
-  // Gym level 2 (beat L2.9 of the ratified guide) has the player relocate a
-  // tile, so relocation is the one later move still offered outside live play.
-  it("still offers a relocation in the Gym, where level 2 needs it", () => {
-    expect(canStartLaterMove(makeBoard({ mode: "gym" }), "tile_relocation")).toBe(true);
+  // Relocation is level 2 (beat L2.9); the handback and the definition are
+  // level 4 (beats L4.4, L4.7 and L4.6). A level cannot teach a move the
+  // board will not let the player start.
+  it("offers all three taught moves in the Gym", () => {
+    for (const kind of TAUGHT) {
+      expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind)).toBe(true);
+    }
   });
 
-  it("offers a relocation when the board has no mode at all", () => {
-    expect(canStartLaterMove(makeBoard({ mode: null }), "tile_relocation")).toBe(true);
+  it("offers them when the board has no mode at all", () => {
+    for (const kind of TAUGHT) {
+      expect(canStartLaterMove(makeBoard({ mode: null }), kind)).toBe(true);
+    }
   });
 });

@@ -1,9 +1,16 @@
 import type { Level } from "../script";
 import { ONBOARDING } from "./onboarding";
 import { GROUND_RULES } from "./ground-rules";
+import { CLAIM_SIZE } from "./claim-size";
+import { CLARITY } from "./clarity";
 
-/** The scripted levels. Levels 3 and 4 have a door on /gym and no script yet. */
-export const SCRIPTED_LEVELS: readonly Level[] = [ONBOARDING, GROUND_RULES];
+/** The scripted levels, in ladder order. All four are playable. */
+export const SCRIPTED_LEVELS: readonly Level[] = [
+  ONBOARDING,
+  GROUND_RULES,
+  CLAIM_SIZE,
+  CLARITY,
+];
 
 export function levelById(id: string | null | undefined): Level | undefined {
   return id ? SCRIPTED_LEVELS.find((level) => level.id === id) : undefined;

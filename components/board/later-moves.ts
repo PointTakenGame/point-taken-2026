@@ -19,10 +19,15 @@ import type { ProposalKind } from "@/lib/events/types";
  *   - reading_handback  (hand a reading back)
  *   - topic_revision    (propose a new wording for the topic)
  *
- * One exception: `tile_relocation` is load-bearing inside Gym level 2 (beat
- * L2.9 of the ratified guide has the player relocate a tile), so relocation
- * stays available whenever the board is not in `"live"` mode, and is hidden
- * only in live play.
+ * Three exceptions, all of them the same exception: a move that a Gym level
+ * teaches has to be reachable inside the Gym, so it stays available whenever
+ * the board is not in `"live"` mode and is hidden only in live play.
+ *
+ *   - `tile_relocation`, Gym level 2 (beat L2.9 has the player relocate a tile)
+ *   - `reading_handback`, Gym level 4 (beats L4.4 and L4.7, the restatement box)
+ *   - `definition`, Gym level 4 (beat L4.6, Define That and the pinned strip)
+ *
+ * The other three are level 5 and above and are off everywhere.
  *
  * This gate is temporary. It is the one place that decides whether a player
  * may START one of these six moves right now; it does not touch the event
@@ -33,8 +38,14 @@ import type { ProposalKind } from "@/lib/events/types";
  * reject, or simply rendering one made before this gate existed) is never
  * gated here: only starting a new one is.
  */
+const TAUGHT_IN_THE_GYM: readonly ProposalKind[] = [
+  "tile_relocation",
+  "reading_handback",
+  "definition",
+];
+
 export function canStartLaterMove(board: BoardState, kind: ProposalKind): boolean {
-  if (kind === "tile_relocation") return board.mode !== "live";
+  if (TAUGHT_IN_THE_GYM.includes(kind)) return board.mode !== "live";
   return false;
 }
 
