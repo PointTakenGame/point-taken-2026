@@ -24,7 +24,7 @@ import {
   type BoardLayout,
   type GridPosition,
 } from "@/components/board/layout";
-import { tileLead } from "@/components/board/side-label";
+import { stripDuplicateLead, tileLead } from "@/components/board/side-label";
 import type { TileSide } from "@/components/board/tile-shape";
 import type { Side, TileCorner } from "@/lib/events/types";
 
@@ -202,6 +202,12 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * caller can open its composer already filled in.
    */
   slotSamples?: readonly string[];
+  /**
+   * A reply slot to draw whether or not its parent is hovered: the one the
+   * gym coach is pointing at (`components/gym/pointed-slot.ts`). Root slots
+   * are drawn permanently anyway, so a topic slot here changes nothing.
+   */
+  pointedSlot?: { parentId: string; corner: TileCorner } | null;
   /**
    * Where the caller is currently composing, if anywhere. The retired client
    * wrote the reason on the board rather than in a form under it: you clicked
@@ -584,6 +590,7 @@ export function SpatialBoard<T extends SpatialTile>({
   renderTile,
   onPlace,
   slotSamples,
+  pointedSlot = null,
   draftAt = null,
   draft,
   placementEnabled = false,
@@ -664,24 +671,37 @@ export function SpatialBoard<T extends SpatialTile>({
     // one on top of it, and the hover that put them there is gone the moment
     // the cursor moves to the keyboard anyway.
     if (draftAt) return [];
-    if (!placementEnabled || !hoveredId) return [];
+    if (!placementEnabled) return [];
+    const slotsUnder = (parentId: string) => {
+      if (canPlaceOn && !canPlaceOn(parentId)) return [];
+      const parentPos = layout.positions.get(parentId);
+      if (!parentPos) return [];
+      return legalPlacements(layout, parentId, null).map((pos) => ({
+        pos,
+        parentId,
+        side: placeSide,
+        corner: cornerFromOffset(pos.x - parentPos.x, pos.y - parentPos.y),
+      }));
+    };
+    // The slot the coach is pointing at is drawn whether or not its parent
+    // is under the cursor, and first, so it carries the first sample answer.
+    const pointed =
+      pointedSlot && pointedSlot.parentId !== TOPIC_CELL_ID
+        ? slotsUnder(pointedSlot.parentId).filter(
+            (slot) => slot.corner === pointedSlot.corner,
+          )
+        : [];
     // The topic's four diagonals are drawn permanently by `rootGhosts`, all
     // of them at once rather than only on hover, so a player can see the
     // whole shape of the argument before touching anything (Steve,
     // 2026-09-04). Nothing else can go straight on the topic, so there is
     // nothing left for a hover ghost to add here.
-    if (hoveredId === TOPIC_CELL_ID) return [];
-    if (canPlaceOn && !canPlaceOn(hoveredId)) return [];
-    const parentPos = layout.positions.get(hoveredId);
-    if (!parentPos) return [];
-    const open = legalPlacements(layout, hoveredId, null);
-    return open.map((pos) => ({
-      pos,
-      parentId: hoveredId,
-      side: placeSide,
-      corner: cornerFromOffset(pos.x - parentPos.x, pos.y - parentPos.y),
-    }));
-  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn, placeSide]);
+    if (!hoveredId || hoveredId === TOPIC_CELL_ID) return pointed;
+    const hovered = slotsUnder(hoveredId).filter(
+      (slot) => !pointed.some((p) => p.pos.x === slot.pos.x && p.pos.y === slot.pos.y),
+    );
+    return [...pointed, ...hovered];
+  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn, placeSide, pointedSlot]);
 
   // The topic's open corners, drawn for as long as the game is still in its
   // root stage (`roots < rootTarget`, `lib/board/rules.ts`): every corner in
@@ -744,6 +764,26 @@ export function SpatialBoard<T extends SpatialTile>({
   }, [draftAt, placementEnabled, canPlaceOn, layout, placed, rootTarget, placeSide]);
 
   const pitch = size * CELL_PITCH_RATIO;
+
+  // Tiles are drawn at grid position plus the layout's offset, and that offset
+  // grows whenever a tile lands above or left of everything placed so far:
+  // the whole canvas then shifts down or right by a cell, which on screen is
+  // a pan nobody asked for, the exact thing the automatic refit above is
+  // built not to do (Steve, 2026-09-04, "never pan it unless they expect
+  // that to happen"). Back the pan off by the same distance in the same
+  // render, so every tile already on screen stays where it was and only the
+  // new one appears. Written as state adjusted during render, the pattern
+  // React documents for reacting to a prop change, because the lint here
+  // forbids a synchronous setState inside an effect and a frame later would
+  // flash the jump.
+  const [seenOffset, setSeenOffset] = useState({ x: layout.offsetX, y: layout.offsetY });
+  if (seenOffset.x !== layout.offsetX || seenOffset.y !== layout.offsetY) {
+    const dx = (layout.offsetX - seenOffset.x) * pitch * remPx * zoom;
+    const dy = (layout.offsetY - seenOffset.y) * pitch * remPx * zoom;
+    setSeenOffset({ x: layout.offsetX, y: layout.offsetY });
+    setPan((p) => ({ x: p.x - dx, y: p.y - dy }));
+  }
+
   const canvasWidth = (layout.width - 1) * pitch + size;
   const canvasHeight = (layout.height - 1) * pitch + size;
 
@@ -826,7 +866,20 @@ export function SpatialBoard<T extends SpatialTile>({
       // where the player left it, instead of sliding the argument sideways
       // under someone who is reading it. Pressing Fit to screen passes false
       // and still recentres, because that is a view the player asked for.
-      if (onlyWhenRescaling && Math.abs(next - zoomRef.current) < 0.001) return;
+      //
+      // Only once the view has been centred, though. A one-tile board fits at
+      // life size, so on mount `next` equals the starting zoom and this used
+      // to return here without ever centring: the topic sat at the canvas
+      // origin, top-left of the pane, and the first tile that forced a
+      // shrink took the full recentre below and slid the whole board to the
+      // middle of the screen. That was the pan Steve's 2026-09-04 playtest
+      // saw when Bob's tile landed (BRAIN-T260904-32).
+      if (
+        onlyWhenRescaling &&
+        hasCentered.current &&
+        Math.abs(next - zoomRef.current) < 0.001
+      )
+        return;
 
       // The very first fit, on mount, has no view yet for a pan to disturb,
       // so it centres the topic in the reserved area the way Fit to screen
@@ -1143,7 +1196,10 @@ export function SpatialBoard<T extends SpatialTile>({
         ))}
 
         {rootGhosts.map(({ pos, parentId, corner, side, interactive, sampleIndex }) => {
-          const sample = interactive ? (slotSamples?.[sampleIndex] ?? null) : null;
+          // The ghost already prints the stem as a chip, so a sample that
+          // opens with the same words would read "Yes, because Yes, because".
+          const raw = interactive ? (slotSamples?.[sampleIndex] ?? null) : null;
+          const sample = raw === null ? null : stripDuplicateLead(raw);
           return (
             <GhostSlot
               key={`root:${corner}`}
@@ -1168,7 +1224,8 @@ export function SpatialBoard<T extends SpatialTile>({
         })}
 
         {ghosts.map(({ pos, parentId, side, corner }, index) => {
-          const sample = slotSamples?.[index] ?? null;
+          const raw = slotSamples?.[index] ?? null;
+          const sample = raw === null ? null : stripDuplicateLead(raw);
           return (
             <GhostSlot
               key={`${pos.x},${pos.y}`}

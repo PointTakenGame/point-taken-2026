@@ -22,6 +22,11 @@ import {
   TOPIC_CELL_ID,
   type GridPosition,
 } from "@/components/board/layout";
+import {
+  clearPointedSlot,
+  publishPointedSlot,
+  type PointedSlot,
+} from "@/components/gym/pointed-slot";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
@@ -320,6 +325,20 @@ function Director({
     () => resolveAnchor(anchor, progress.keys),
     [anchor, progress.keys],
   );
+
+  // A slot anchor is also published to the board, which draws that one slot
+  // permanently so the arrow has something to point at: reply slots are
+  // otherwise hover-only (`components/gym/pointed-slot.ts`).
+  const pointedSlot: PointedSlot | null = useMemo(() => {
+    if (!anchor || !("slot" in anchor)) return null;
+    const parentId =
+      anchor.slot.parent === "topic" ? TOPIC_CELL_ID : progress.keys[anchor.slot.parent];
+    return parentId ? { parentId, corner: anchor.slot.corner } : null;
+  }, [anchor, progress.keys]);
+  useEffect(() => {
+    publishPointedSlot(pointedSlot);
+    return () => clearPointedSlot();
+  }, [pointedSlot]);
 
   if (!beat) return null;
 

@@ -145,13 +145,21 @@ export function AnchoredCard({
   }, [anchorSelector, fallbackSelector, width, reserveRight, placement, arrow]);
 
   useEffect(() => {
+    // Place once on a timer as well as on the frame loop: a background or
+    // throttled tab does not run animation frames, and a card that waits for
+    // its first frame sits at -9999px until the tab is fronted. Timers still
+    // fire there. The frame loop then keeps it current while the board moves.
+    const first = window.setTimeout(place, 0);
     let frame = 0;
     const tick = () => {
       place();
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      window.clearTimeout(first);
+      cancelAnimationFrame(frame);
+    };
   }, [place]);
 
   useEffect(() => {

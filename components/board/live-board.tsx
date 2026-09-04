@@ -99,6 +99,7 @@ import {
 } from "@/app/game/[gameId]/actions";
 import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
+import { usePointedSlot } from "@/components/gym/pointed-slot";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
 
 /**
@@ -1175,15 +1176,16 @@ function TileNode({
                     </>
                   );
                 })()}
-                {canStartLaterMove(board, "definition") && (
-                  <ActionItem
-                    label="Pin down a word"
-                    hint="Ask what one word in here is doing, and agree on what it means."
-                    verdict={definitionVerdict}
-                    disabled={pending || proposing !== null}
-                    onClick={() => setProposing("definition")}
-                  />
-                )}
+                {!(board.mode === "gym" && tile.parentId === null) &&
+                  canStartLaterMove(board, "definition") && (
+                    <ActionItem
+                      label="Pin down a word"
+                      hint="Ask what one word in here is doing, and agree on what it means."
+                      verdict={definitionVerdict}
+                      disabled={pending || proposing !== null}
+                      onClick={() => setProposing("definition")}
+                    />
+                  )}
                 {mine && (
                   <>
                     <span
@@ -2606,6 +2608,7 @@ export function LiveBoard({
   // What the Gym coach has offered to write for the next tile, published by
   // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
   const sampleAnswers = useSampleAnswers();
+  const pointedSlot = usePointedSlot();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -2718,6 +2721,7 @@ export function LiveBoard({
           )
         }
         slotSamples={sampleAnswers}
+        pointedSlot={pointedSlot}
         onPlace={(parentId, pos, sample, corner) => {
           setSelectedTileId(null);
           setArmedCardId(null);
@@ -2725,11 +2729,15 @@ export function LiveBoard({
           // once per match. The topic belongs to neither side, so starting a
           // thread off it is never a same-side answer.
           const answering = parentId === TOPIC_CELL_ID ? null : sideOf.get(parentId);
+          // The composer prints the stem as a chip in front of the text, so
+          // a coach sample that opens with the same words is trimmed before
+          // it becomes the draft, or it typed out "Hmm But a bun...".
+          const seed = sample ? stripDuplicateLead(sample) : null;
           if (answering && answering === me.role && !sameSideNoticeSeen(gameId)) {
-            setSameSideHold({ parentId, pos, sample: sample ?? null, corner });
+            setSameSideHold({ parentId, pos, sample: seed, corner });
             return;
           }
-          setDraft({ parentId, pos, sample: sample ?? null, corner });
+          setDraft({ parentId, pos, sample: seed, corner });
         }}
         onSelect={(tileId) => {
           if (armedCardId) {
