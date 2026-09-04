@@ -89,7 +89,7 @@ export const GROUND_RULES: Level = {
         key: "A",
         parent: null,
         suggestions: [
-          "Yes, because the spring change causes a measurable spike in car crashes and heart attacks right after it.",
+          "Yes, because the spring change brings a real spike in car crashes and heart attacks right after.",
           "Yes, because the week after the change, everyone I know is useless.",
         ],
       },
@@ -142,7 +142,7 @@ export const GROUND_RULES: Level = {
         kind: "tile",
         key: "B1",
         parent: "B",
-        text: "But nobody kept it for the energy math after about 1975, it stayed because people liked the evenings.",
+        text: "But nobody kept it for the energy math after 1975, it stayed because people liked the evenings.",
       },
     },
     {
@@ -182,7 +182,7 @@ export const GROUND_RULES: Level = {
         kind: "tile",
         key: "A3",
         parent: "A2",
-        text: "But whoever put that tiny recessed clock-set button on the back of my microwave should be prosecuted.",
+        text: "But whoever put that tiny recessed clock-set button on my microwave should be prosecuted.",
       },
     },
     {
@@ -271,7 +271,7 @@ export const GROUND_RULES: Level = {
         kind: "tile",
         key: "B3",
         parent: "B2",
-        text: "But evening light is when people actually leave the house, and that's worth more than the kilowatt-hours.",
+        text: "But evening light is when people leave the house, and that's worth more than the kilowatt-hours.",
       },
     },
     {

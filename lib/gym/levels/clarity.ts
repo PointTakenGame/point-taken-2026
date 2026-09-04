@@ -126,7 +126,7 @@ export const CLARITY: Level = {
         kind: "tile",
         key: "A1",
         parent: "A",
-        text: "But people already decide what to trust from the source, and a label doesn't change who's publishing it.",
+        text: "But people already judge trust by the source, and a label doesn't change who's publishing it.",
       },
     },
     {

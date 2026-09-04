@@ -127,7 +127,7 @@ export const CLAIM_SIZE: Level = {
         kind: "tile",
         key: "A1",
         parent: "A",
-        text: "But a flat wage doesn't reward the difference between a server who's paying attention and one who isn't.",
+        text: "But a flat wage doesn't reward the difference between a server paying attention and one who isn't.",
       },
     },
     {
@@ -263,7 +263,7 @@ export const CLAIM_SIZE: Level = {
         kind: "tile",
         key: "C2",
         parent: "C1",
-        text: "But a server at a packed steakhouse does not take home the same as one at a dead diner on a Tuesday, so that word is doing the arguing for you.",
+        text: "But a packed steakhouse pays nothing like a dead diner, and 'completely' is doing your arguing.",
       },
     },
     {

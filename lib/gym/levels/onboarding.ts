@@ -21,16 +21,23 @@ import type { Level } from "../script";
  * writes this reason twice, and the second time it is one word shorter. The
  * earlier beat says "hinged exactly the same way", the later one says "hinged
  * the same way", and reconciling the two into one string would quietly rewrite
- * his script, so both are kept as written.
+ * his script, so both are kept.
+ *
+ * The longer one lost its tail on 2026-09-04. As he wrote it ("nobody has ever
+ * doubted a hoagie is a sandwich") it came to 101 characters, one over
+ * TILE_MAX_CHARS, and a boss tile that long only reaches the board because
+ * bossAct never asks canPlaceTile. Shortened to "nobody doubts", which is the
+ * same sentence. See placeable.test.ts, which now fails on any line that will
+ * not fit the box it goes in.
  */
 const HOAGIE_EXACTLY =
-  "But a hoagie roll is hinged exactly the same way, and nobody has ever doubted a hoagie is a sandwich.";
+  "But a hoagie roll is hinged exactly the same way, and nobody doubts a hoagie is a sandwich.";
 const HOAGIE =
   "But a hoagie roll is hinged the same way, and nobody has ever doubted a hoagie is a sandwich.";
 const WRAP =
   "But then a wrap wouldn't be a sandwich either, and most people would say it is.";
 const MENUS =
-  "But menus list burgers separately from sandwiches too, and a burger is a sandwich. What a menu calls it isn't the test.";
+  "But menus list burgers apart from sandwiches too, and a burger is a sandwich. Menus aren't the test.";
 
 /** The player went structural (bread, bun, hinge) rather than social (menus, orders). */
 function structural(text: string | null): boolean {
@@ -152,7 +159,7 @@ export const ONBOARDING: Level = {
         key: "B2",
         parent: "B1",
         suggestions: [
-          "But a burger has its own name for the same reason: when a food gets specific enough, the specific name wins.",
+          "But a burger has its own name for the same reason: a specific enough food earns its own name.",
           "But food categories are about how people use the word, not about geometry.",
         ],
       },
@@ -191,7 +198,7 @@ export const ONBOARDING: Level = {
         kind: "tile",
         key: "A3",
         parent: "A1",
-        text: "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a definition.",
+        text: "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a rule.",
       },
     },
     {
