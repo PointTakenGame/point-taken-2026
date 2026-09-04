@@ -3,8 +3,8 @@ import Link from "next/link";
 /**
  * The quiet way off a board that is still going.
  *
- * `SiteNav` deliberately does not render here, and should not: a row of six
- * ways to leave, sitting above an argument in progress, invites leaving. But
+ * The account hub's tab bar deliberately does not render here, and should
+ * not: a row of tabs, sitting above an argument in progress, invites leaving. But
  * the alternative that shipped was worse. A live board and a room waiting for
  * its second player had no link out at all, so the only way back to your games
  * was the browser's back button or typing a URL, and the finished board was the

@@ -29,7 +29,13 @@ function Tile({
       <div className="font-figure text-ink text-4xl leading-none font-black tabular-nums">
         {figure}
       </div>
-      <div className="font-label text-stat-warm text-xs font-semibold">{note}</div>
+      <div
+        className={`font-label text-stat-warm text-xs font-semibold ${
+          href ? "underline decoration-dotted" : ""
+        }`}
+      >
+        {note}
+      </div>
     </>
   );
 
@@ -99,7 +105,7 @@ export function StatTiles({
         <Tile
           label="Cooperation score"
           figure={String(stats.threads_resolved)}
-          note="Threads agreed · see the board"
+          note="Threads agreed · see the leaderboard"
           href="/leaderboard?by=cooperation"
         />
         <Tile

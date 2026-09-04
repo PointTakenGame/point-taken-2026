@@ -7,7 +7,7 @@ import {
   type LeaderboardRow,
 } from "@/lib/db/leaderboard";
 import { Avatar } from "@/components/avatar";
-import { SiteNav } from "@/components/site-nav";
+import { AccountHeading, AccountShell } from "@/components/account/account-shell";
 
 /**
  * Where everybody stands, which until now was the one screen the game had no
@@ -31,6 +31,10 @@ import { SiteNav } from "@/components/site-nav";
  * The board is sorted by whichever column you pick, rather than by a blended
  * score. A single number would have to weigh cooperation against winning, and
  * nobody has decided that trade, so the page declines to imply one.
+ *
+ * Lives inside the four-tab account hub as of 2026-09-04 (Steve): the Gym and
+ * the Leaderboard are not tabs of their own, so this renders under the
+ * Profile tab and offers a small link back to it instead of a second nav bar.
  */
 
 export const dynamic = "force-dynamic";
@@ -110,19 +114,20 @@ export default async function LeaderboardPage({
   const places = ranks(rows, metric);
 
   return (
-    <div className="dot-ground min-h-screen w-full">
-      <SiteNav here="leaderboard" />
-      <main className="mx-auto flex w-full max-w-[1229px] flex-col gap-6 px-6 pb-16">
-        <header className="flex flex-col gap-2 pb-2">
-          <h1 className="font-primary text-ink text-5xl tracking-wide uppercase">
-            Leaderboard
-          </h1>
-          <p className="font-secondary text-ink-soft max-w-2xl">
-            Both ways to win this game are cooperative, so none of these columns measures
-            beating anybody.
-          </p>
-        </header>
+    <AccountShell tab="profile">
+      <Link
+        href="/"
+        className="font-label text-ink-soft hover:text-ink mb-4 inline-block text-xs font-bold tracking-widest uppercase transition-colors"
+      >
+        &larr; Profile
+      </Link>
 
+      <AccountHeading title="Leaderboard">
+        Both ways to win this game are cooperative, so none of these columns measures
+        beating anybody.
+      </AccountHeading>
+
+      <div className="flex flex-col gap-6 pb-8">
         <SortLinks active={metric} />
 
         {rows.length === 0 ? (
@@ -195,7 +200,7 @@ export default async function LeaderboardPage({
             })}
           </ol>
         )}
-      </main>
-    </div>
+      </div>
+    </AccountShell>
   );
 }

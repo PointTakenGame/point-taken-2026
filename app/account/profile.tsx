@@ -4,6 +4,7 @@ import { readPlayerAwards } from "@/lib/db/awards";
 import type { GameTopic } from "@/lib/db/games";
 import type { PlayerStats } from "@/lib/db/stats";
 import type { Uuid } from "@/lib/events/types";
+import { SCRIPTED_LEVELS } from "@/lib/gym/levels";
 import { Counter } from "@/components/counter";
 import { LocalDay } from "@/components/local-day";
 import { StreakCounters } from "@/components/streak-counters";
@@ -81,6 +82,18 @@ function countTopics(topics: Map<Uuid, GameTopic>): number {
   return seen.size;
 }
 
+/**
+ * Which level "Enter the gym" should open: the first scripted level this
+ * player has not cleared, or the first one again once all four are, so the
+ * button always has something to start (BRAIN-T260904, ladder as level
+ * select).
+ */
+function currentLevelId(clearedLevels: { levelId: string }[]): string {
+  const cleared = new Set(clearedLevels.map((entry) => entry.levelId));
+  const next = SCRIPTED_LEVELS.find((level) => !cleared.has(level.id));
+  return (next ?? SCRIPTED_LEVELS[0]).id;
+}
+
 function Signature({ stats }: { stats: PlayerStats }) {
   const emoji = Object.entries(stats.resolutions_by_emoji);
   if (emoji.length === 0) return null;
@@ -132,6 +145,7 @@ export async function Profile({ playerId }: { playerId: Uuid }) {
   return (
     <AccountShell tab="profile">
       <PlayCards
+        currentLevelId={currentLevelId(awards.clearedLevels)}
         resumeGameId={inFlight?.id ?? null}
         resumeWaiting={inFlight?.status === "lobby"}
         resumeTopic={inFlight ? (topics.get(inFlight.id)?.text ?? null) : null}

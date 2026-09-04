@@ -151,8 +151,8 @@ export function Certificate({ level, board }: { level: Level; board: BoardState 
                 Next: Level {next.number}
               </StartLevelButton>
             ) : null}
-            <Link href="/gym" className={QUIET}>
-              Back to the Gym
+            <Link href="/#ladder" className={QUIET}>
+              Back to the ladder
             </Link>
             <Link
               href="/account"

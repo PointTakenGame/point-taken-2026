@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
-/** The rules link lives here, not only in SiteNav, which renders nothing for a
- *  signed-out visitor: exactly the person who has never played. */
+/** The rules link lives here, not only in the account hub's tab bar, which
+ *  renders nothing for a signed-out visitor: exactly the person who has never
+ *  played. */
 export function HomeLinks({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="text-p-sm text-ink-soft flex flex-col items-center gap-2 text-center">

@@ -107,16 +107,18 @@ export function AccountShell({
           (BRAIN-T260817-02); a version number pinned in a component would be a
           lie the day after it is written.
 
-          It carries the way home, which nothing else on these pages does now
-          that the site nav is gone from them.
+          The launcher reads "Help" now, not "How to play" (Steve, 2026-09-04),
+          styled as the small pill so it matches the "?" the live board already
+          shows: same control, same word, two different surfaces to reach it
+          from.
         */}
         <footer className="font-label text-ink-soft flex flex-wrap items-center gap-2 pt-12 text-[10px]">
           <Link href="/" className="hover:text-ink transition-colors">
             Point Taken
           </Link>
           <span aria-hidden>·</span>
-          <OnboardingLauncher className="hover:text-ink transition-colors">
-            How to play
+          <OnboardingLauncher className="font-label border-ink/40 text-ink hover:bg-card rounded-full border px-3 py-1 text-[10px] font-bold tracking-widest uppercase">
+            Help
           </OnboardingLauncher>
           <span aria-hidden>·</span>
           <span>&copy; 2026</span>
@@ -149,13 +151,19 @@ export function AccountHeading({
 
 /** A sticker panel: ink border, hard offset shadow, no blur. */
 export function Panel({
+  id,
   className,
   children,
 }: {
+  id?: string;
   className?: string;
   children: React.ReactNode;
 }) {
-  return <section className={`sticker p-6 ${className ?? ""}`}>{children}</section>;
+  return (
+    <section id={id} className={`sticker p-6 ${className ?? ""}`}>
+      {children}
+    </section>
+  );
 }
 
 /**
