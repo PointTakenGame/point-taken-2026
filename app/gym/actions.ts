@@ -251,8 +251,12 @@ export async function bossAct(gameId: string): Promise<ActionResult> {
       break;
     }
     case "accept": {
-      const tileId = key(act.tile);
-      if (!tileId) return failed(`Script tile ${act.tile} is not on the board yet.`);
+      // A definition points at no tile, so `act.tile` may be null on purpose.
+      // Null means "the proposal whose target is null"; a name that is not
+      // bound yet is the failure.
+      const tileId = act.tile === null ? null : key(act.tile);
+      if (act.tile !== null && !tileId)
+        return failed(`Script tile ${act.tile} is not on the board yet.`);
       const proposal = board.proposals.find(
         (p) =>
           p.kind === act.proposal && p.targetTileId === tileId && p.status === "pending",
@@ -268,6 +272,7 @@ export async function bossAct(gameId: string): Promise<ActionResult> {
       // Mirrors acceptProposal in app/game/[gameId]/actions.ts: accepting a
       // relocation is what moves the tile.
       if (
+        tileId &&
         proposal.kind === "tile_relocation" &&
         "new_thread_root_id" in proposal.content
       ) {

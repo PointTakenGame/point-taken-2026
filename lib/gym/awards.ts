@@ -87,7 +87,9 @@ export async function grantLevelAwards(gameId: Uuid): Promise<void> {
       newEvent({
         type: "points_changed",
         ...actor,
-        payload: { delta: beat.points, reason: "throw" },
+        // Level 3's dare stakes points and gives them back, so the reason is
+        // the beat's when it names one. Everything else is a catch.
+        payload: { delta: beat.points, reason: beat.pointsReason ?? "throw" },
       }),
     );
   }

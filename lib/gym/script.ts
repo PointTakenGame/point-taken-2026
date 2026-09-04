@@ -19,11 +19,11 @@ import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
  * and the player is nudged back to the expected move if they wander, so
  * order is enough and text is left free to vary.
  *
- * Nothing here awards anything. Badges and points on a beat are what the
- * certificate and the coach display; there is no award event in the
- * catalogue yet (docs/tech-spec.md), so what a level "grants" is read back
- * from the script, not from the log. That is the display-only seam Steve
- * asked to have surfaced (BRAIN-T260903-09).
+ * Nothing here appends anything. Badges and points on a beat are what the
+ * coach shows while the level runs; the four award events landed in
+ * `0014_awards.sql`, and `lib/gym/awards.ts` writes them from these same
+ * beats once the game ends. So during play the score is script-derived, and
+ * after it the certificate reads the log.
  */
 
 export type TileKey = string;
@@ -46,13 +46,31 @@ export type BossAct =
   | { kind: "token"; thread: TileKey; emoji: ScriptToken }
   | { kind: "revise"; tile: TileKey; text: ScriptText }
   | { kind: "remove"; tile: TileKey }
-  | { kind: "accept"; proposal: ProposalKind; tile: TileKey };
+  /** `tile` is null for a proposal that points at no tile, a definition. */
+  | { kind: "accept"; proposal: ProposalKind; tile: TileKey | null };
 
 export type PlayerExpect =
   | { kind: "tile"; key: TileKey; parent: TileKey | null; suggestions: readonly string[] }
   | { kind: "token"; thread: TileKey; emoji: ScriptToken }
   | { kind: "throw"; tile: TileKey; cardId: string; rungId: string | null }
-  | { kind: "relocate"; tile: TileKey; to: TileKey };
+  | { kind: "relocate"; tile: TileKey; to: TileKey }
+  /**
+   * The player rewriting one of their own tiles (level 3's third rung). Matched
+   * on the tile carrying an edit, not on what it now says: the whole lesson is
+   * that the player picks the smaller wording themselves, so nothing here reads
+   * the words back and grades them.
+   */
+  | { kind: "edit"; tile: TileKey; suggestions?: readonly string[] }
+  /**
+   * The player asking the boss for something: a reading handed back, or a word
+   * pinned down (level 4). `tile` is null when the proposal points at no tile.
+   */
+  | {
+      kind: "propose";
+      proposal: ProposalKind;
+      tile: TileKey | null;
+      suggestions?: readonly string[];
+    };
 
 interface BeatBase {
   id: string;
@@ -60,8 +78,16 @@ interface BeatBase {
   coach?: string;
   /** Badge ids (lib/progression/sample.ts) the certificate shows for clearing this beat. */
   badges?: readonly string[];
-  /** Points the beat is worth, THROW_POINTS for a catch. Display only. */
+  /** Points the beat is worth, THROW_POINTS for a catch. Negative for a stake. */
   points?: number;
+  /**
+   * The machine-readable why, written into `points_changed.reason` when the
+   * level is banked. "throw" unless the beat says otherwise; level 3's dare
+   * uses "dare_staked" and "dare_repaired".
+   */
+  pointsReason?: string;
+  /** The same thing in words, shown beside the score as it moves. */
+  pointsLabel?: string;
 }
 
 export type Beat =
@@ -74,6 +100,14 @@ export type Beat =
       cardId?: string;
       /** A line the boss says in the pause, shown above the coach's. */
       bossSays?: string;
+      /**
+       * The moderator, who is neither player and speaks for the board itself.
+       * Level 4 opens with the moderator refusing a question tile in front of
+       * the player, which is how the rule is taught before the card is.
+       */
+      moderator?: string;
+      /** What the boss says after the moderator, shown under that line. */
+      bossReplies?: string;
     })
   | (BeatBase & {
       kind: "player";
@@ -254,7 +288,7 @@ export function levelProgress(
         }
         case "accept": {
           const tileId = resolve(spec.tile);
-          if (!tileId) break;
+          if (tileId === undefined) break;
           const proposal = board.proposals.find(
             (p) =>
               p.kind === spec.proposal &&
@@ -262,6 +296,28 @@ export function levelProgress(
               p.status === "accepted",
           );
           if (proposal?.answeredAtSeq) matchedSeq = proposal.answeredAtSeq;
+          break;
+        }
+        case "edit": {
+          const tileId = resolve(spec.tile);
+          if (!tileId) break;
+          const tile = board.tiles.find((t) => t.id === tileId);
+          // Same shape as "remove": the projection keeps the flag, not the seq
+          // it was set at, so the cursor stands where it was.
+          if (tile?.edited) matchedSeq = cursor;
+          break;
+        }
+        case "propose": {
+          const tileId = resolve(spec.tile);
+          if (tileId === undefined) break;
+          const proposal = board.proposals.find(
+            (p) =>
+              p.kind === spec.proposal &&
+              p.targetTileId === tileId &&
+              p.askedBy === side &&
+              p.askedAtSeq > cursor,
+          );
+          if (proposal) matchedSeq = proposal.askedAtSeq;
           break;
         }
       }

@@ -169,6 +169,33 @@ export type Verdict = Allowed | Refusal;
 const ALLOWED: Allowed = { ok: true };
 const no = (error: string): Refusal => ({ ok: false, error });
 
+/**
+ * The moderator's one interception: a reason may not be a question.
+ *
+ * Nathan's level 4 (Revision 2, L4.2) makes this a rule of the board rather
+ * than a card: "a question doesn't hand the other player anything to answer.
+ * There's no claim in it to agree or disagree with, so there's nothing for a
+ * tile to be." It applies to both players, in live play and in the Gym, and
+ * the refusal is worded in the moderator's voice because that is who a player
+ * hears it from.
+ *
+ * The test is the last character, deliberately. A reason may quote a question
+ * on its way to a claim ("They ask who checks the label, and nobody does"),
+ * and only the sentence a tile ENDS on says what the tile is offering. A
+ * trailing quote or bracket is stripped first so a quoted question still
+ * reads as one. This will let a rhetorical question phrased without a question
+ * mark through; that is the right side to fail on, because the alternative is
+ * a rule that argues with people about what they meant.
+ */
+const QUESTION_TAIL = /[?？]["'”’)\]\s]*$/u;
+
+export function isQuestion(text: string): boolean {
+  return QUESTION_TAIL.test(text.trim());
+}
+
+const NOT_A_QUESTION =
+  "That is a question, and the board is for statements. What is the claim behind it?";
+
 /** Nothing may be written to a board that is not in play. */
 export function boardIsOpen(board: BoardState): Verdict {
   if (board.status === "ended") return no("This game is over.");
@@ -189,6 +216,7 @@ export function canPlaceTile(
   if (trimmed.length > TILE_MAX_CHARS) {
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
   }
+  if (isQuestion(trimmed)) return no(NOT_A_QUESTION);
 
   if (parentTileId === null) {
     // A tile with no parent opens a new thread, and six is all a game gets.
@@ -244,6 +272,9 @@ export function canEditTile(
   if (trimmed.length > TILE_MAX_CHARS) {
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
   }
+  // Same rule on the way in and on the way back out: a reason edited into a
+  // question is a question.
+  if (isQuestion(trimmed)) return no(NOT_A_QUESTION);
   return ALLOWED;
 }
 
