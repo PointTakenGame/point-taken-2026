@@ -67,17 +67,40 @@ function winsFrom(stats: PlayerStats): number {
 }
 
 /**
+ * The scripted opponents. A Gym boss holds a real seat, so he shows up in
+ * `game_players` like anyone else, and before `players.kind` existed he was
+ * quietly climbing this board by being played against. Cheap query: the
+ * partial index in `0013_player_kind.sql` covers exactly this predicate.
+ */
+async function bossPlayerIds(): Promise<Set<Uuid>> {
+  const { data, error } = await serviceClient()
+    .from("players")
+    .select("id")
+    .eq("kind", "boss");
+
+  if (error) throw new Error(`leaderboard boss filter failed: ${error.message}`);
+
+  return new Set(((data ?? []) as { id: Uuid }[]).map((row) => row.id));
+}
+
+/**
  * Every player who has been seated in a game, with how many games each has
  * been in. One query, grouped here rather than in SQL because a `group by`
- * through PostgREST needs a view, and a view is a migration.
+ * through PostgREST needs a view, and a view is a migration. Bosses are
+ * dropped here rather than after the slice, so a boss cannot take one of the
+ * `LEADERBOARD_SIZE` places away from a person.
  */
 async function playerGameCounts(): Promise<Map<Uuid, number>> {
-  const { data, error } = await serviceClient().from("game_players").select("player_id");
+  const [{ data, error }, bosses] = await Promise.all([
+    serviceClient().from("game_players").select("player_id"),
+    bossPlayerIds(),
+  ]);
 
   if (error) throw new Error(`leaderboard roster failed: ${error.message}`);
 
   const counts = new Map<Uuid, number>();
   for (const row of (data ?? []) as { player_id: Uuid }[]) {
+    if (bosses.has(row.player_id)) continue;
     counts.set(row.player_id, (counts.get(row.player_id) ?? 0) + 1);
   }
   return counts;

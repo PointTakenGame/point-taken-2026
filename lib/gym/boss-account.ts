@@ -14,10 +14,11 @@ import { serviceClient } from "@/lib/supabase/server";
  * every level that boss appears in seats that same user. Nobody can sign in
  * as a boss: there is no password and the address is not deliverable.
  *
- * This is the first of the blockers Steve asked to have named
- * (BRAIN-T260903-09): the schema has no notion of a non-human seat, so the
- * boss is a human-shaped row with a robot behind it. A `players.kind` column
- * would be the honest fix and is a core change.
+ * `players.kind` says what he is (0013_player_kind.sql), which is what every
+ * player-facing roster filters on. The auth user is still here: dropping it
+ * would mean changing what `public.players.id` references, and that column is
+ * the identity spine of every RLS policy in 0004 and 0009. Steve's 2026-09-03
+ * ruling allowed the auth user to stay if that turned out to be the case.
  */
 
 const UNIQUE_VIOLATION = "23505";
@@ -58,6 +59,14 @@ export async function ensureBossAccount(
     }
     row = await getPlayer(id);
     if (!row) throw new Error(`boss ${bossId} has no players row after createUser`);
+  }
+
+  // The trigger that made the row defaults everyone to human, so say what he
+  // is here rather than relying on the metadata backfill in 0013, which only
+  // ever ran once. Cheap, idempotent, and the thing every roster filters on.
+  if (row.kind !== "boss") {
+    const { error } = await db.from("players").update({ kind: "boss" }).eq("id", id);
+    if (error) throw new Error(`mark boss ${bossId} failed: ${error.message}`);
   }
 
   if (row.display_name === displayName) return id;
