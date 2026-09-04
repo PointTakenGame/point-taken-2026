@@ -125,6 +125,11 @@ function startedGame() {
       payload: {
         card_set: { policy: "intersection", card_ids: [], raised_by: null },
         coach: null,
+        // One root, deliberately. Every board in this file is a single-thread
+        // board built to test one piece of the surface, and the root stage
+        // (lib/board/rules.ts) would otherwise refuse every child slot on it.
+        // The stage itself is tested in lib/board/rules.test.ts.
+        root_target: 1,
       },
     },
   ];

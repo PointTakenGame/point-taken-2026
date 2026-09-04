@@ -184,6 +184,17 @@ export interface BoardProposal {
   answeredAtSeq: number | null;
 }
 
+/**
+ * Thread roots a live game opens with, and what a game_started written before
+ * root_target existed reads as, which is the same number for the same reason:
+ * those games were played with four roots on the table.
+ *
+ * It lives here rather than beside MAX_THREADS in rules.ts because the
+ * projection needs it to fill in version 1 rows and rules.ts already reads from
+ * this file. rules.ts re-exports it.
+ */
+export const LIVE_ROOT_TARGET = 4;
+
 /** The rules this game was started under. Settled once, at game_started. */
 export interface BoardSettings {
   cardSet: {
@@ -192,6 +203,13 @@ export interface BoardSettings {
     raisedBy: Uuid | null;
   };
   coach: { coachId: string; temperament: string } | null;
+  /**
+   * How many thread roots this game opens with. No tile hangs off another
+   * until that many are down (`canPlaceTile` in rules.ts). Always a number
+   * here: a game_started written at version 1 predates the field and reads as
+   * `LIVE_ROOT_TARGET`, which is what those games were played under.
+   */
+  rootTarget: number;
 }
 
 /**
@@ -268,7 +286,9 @@ export const PROJECTED_VERSIONS: Record<GameEventType, number[] | null> = {
   role_selected: [1],
   agreement_signed: [1],
   topic_set: [1],
-  game_started: [1],
+  // 2 added root_target (0012_root_stage.sql). 1 is still folded: those games
+  // were played under the live target, and that is what a missing field reads as.
+  game_started: [1, 2],
   player_left: [1],
   game_ended: [1],
   tile_placed: [1],
@@ -513,6 +533,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
                 temperament: event.payload.coach.temperament,
               }
             : null,
+          rootTarget: event.payload.root_target ?? LIVE_ROOT_TARGET,
         };
         break;
       }

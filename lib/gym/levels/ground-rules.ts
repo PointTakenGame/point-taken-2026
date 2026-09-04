@@ -35,6 +35,9 @@ export const GROUND_RULES: Level = {
   bossName: "Rambling Rosa",
   bossEmoji: "🧑🏿‍🔧",
   cardId: CARD,
+  // The standard four, which is what the opening pause tells the player a
+  // normal game looks like. Rosa opens C and D, the player opens A and B.
+  rootTarget: 4,
   playerSide: "plus",
   bossSide: "minus",
   banner: "Four threads this time, two reasons from each of you. That's a standard game.",

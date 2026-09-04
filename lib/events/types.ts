@@ -61,6 +61,21 @@ export interface GameStartedPayload {
     raised_by: Uuid | null;
   };
   coach: { coach_id: string; temperament: string } | null;
+  /**
+   * How many thread roots the board opens with. Until that many roots are
+   * down, no tile may hang off another one: the game starts by putting the
+   * disagreement's main branches on the table, not by diving into the first
+   * one. Four in a live game and in gym levels 2 and up, two in gym level 1.
+   *
+   * Settings rather than a constant because it varies per game, and settings
+   * rather than a mode switch because a gym game and a live game are the same
+   * kind of game played under different numbers.
+   *
+   * Optional in this type and only in this type: version 1 of this payload
+   * predates the field, and those rows are still in the log. Version 2 always
+   * writes it. Readers default to `LIVE_ROOT_TARGET` (lib/board/rules.ts).
+   */
+  root_target?: number;
 }
 
 export interface PlayerLeftPayload {
@@ -293,7 +308,9 @@ export const EVENT_TYPES: Record<GameEventType, EventTypeSpec> = {
   role_selected: { schemaVersion: 1, maxBytes: 256 },
   agreement_signed: { schemaVersion: 1, maxBytes: 512 },
   topic_set: { schemaVersion: 1, maxBytes: 1024 },
-  game_started: { schemaVersion: 1, maxBytes: 2048 },
+  // Version 2 adds root_target (0012_root_stage.sql). Version 1 rows are still
+  // in the log and still project; they read as the live target of four.
+  game_started: { schemaVersion: 2, maxBytes: 2048 },
   player_left: { schemaVersion: 1, maxBytes: 256 },
   game_ended: { schemaVersion: 1, maxBytes: 256 },
   tile_placed: { schemaVersion: 1, maxBytes: 1024 },

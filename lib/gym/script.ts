@@ -97,6 +97,12 @@ export interface Level {
   bossEmoji: string;
   /** Snake_case card id from lib/coach/cards.ts, the card this level grants. */
   cardId: string;
+  /**
+   * How many thread roots this level's board opens with, written into
+   * `game_started` when the player starts the level. Four everywhere except
+   * level 1, where the script only has two threads to teach with.
+   */
+  rootTarget: number;
   playerSide: Side;
   bossSide: Side;
   /** The banner under the topic on the lobby screen. */

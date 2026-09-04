@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { projectBoard, type BoardState } from "@/lib/board/project";
+import * as rules from "@/lib/board/rules";
 import * as setup from "@/lib/board/setup";
 import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, readGameEvents } from "@/lib/events/append";
 import type { ActorRole, Side, Uuid } from "@/lib/events/types";
 import { endIfAbandoned } from "@/lib/games/abandon";
 import { readSeat, type Seat } from "@/lib/games/membership";
+import { levelById } from "@/lib/gym/levels";
 import type { ActionResult } from "./actions";
 
 /**
@@ -163,6 +165,12 @@ export async function startGame(gameId: string): Promise<ActionResult> {
   const verdict = setup.canStartGame(board);
   if (!verdict.ok) return failed(verdict.error);
 
+  // The root stage, settled here because this is the one place a game starts:
+  // a gym level is started through this same action, so the level declares its
+  // target and this reads it rather than startLevel writing a second
+  // game_started. Anything that is not a scripted level opens with four.
+  const level = board.levelId ? levelById(board.levelId) : null;
+
   await appendGameEvent(gameId, {
     type: "game_started",
     ...actor(seat),
@@ -170,6 +178,7 @@ export async function startGame(gameId: string): Promise<ActionResult> {
       card_set: setup.startingCardSet(),
       // No live-play coach surface has been decided yet (BRAIN-T260823-15).
       coach: null,
+      root_target: level?.rootTarget ?? rules.LIVE_ROOT_TARGET,
     },
   });
 

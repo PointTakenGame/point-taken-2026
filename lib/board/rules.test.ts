@@ -20,8 +20,10 @@ import {
   cardsInPlay,
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
+  inRootStage,
   isAbandoned,
   isResolved,
+  LIVE_ROOT_TARGET,
   MAX_THREADS,
   proposalsAwaiting,
   proposalsFrom,
@@ -104,10 +106,18 @@ function pushResolvedThread(l: ReturnType<typeof log>, rootId: string) {
   l.push("thread_resolved", { thread_root_id: rootId, emoji: "👍", note: null }, ALICE);
 }
 
-/** Active board with an open root, a removed child, and a resolved thread. */
+/**
+ * Active board with an open root, a removed child, and a resolved thread.
+ *
+ * Four roots, because the root stage refuses a child until the board has its
+ * opening roots down and this fixture exists to test everything else about
+ * placement. The root stage itself has its own describe block below.
+ */
 function boardForPlacement() {
   const l = opened();
   l.push("tile_placed", tile("root", null, "root", "Root."), ALICE);
+  l.push("tile_placed", tile("spare1", null, "spare1", "Third root.", "minus"), BOB);
+  l.push("tile_placed", tile("spare2", null, "spare2", "Fourth root."), ALICE);
   l.push("tile_placed", tile("removed", "root", "root", "Gone.", "minus"), BOB);
   l.push("tile_removed", { tile_id: "removed" }, BOB);
   l.push(
@@ -284,6 +294,79 @@ describe("canPlaceTile", () => {
   it("allows a reason on an open thread", () => {
     const board = boardForPlacement();
     expect(canPlaceTile(board, "New reason.", "root")).toEqual({ ok: true });
+  });
+});
+
+/**
+ * The root stage: nothing hangs off another reason until the board has its
+ * opening roots down. The number comes off game_started, so these build the
+ * log directly rather than going through the shared fixtures.
+ */
+describe("the root stage", () => {
+  function boardWithRoots(count: number, rootTarget?: number) {
+    const l = log();
+    l.push("game_created", {
+      mode: "live",
+      level_id: null,
+      boss_id: null,
+      join_code: "PTKN22",
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "Quiet Amber Fjord" }, BOB);
+    l.push("role_selected", { role: "plus" }, ALICE);
+    l.push("role_selected", { role: "minus" }, BOB);
+    l.push("topic_set", {
+      text: "Cities should cap rents.",
+      origin: "library",
+      topic_id: "rent-cap",
+    });
+    l.push("game_started", {
+      card_set: { policy: "intersection", card_ids: [], raised_by: null },
+      coach: null,
+      ...(rootTarget === undefined ? {} : { root_target: rootTarget }),
+    });
+    for (let i = 0; i < count; i += 1) {
+      const id = `r${i}`;
+      l.push("tile_placed", tile(id, null, id, `Root ${i}.`, i % 2 ? "minus" : "plus"));
+    }
+    return projectBoard(l.events);
+  }
+
+  it("defaults to the live target when the payload predates the field", () => {
+    expect(boardWithRoots(0).settings?.rootTarget).toBe(LIVE_ROOT_TARGET);
+  });
+
+  it("refuses a child while roots are still missing", () => {
+    const verdict = canPlaceTile(boardWithRoots(2), "But no.", "r0");
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok ? "" : verdict.error).toMatch(/2 more reasons/);
+  });
+
+  it("says it in the singular when one root is missing", () => {
+    const verdict = canPlaceTile(boardWithRoots(3), "But no.", "r0");
+    expect(verdict.ok ? "" : verdict.error).toMatch(/^One more reason/);
+  });
+
+  it("never blocks a root, which is how the stage is left", () => {
+    expect(canPlaceTile(boardWithRoots(1), "Another reason.", null)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("allows a child once the roots are down", () => {
+    expect(canPlaceTile(boardWithRoots(4), "But no.", "r0")).toEqual({ ok: true });
+  });
+
+  it("takes the target off the game, so gym level 1 opens after two", () => {
+    const board = boardWithRoots(2, 2);
+    expect(board.settings?.rootTarget).toBe(2);
+    expect(canPlaceTile(board, "But no.", "r0")).toEqual({ ok: true });
+  });
+
+  it("reports the stage the same way the composer asks it", () => {
+    expect(inRootStage(boardWithRoots(3))).toBe(true);
+    expect(inRootStage(boardWithRoots(4))).toBe(false);
+    expect(inRootStage(boardWithRoots(2, 2))).toBe(false);
   });
 });
 

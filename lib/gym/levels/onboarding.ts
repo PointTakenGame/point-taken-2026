@@ -37,6 +37,9 @@ export const ONBOARDING: Level = {
   bossName: "Bashful Bob",
   bossEmoji: "🧑🏻‍💼",
   cardId: "you_is_taboo",
+  // Two threads, so two roots before anything hangs off anything: Bob opens A,
+  // the player opens B, and the root stage is satisfied.
+  rootTarget: 2,
   playerSide: "minus",
   bossSide: "plus",
   banner: "Two threads. Place a tile, close a thread, throw one card.",

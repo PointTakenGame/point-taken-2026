@@ -1,5 +1,5 @@
 import type { BoardProposal, BoardState, BoardThread } from "./project";
-import { liveThreads } from "./project";
+import { LIVE_ROOT_TARGET, liveThreads } from "./project";
 import type { Side, Uuid } from "@/lib/events/types";
 
 /**
@@ -63,6 +63,34 @@ export function isResolutionToken(value: string): value is ResolutionToken {
  * Enforced on placement: a tile that would open a seventh thread is refused.
  */
 export const MAX_THREADS = 6;
+
+/**
+ * The root stage: how many thread roots a board opens with before any tile may
+ * hang off another one.
+ *
+ * A game starts by getting the main branches of the disagreement onto the
+ * table. Diving into the first reason before the others exist is how a board
+ * turns into one long argument about whatever got said first, which is the
+ * shape the game exists to avoid.
+ *
+ * Per game, off `game_started`, not per mode. Four in live play and in gym
+ * levels 2 and up; two in gym level 1, whose whole job is teaching what a
+ * thread is and which would be padding at four. A game_started written before
+ * the field existed reads as the live four (LIVE_ROOT_TARGET, project.ts).
+ */
+export { LIVE_ROOT_TARGET } from "./project";
+
+export function rootTarget(board: BoardState): number {
+  return board.settings?.rootTarget ?? LIVE_ROOT_TARGET;
+}
+
+/**
+ * True while the board is still filling its opening roots, which is what the
+ * composer and the hover ghosts ask before offering to hang a tile off another.
+ */
+export function inRootStage(board: BoardState): boolean {
+  return liveThreads(board).length < rootTarget(board);
+}
 
 /**
  * Whether agreeing on a rewritten topic ends this game.
@@ -171,6 +199,22 @@ export function canPlaceTile(
       );
     }
   } else {
+    // The root stage. A game opens by putting the main branches of the
+    // disagreement on the table, and only then goes down one of them, so
+    // nothing hangs off anything until the opening roots are down. The number
+    // is per game (game_started's root_target), not per mode: four in live
+    // play and in gym levels 2 and up, two in gym level 1.
+    const target = rootTarget(board);
+    const roots = liveThreads(board).length;
+    if (roots < target) {
+      const short = target - roots;
+      return no(
+        short === 1
+          ? "One more reason still has to hang off the topic before anything hangs off another reason."
+          : `${short} more reasons still have to hang off the topic before anything hangs off another reason.`,
+      );
+    }
+
     const parent = board.tiles.find((tile) => tile.id === parentTileId);
     if (!parent) return no("That reason is not on this board.");
     if (parent.removed) return no("That reason was taken off the board.");
