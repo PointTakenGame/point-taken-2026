@@ -7,12 +7,28 @@ import { generateDisplayName, numericTail } from "@/lib/names/generate";
 // Player reads and the one player write. A trigger on auth.users creates the
 // row; naming it is the app's job, because the word list is content.
 
+/**
+ * The one read failure that is not a failure: a token minted a fraction of a
+ * second ahead of the clock that is checking it. Seen on 2026-09-03 on the
+ * first load of /account after a dev-server restart, where it took the whole
+ * page down to the error screen and a plain reload then worked
+ * (`BRAIN-T260903-37`). It is a race, not a state, so the cure is to ask again
+ * rather than to tell the player their account did not draw.
+ */
+const CLOCK_SKEW = /issued at future/i;
+const SKEW_RETRY_MS = 300;
+
+function readPlayerRow(playerId: Uuid) {
+  return serviceClient().from("players").select("*").eq("id", playerId).maybeSingle();
+}
+
 export async function getPlayer(playerId: Uuid): Promise<PlayerRow | null> {
-  const { data, error } = await serviceClient()
-    .from("players")
-    .select("*")
-    .eq("id", playerId)
-    .maybeSingle();
+  let { data, error } = await readPlayerRow(playerId);
+
+  if (error && CLOCK_SKEW.test(error.message)) {
+    await new Promise((resolve) => setTimeout(resolve, SKEW_RETRY_MS));
+    ({ data, error } = await readPlayerRow(playerId));
+  }
 
   if (error) throw new Error(`read player failed: ${error.message}`);
   return (data as PlayerRow) ?? null;
