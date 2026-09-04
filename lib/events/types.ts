@@ -86,6 +86,16 @@ export interface GameEndedPayload {
   win_condition: "threads_resolved" | "topic_agreed" | "abandoned" | "timeout";
 }
 
+/**
+ * Which diagonal of its parent a tile was placed on, as the player clicked it.
+ * Roots hang off the topic, replies off the reason they answer. Optional and
+ * advisory: the layout honours it when the cell is free and falls back to its
+ * own order otherwise, so a log written before this field draws as it always
+ * did (Steve, 2026-09-04: a rebuttal placed on the lower right must not come
+ * back on the upper right).
+ */
+export type TileCorner = "ne" | "se" | "sw" | "nw";
+
 export interface TilePlacedPayload {
   tile_id: Uuid;
   parent_tile_id: Uuid | null;
@@ -95,6 +105,7 @@ export interface TilePlacedPayload {
   text: string;
   is_opening_reason?: boolean;
   via_proposal_id?: Uuid;
+  corner?: TileCorner;
 }
 
 export interface TileEditedPayload {

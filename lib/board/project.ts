@@ -5,6 +5,7 @@ import type {
   ProposalContent,
   ProposalKind,
   Side,
+  TileCorner,
   Uuid,
 } from "@/lib/events/types";
 import type { GameMode, GameStatus, WinCondition } from "@/lib/db/types";
@@ -34,6 +35,8 @@ export interface BoardTile {
   removed: boolean;
   redacted: boolean;
   cardsThrown: number;
+  /** The diagonal the placer clicked, when the log recorded one. */
+  corner: TileCorner | null;
   children: BoardTile[];
 }
 
@@ -593,6 +596,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
           removed: false,
           redacted: isRedacted(event.seq),
           cardsThrown: 0,
+          corner: event.payload.corner ?? null,
           children: [],
         };
         tiles.set(tile.id, tile);

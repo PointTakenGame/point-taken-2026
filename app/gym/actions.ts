@@ -214,10 +214,31 @@ export async function bossAct(gameId: string): Promise<ActionResult> {
     case "token": {
       const rootId = key(act.thread);
       if (!rootId) return failed(`Script thread ${act.thread} is not on the board yet.`);
+      const thread = board.threads.find((t) => t.rootId === rootId);
+      if (!thread) return failed(`Script thread ${act.thread} is not on the board yet.`);
+      // Mirror whatever the player actually put down, not the emoji the
+      // script narrates: a legal token different from the scripted one still
+      // closes the thread, since what ends it is the two sides landing on
+      // the same token, never which of the two tokens that turns out to be.
+      // Falls back to the scripted emoji when the player has not moved yet,
+      // which is the ordinary case: the boss goes first on some threads.
+      const mirrored = thread.pending[level.playerSide] ?? act.emoji;
+      const bossPending = thread.pending[level.bossSide];
+      if (bossPending && bossPending !== mirrored) {
+        // The boss already has a different token down here, from before the
+        // player's actual choice was known. Take it back before putting the
+        // matching one down, the same way a player retracts their own with
+        // clearResolutionToken.
+        await appendGameEvent(gameId, {
+          type: "resolution_emoji_removed",
+          ...boss,
+          payload: { thread_root_id: rootId },
+        });
+      }
       await appendGameEvent(gameId, {
         type: "resolution_emoji_placed",
         ...boss,
-        payload: { thread_root_id: rootId, emoji: act.emoji },
+        payload: { thread_root_id: rootId, emoji: mirrored },
       });
       await settle(gameId, rootId);
       break;

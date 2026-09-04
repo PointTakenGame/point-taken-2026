@@ -67,6 +67,7 @@ function makeTile(id: string, text: string): BoardTile {
     removed: false,
     redacted: false,
     cardsThrown: 0,
+    corner: null,
     children: [],
   };
 }
