@@ -195,6 +195,88 @@ function boardWithOneToken() {
   );
 }
 
+const CHILD = "44444444-4444-4444-8444-444444444444";
+
+/**
+ * Alice's reason, with a live reply of Bob's hanging under it: not terminal,
+ * so it is not the last tile in its thread.
+ */
+function boardWithLiveReply() {
+  return projectBoard(
+    buildEvents([
+      ...startedGame(),
+      {
+        type: "tile_placed",
+        payload: {
+          tile_id: TILE,
+          parent_tile_id: null,
+          thread_root_id: TILE,
+          side: "plus",
+          text: "Rents have risen faster than wages.",
+          is_opening_reason: true,
+        },
+        actor_id: ALICE,
+      },
+      {
+        type: "tile_placed",
+        payload: {
+          tile_id: CHILD,
+          parent_tile_id: TILE,
+          thread_root_id: TILE,
+          side: "minus",
+          text: "Wages have risen too.",
+          is_opening_reason: false,
+        },
+        actor_id: BOB,
+        actor_role: "minus",
+      },
+    ]),
+  );
+}
+
+/**
+ * Alice's reason, whose only reply Bob has since taken back: terminal again,
+ * because a removed child does not count as a reply for this rule.
+ */
+function boardWithOnlyRemovedReply() {
+  return projectBoard(
+    buildEvents([
+      ...startedGame(),
+      {
+        type: "tile_placed",
+        payload: {
+          tile_id: TILE,
+          parent_tile_id: null,
+          thread_root_id: TILE,
+          side: "plus",
+          text: "Rents have risen faster than wages.",
+          is_opening_reason: true,
+        },
+        actor_id: ALICE,
+      },
+      {
+        type: "tile_placed",
+        payload: {
+          tile_id: CHILD,
+          parent_tile_id: TILE,
+          thread_root_id: TILE,
+          side: "minus",
+          text: "Wages have risen too.",
+          is_opening_reason: false,
+        },
+        actor_id: BOB,
+        actor_role: "minus",
+      },
+      {
+        type: "tile_removed",
+        payload: { tile_id: CHILD },
+        actor_id: BOB,
+        actor_role: "minus",
+      },
+    ]),
+  );
+}
+
 beforeEach(() => {
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
 });
@@ -519,6 +601,115 @@ describe("LiveBoard: taking your own reason back off the board", () => {
     await user.click(screen.getByRole("button", { name: /^Remove it/ }));
 
     expect(removeTile).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Steve, 2026-09-05: Remove is offered only for a terminal tile, the last
+   * tile in its thread nobody has replied under. `canRemoveTile`
+   * (lib/board/rules.ts) has no children check of its own, so this is
+   * gated in LiveBoard itself, off `BoardTile.children`.
+   */
+  it("offers no Remove once someone has replied under it", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithLiveReply()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    await user.click(document.querySelector(`[data-tile-id="${TILE}"]`)!);
+
+    expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
+  });
+
+  it("still offers Remove once the only reply has itself been taken back", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithOnlyRemovedReply()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    await user.click(document.querySelector(`[data-tile-id="${TILE}"]`)!);
+
+    expect(screen.getByRole("button", { name: /^Remove/ })).toBeTruthy();
+  });
+});
+
+describe("LiveBoard: the pencil on your own tile", () => {
+  /**
+   * Steve, 2026-09-05, ruling on the tile card: "edit" is a standard pencil
+   * icon on top of the tile, not a row in the card's menu, and clicking it
+   * opens the card already typing rather than one click short of it.
+   */
+  it("opens the card already editing, with no separate Edit row to click first", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    await user.click(screen.getByRole("button", { name: "Edit this reason" }));
+
+    expect(
+      screen.getByDisplayValue("You are ignoring how much rent has risen."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+  });
+
+  it("does not offer the pencil on the other player's tile", async () => {
+    const user = userEvent.setup();
+    render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: BOB, role: "minus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    expect(screen.queryByRole("button", { name: "Edit this reason" })).toBeNull();
+  });
+});
+
+describe("LiveBoard: the tile card no longer repeats the reason's text", () => {
+  /**
+   * Steve, 2026-09-05, ruling on the tile card: the popup no longer restates
+   * the tile's text at the top. That heading was the only `<header>` this
+   * component ever rendered, so its absence is the signal: TileNode's own
+   * octagon (kept, but CSS-`hidden`, to swap back in for the editing
+   * textarea) still repeats the tile's text under the hood, so counting
+   * every occurrence of the text would not isolate the header that was
+   * deleted.
+   */
+  it("opens the card with no header restating the tile's text", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <LiveBoard
+        gameId={GAME}
+        board={boardWithStandingThrow()}
+        me={{ playerId: ALICE, role: "plus" }}
+        coachEnabled={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    await user.click(document.querySelector(`[data-tile-id="${TILE}"]`)!);
+
+    expect(screen.getByText(/Take your reason back off the board/)).toBeTruthy();
+    expect(container.querySelector("header")).toBeNull();
   });
 });
 

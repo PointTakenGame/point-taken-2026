@@ -350,6 +350,23 @@ const SECONDARY_BUTTON =
   "border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 cursor-pointer rounded-full border px-4 py-1.5 tracking-wide disabled:cursor-default disabled:opacity-40";
 
 /**
+ * A move in the tile card's menu (play a card, ask for a reading, close a
+ * thread's other moves), styled to read as a real control.
+ *
+ * Steve, 2026-09-05, ruling on the tile card: "There's a bunch of
+ * options... edit, remove, close this thread, and they don't feel like
+ * buttons. They look like a list of unclickable text."
+ * `ActionItem` used to be a hover-highlight row (`hover:bg-sand/40
+ * rounded-lg`), the same treatment a disabled row and a live one shared. This
+ * borrows `.sticker`'s hard-edge card border and shadow, the same vocabulary
+ * `PILL_DARK` (components/gym/level-intro.tsx) and `.btn-icon` already use
+ * elsewhere on this board, so a menu row reads as a pressable card rather
+ * than a line in a list.
+ */
+const REPLY_STICKER_BUTTON =
+  "sticker block w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0";
+
+/**
  * A small pill, for a row of choices rather than a decision.
  *
  * Same shape as the two buttons above so nothing on a card looks like it came
@@ -410,6 +427,28 @@ const EDGE_INSET = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
 const CORNER_INSET = "24%";
 
 /**
+ * The pencil that sits on a player's own tile, out on the board.
+ *
+ * Steve, 2026-09-05, ruling on the tile card: Edit should read as "a standard
+ * pencil icon on top of the tile" rather than a line in the card's menu. No
+ * icon package is installed in this project, so this is a small inline glyph
+ * rather than a new dependency or a new `public/icons/` asset for one shape.
+ */
+function PencilGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
  * One move on a reason, in a card that has room to say what it is.
  *
  * The tile card out on the board used to carry the same row of grey underlines
@@ -443,7 +482,7 @@ function ActionItem({
       type="button"
       disabled={disabled || refusal !== null}
       onClick={onClick}
-      className="hover:bg-sand/40 w-full cursor-pointer rounded-lg px-2 py-1.5 text-left transition-colors disabled:cursor-default disabled:opacity-45 disabled:hover:bg-transparent"
+      className={REPLY_STICKER_BUTTON}
     >
       <span className="font-primary text-p-sm text-neutral-black block tracking-wide">
         {label}
@@ -552,7 +591,7 @@ function CardHand({
         <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
           Play a card
         </p>
-        <div className="-mx-2 flex flex-col">
+        <div className="flex flex-col gap-2">
           {deck.map((cardId, index) => {
             const card = coachCard(cardId);
             return (
@@ -961,6 +1000,7 @@ function TileNode({
   me,
   board,
   onBoard = false,
+  startEditing,
 }: {
   tile: BoardTile;
   gameId: string;
@@ -973,8 +1013,18 @@ function TileNode({
    * carries only what you cannot do by looking.
    */
   onBoard?: boolean;
+  /**
+   * Opens this card already typing, seeded by the pencil icon on the tile
+   * itself out on the board (LiveBoard's `renderTile`). Read once, as a lazy
+   * initializer: the card is mounted fresh every time it opens (it lives
+   * inside `{selectedTile && <AnchoredCard>...}`, which fully unmounts on
+   * close), so there is exactly one edit entry point, `setEditing`, whether
+   * it is reached from the on-tile pencil or (were it still offered inline)
+   * a click inside the card.
+   */
+  startEditing?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => startEditing ?? false);
   // Removing a reason takes two presses, the way leaving the game does.
   // It sits one row under Edit in the same list, a misclick away, and there
   // is nothing anywhere that puts a reason back. Every other move on this
@@ -997,6 +1047,17 @@ function TileNode({
   const mine = tile.placedBy === me.playerId;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
+  // lib/board/rules.ts's canRemoveTile has no children check (core lane, not
+  // editable from here); gate the terminal-tile rule in the presentation
+  // layer instead. Steve, 2026-09-05: remove is offered only for a terminal
+  // tile, the last tile in its thread nobody has replied under. Core
+  // follow-up to move this into canRemoveTile itself is filed.
+  const isTerminal = tile.children.filter((child) => !child.removed).length === 0;
+  const removeBlocked: Verdict = !removeVerdict.ok
+    ? removeVerdict
+    : isTerminal
+      ? removeVerdict
+      : { ok: false, error: "Once someone has replied under it, it can't be removed." };
   const moveVerdict = canProposeRelocation(
     board,
     tile.id,
@@ -1137,7 +1198,7 @@ function TileNode({
                   with the list still above them the card was a form under
                   four dead rows of things you could have done instead. */}
               <div
-                className={`-mx-2 flex flex-col ${
+                className={`flex flex-col gap-2 ${
                   proposing !== null || moving || handOpen || awaitingMyAnswer
                     ? "hidden"
                     : ""
@@ -1204,18 +1265,18 @@ function TileNode({
                       onClick={() => setProposing("definition")}
                     />
                   )}
-                {mine && (
+                {/* Steve, 2026-09-05, ruling on the tile card: Edit moved to
+                    the pencil that now sits on the tile itself (see
+                    LiveBoard's renderTile), so it no longer needs a row here.
+                    Remove stays in the card, but only for a terminal tile,
+                    the last tile in its thread nobody has replied under
+                    (isTerminal, above) -- once a reply is hanging off it,
+                    taking it back would take the reply with it, silently. */}
+                {mine && isTerminal && (
                   <>
                     <span
                       aria-hidden="true"
                       className="bg-neutral-black/15 mx-2 my-2 h-px"
-                    />
-                    <ActionItem
-                      label="Edit"
-                      hint="Reword your own reason. It keeps its place on the board."
-                      verdict={editBlocked}
-                      disabled={pending}
-                      onClick={() => setEditing(true)}
                     />
                     <ActionItem
                       label={removeArmed ? "Remove it" : "Remove"}
@@ -1224,7 +1285,7 @@ function TileNode({
                           ? "Click again and it comes off the board. There is no putting it back."
                           : "Take your reason back off the board."
                       }
-                      verdict={removeVerdict}
+                      verdict={removeBlocked}
                       disabled={pending}
                       onClick={runRemove}
                     />
@@ -2692,6 +2753,16 @@ export function LiveBoard({
   // `const` declared later in the same render is not visible yet when
   // `useMemo` calls its function body immediately.
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  // Which tile the on-tile pencil was clicked on, if it was: read exactly
+  // once, by TileNode's lazy initializer, the moment its card mounts (see
+  // `startEditing` on TileNode). State rather than a ref, because the value
+  // that seeds `startEditing` is read during render (React's rules disallow
+  // reading a ref's current value there). Every other way a tile card opens
+  // or closes clears it in its own click handler below (not an effect --
+  // setting state synchronously inside one just to mirror another piece of
+  // state is the cascading-render pattern React's lint now flags), so it is
+  // never stale by the time a later, ordinary click reads it again.
+  const [pencilEditTileId, setPencilEditTileId] = useState<string | null>(null);
   const miniThreads = useMemo<MiniThread[]>(
     () =>
       threads.map((thread) => {
@@ -2724,7 +2795,12 @@ export function LiveBoard({
           // actually landed (`thread.root`, not just `thread.rootId`, which
           // survives even for an orphaned thread whose root is gone): a mini
           // icon for a thread with nothing to open stays inert on purpose.
-          onOpen: thread.root ? () => setSelectedTileId(thread.rootId) : undefined,
+          onOpen: thread.root
+            ? () => {
+                setPencilEditTileId(null);
+                setSelectedTileId(thread.rootId);
+              }
+            : undefined,
         };
       }),
     [threads, miniLayout, me.role],
@@ -2924,6 +3000,7 @@ export function LiveBoard({
         bossDraft={bossDraft}
         placement={cookedPlacement}
         onPlace={(parentId, pos, sample, corner) => {
+          setPencilEditTileId(null);
           setSelectedTileId(null);
           setArmedCardId(null);
           // Answering your own reason is legal and gets one word about it,
@@ -2965,6 +3042,7 @@ export function LiveBoard({
             });
             return;
           }
+          setPencilEditTileId(null);
           setSelectedTileId((current) => (current === tileId ? null : tileId));
         }}
         tiles={allTargets(board)}
@@ -2979,66 +3057,103 @@ export function LiveBoard({
             onEditEnd={() => setTopicEditing(false)}
           />
         }
-        renderTile={(tile) => (
-          <div className="relative size-full">
-            <TileShape
-              side={tile.side}
-              size={OUTER_FRAME_REM}
-              // Every tile on the board says "reason", opening tiles
-              // included: that is what Rannie stamps on all four of them in
-              // `1064:214081`. A thread is a shape on the board, not a
-              // different kind of tile, and calling the first one something
-              // else was a word the player had to learn for no gain.
-              watermark="reason"
-              // Everything else fades while the topic is being rewritten,
-              // the same move the retired client makes for an emoji
-              // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
-              // a negotiation on one tile should not look like it belongs
-              // to the whole board.
-              dimmed={tile.removed || topicEditing || topicPending}
-              selected={tile.id === selectedTileId}
-            >
-              <p className="font-tiles text-center">
-                {/* The lead line, ported from the retired Tile.vue's
+        renderTile={(tile) => {
+          const mine = tile.placedBy === me.playerId;
+          const editVerdict = mine
+            ? canEditTile(board, tile.id, me.playerId, tile.text)
+            : null;
+          return (
+            <div className="relative size-full">
+              <TileShape
+                side={tile.side}
+                size={OUTER_FRAME_REM}
+                // Every tile on the board says "reason", opening tiles
+                // included: that is what Rannie stamps on all four of them in
+                // `1064:214081`. A thread is a shape on the board, not a
+                // different kind of tile, and calling the first one something
+                // else was a word the player had to learn for no gain.
+                watermark="reason"
+                // Everything else fades while the topic is being rewritten,
+                // the same move the retired client makes for an emoji
+                // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
+                // a negotiation on one tile should not look like it belongs
+                // to the whole board.
+                dimmed={tile.removed || topicEditing || topicPending}
+                selected={tile.id === selectedTileId}
+              >
+                <p className="font-tiles text-center">
+                  {/* The lead line, ported from the retired Tile.vue's
                     `tilePrefix` and drawn the way Rannie draws it: a larger
                     line above the reason, so a tile reads as a sentence
                     rather than as a text box. Both lines are sized against
                     the octagon rather than against the page, because Rannie's
                     tiles carry text at roughly 8% of the tile's width and the
                     shared page body size left a 17rem octagon looking empty. */}
-                <span
-                  className="block leading-tight"
-                  style={{ fontSize: `${TILE_LEAD_PX}px` }}
-                >
-                  {tileLead(
-                    tile.side,
-                    // A reason with no parent hangs off the topic, which is
-                    // what an opening reason is. The flag is the engine's
-                    // word for the same thing and is trusted first, but it
-                    // defaults to false on older rows, and a tile answering
-                    // the topic must never come out as a rebuttal.
-                    tile.isOpeningReason || tile.parentId === null,
-                    tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
-                  )}
-                </span>
-                <span
-                  className="block leading-snug"
-                  style={{ fontSize: `${TILE_BODY_PX}px` }}
-                >
-                  <TileText tile={tile} />
-                </span>
-              </p>
-            </TileShape>
-            {/* A card thrown at a reason leaves a mark on the reason, on its
+                  <span
+                    className="block leading-tight"
+                    style={{ fontSize: `${TILE_LEAD_PX}px` }}
+                  >
+                    {tileLead(
+                      tile.side,
+                      // A reason with no parent hangs off the topic, which is
+                      // what an opening reason is. The flag is the engine's
+                      // word for the same thing and is trusted first, but it
+                      // defaults to false on older rows, and a tile answering
+                      // the topic must never come out as a rebuttal.
+                      tile.isOpeningReason || tile.parentId === null,
+                      tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
+                    )}
+                  </span>
+                  <span
+                    className="block leading-snug"
+                    style={{ fontSize: `${TILE_BODY_PX}px` }}
+                  >
+                    <TileText tile={tile} />
+                  </span>
+                </p>
+              </TileShape>
+              {/* A card thrown at a reason leaves a mark on the reason, on its
               bottom edge, which is where Rannie draws it and where the
               retired client put it too. Without this the throw is invisible
               until you open the tile, and a card nobody sees is a card that
               did not land. A card waiting on you is gold, a card waiting on
               them is plain, and a settled one fades back to a record. */}
-            <TileThrowBadges board={board} tileId={tile.id} me={me} />
-            <TileProposalBadge board={board} tileId={tile.id} me={me} />
-          </div>
-        )}
+              <TileThrowBadges board={board} tileId={tile.id} me={me} />
+              <TileProposalBadge board={board} tileId={tile.id} me={me} />
+              {/* Steve, 2026-09-05, ruling on the tile card: edit becomes "a
+                standard pencil icon on top of the tile", shown only on your
+                own tiles and only when the card's own edit rule would allow
+                it (same canEditTile verdict the card checks, not a second
+                rule). Opposite corner from TileProposalBadge, which already
+                takes CORNER_INSET's top-left. Clicking it opens the same card
+                a tile click opens, already in edit mode, via pencilEditRef:
+                one edit entry point (TileNode's setEditing), reached from
+                either the tile or (still, for now) the card that opens under
+                it. */}
+              {mine && editVerdict?.ok && (
+                <button
+                  type="button"
+                  aria-label="Edit this reason"
+                  title="Edit this reason"
+                  // Matches TileProposalBadge's corner vocabulary (the board's
+                  // own neutral-black/offwhite, not the account flow's
+                  // ink/card tokens -- see the note on --color-ink in
+                  // globals.css), mirrored to the opposite corner and centred
+                  // on the inset point the same way that badge is.
+                  className="border-gray/30 bg-offwhite text-neutral-black absolute z-20 flex size-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1.5 shadow-sm transition-transform hover:-translate-y-1 active:translate-y-0"
+                  style={{ right: CORNER_INSET, top: CORNER_INSET }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPencilEditTileId(tile.id);
+                    setSelectedTileId(tile.id);
+                  }}
+                >
+                  <PencilGlyph className="size-full" />
+                </button>
+              )}
+            </div>
+          );
+        }}
         // A settled thread says so on the reason it started from, on the
         // bottom edge, the same edge TileThrowBadges uses above. Half
         // strength while only one side has laid a token down, because a
@@ -3051,7 +3166,10 @@ export function LiveBoard({
           <ThreadTokenBadge
             thread={threadByRoot.get(tile.id) ?? null}
             me={me}
-            onOpen={() => setSelectedTileId(tile.id)}
+            onOpen={() => {
+              setPencilEditTileId(null);
+              setSelectedTileId(tile.id);
+            }}
           />
         )}
       />
@@ -3292,6 +3410,7 @@ export function LiveBoard({
               // A card and a tile's action card both want the click on a tile,
               // so arming one closes the other, and closes an open draft with it.
               if (cardId) {
+                setPencilEditTileId(null);
                 setSelectedTileId(null);
                 setDraft(null);
               }
@@ -3323,7 +3442,10 @@ export function LiveBoard({
       {selectedTile && (
         <AnchoredCard
           anchorSelector={`[data-tile-id="${cssEscape(selectedTile.id)}"]`}
-          onClose={() => setSelectedTileId(null)}
+          onClose={() => {
+            setPencilEditTileId(null);
+            setSelectedTileId(null);
+          }}
           // The right rail is 15rem wide sitting 2rem in from the edge, and
           // the canvas runs underneath it, so a tile near the middle of the
           // board has "room to the right" that is actually Ways to win. One
@@ -3331,31 +3453,14 @@ export function LiveBoard({
           // to the tile's left instead of landing on the panel.
           reserveRight={18}
         >
-          {/* The card said nothing about which reason it belonged to. Out on
-              the board that is usually survivable, because the card is drawn
-              beside its tile, and it stops being survivable the moment the
-              card flips to the tile's other side or the board pans under it.
-              So it opens with the reason, in the reason's own hand and its
-              own side colour, reading as the sentence the tile reads as. */}
-          <header className="border-neutral-black/15 mb-3 flex flex-col gap-0.5 border-b pr-6 pb-3">
-            <span
-              className={`font-primary text-xs tracking-wide uppercase ${
-                selectedTile.side === "plus" ? "text-green" : "text-orange"
-              }`}
-            >
-              {tileLead(
-                selectedTile.side,
-                selectedTile.isOpeningReason || selectedTile.parentId === null,
-                selectedTile.parentId
-                  ? (sideOf.get(selectedTile.parentId) ?? null)
-                  : null,
-              )}
-            </span>
-            <p className="font-tiles text-p-sm text-neutral-black leading-snug">
-              <TileText tile={selectedTile} />
-            </p>
-          </header>
-          <ul className="flex flex-col gap-2">
+          {/* Steve, 2026-09-05, ruling on the tile card: the popup no longer
+              restates the tile's text at the top. The octagon is right there
+              on the board, a few pixels away, reading the reason in its own
+              hand and colour already; repeating it here was the header this
+              card used to open with. See the on-tile pencil (LiveBoard's
+              renderTile, and TileShape's wrapper below) for where "which
+              reason is this" now lives instead: on the tile, not the card. */}
+          <ul className="flex flex-col gap-2 pr-6">
             {/* Keyed by the reason, so clicking a second tile builds a second
                 card rather than handing this one a new `tile` prop. React
                 would otherwise reuse the instance and every piece of state in
@@ -3370,6 +3475,7 @@ export function LiveBoard({
               me={me}
               board={board}
               onBoard
+              startEditing={pencilEditTileId === selectedTile.id}
             />
           </ul>
           {/* Resolving belongs to the reason a thread started from, so it is
