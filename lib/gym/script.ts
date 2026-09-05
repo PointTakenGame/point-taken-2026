@@ -425,6 +425,61 @@ export function currentBeat(level: Level, progress: LevelProgress): Beat | null 
   return progress.complete ? null : level.beats[progress.index];
 }
 
+/**
+ * The board's token controls do not gate on where the script currently
+ * stands, so a player can put a token down on a thread well before the
+ * script's own beat for it. Left alone, that reads as a stall: the pill
+ * says "Waiting on them" and nothing ever explains why the boss, who only
+ * ever plays the beat the script names, is not answering (2026-09
+ * playtest, level 2: a token sat unanswered for 70+ seconds). This never
+ * makes the boss answer off script; it only tells the player why not.
+ *
+ * Two cases, checked in order:
+ *
+ * 1. The current beat is itself the token beat for some thread, but the
+ *    player already has a *different* token pending there. The board's own
+ *    controls only offer "take back your token" once one is pending
+ *    (components/board/live-board.tsx), so that beat can never be
+ *    satisfied until the old token comes back first. Named explicitly,
+ *    rather than repeating the beat's ordinary nudge, which does not
+ *    mention the token already sitting there.
+ * 2. Some other thread has the player's token pending, no boss token yet,
+ *    and the current beat is not that thread's token beat. The player
+ *    moved early; there is nothing to answer yet.
+ */
+export function offScriptTokenNudge(
+  level: Level,
+  board: BoardState,
+  progress: LevelProgress,
+): string | null {
+  const beat = currentBeat(level, progress);
+
+  if (beat && beat.kind === "player" && beat.expect.kind === "token") {
+    const rootId = progress.keys[beat.expect.thread];
+    const thread = rootId ? board.threads.find((t) => t.rootId === rootId) : undefined;
+    const mine = thread?.pending[level.playerSide] ?? null;
+    if (mine && mine !== beat.expect.emoji) {
+      return `Take back your ${mine} first, then put ${beat.expect.emoji} down.`;
+    }
+  }
+
+  const currentTokenThreadRoot = (() => {
+    if (!beat || beat.kind === "pause" || beat.kind === "win") return undefined;
+    const spec = beat.kind === "boss" ? beat.act : beat.expect;
+    return spec.kind === "token" ? progress.keys[spec.thread] : undefined;
+  })();
+
+  for (const thread of board.threads) {
+    if (thread.resolution) continue;
+    if (!thread.pending[level.playerSide]) continue;
+    if (thread.pending[level.bossSide]) continue;
+    if (thread.rootId === currentTokenThreadRoot) continue;
+    return `${level.bossName} answers tokens when this thread's talk is done. Keep going.`;
+  }
+
+  return null;
+}
+
 /** The context a boss line is rendered against. */
 export function scriptContext(
   level: Level,

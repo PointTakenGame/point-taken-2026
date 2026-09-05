@@ -37,6 +37,7 @@ import {
   currentBeat,
   levelPoints,
   levelProgress,
+  offScriptTokenNudge,
   renderText,
   scriptContext,
   type Beat,
@@ -382,7 +383,12 @@ function Director({
       return () => window.clearTimeout(timer);
     }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const draft = { parentId: plan.parentId, corner: plan.corner, side: level.bossSide };
+    const draft = {
+      parentId: plan.parentId,
+      corner: plan.corner,
+      side: level.bossSide,
+      bossName: level.bossName,
+    };
     if (reduced) {
       publishBossDraft({ ...draft, text: plan.text, finishNow: play });
       const timer = window.setTimeout(play, BOSS_DELAY_MS);
@@ -449,6 +455,7 @@ function Director({
     planParent,
     planCorner,
     level.bossSide,
+    level.bossName,
   ]);
 
   // Hand the coach's sample answers to the board, which draws them in the
@@ -707,8 +714,14 @@ function LineBubble({
 }) {
   const nudging =
     beat.kind === "player" && !!beat.nudge && board.lastSeq > progress.cursor;
+  // A pending token with nothing to answer it yet is worth explaining
+  // before anything else this bubble might say, on either a player or a
+  // boss beat: see offScriptTokenNudge for the two cases it covers.
+  const tokenNudge =
+    beat.kind === "win" ? null : offScriptTokenNudge(level, board, progress);
   const line =
-    beat.kind === "player"
+    tokenNudge ??
+    (beat.kind === "player"
       ? nudging
         ? beat.nudge
         : beat.coach
@@ -717,7 +730,7 @@ function LineBubble({
           (beat.act.kind === "tile"
             ? `${level.bossName} is typing...`
             : `${level.bossName} is thinking...`))
-        : (beat.coach ?? "Every thread is closing. One moment.");
+        : (beat.coach ?? "Every thread is closing. One moment."));
 
   return (
     <Bubble targetSelector={targetSelector} width={20}>

@@ -30,6 +30,14 @@ export type BossDraft = {
   /** What has been typed so far. */
   text: string;
   /**
+   * The boss's own name (`level.bossName`), for the slot's label. Every
+   * level had a different boss and the board's slot still said "Bashful Bob"
+   * regardless (2026-09 playtest, level 2's Rambling Rosa). The Director is
+   * the only side of this store that knows the level, so it is the one that
+   * fills this in.
+   */
+  bossName: string;
+  /**
    * Skips straight to the finished line and plays the move, for a player who
    * clicks the draft while Bob is still typing it (Steve, 2026-09-05 playtest:
    * a slow line reads as a stall, not as thinking, once the player has seen
