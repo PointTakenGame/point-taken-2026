@@ -23,14 +23,18 @@ import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
-import { SpatialBoard } from "@/components/board/spatial-board";
-import { TOPIC_CELL_ID } from "@/components/board/layout";
+import { SpatialBoard, cornerFromOffset } from "@/components/board/spatial-board";
+import { TOPIC_CELL_ID, topicRootedLayout } from "@/components/board/layout";
 import {
   SameSideNotice,
   markSameSideNoticeSeen,
   sameSideNoticeSeen,
 } from "@/components/board/same-side-notice";
-import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
+import {
+  WaysToWinCard,
+  type MiniCorner,
+  type MiniThread,
+} from "@/components/board/ways-to-win-card";
 import {
   OnboardingOverlay,
   useOnboarding,
@@ -99,6 +103,7 @@ import {
 } from "@/app/game/[gameId]/actions";
 import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
+import { useBossDraft } from "@/components/gym/boss-draft";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
 
@@ -144,6 +149,16 @@ function allTargets(board: BoardState): BoardTile[] {
   ]);
   return fromThreads;
 }
+
+/** The board's geometric corners (`TileCorner`, ne/se/sw/nw) named the way
+ *  the "Ways to win" minimap names its own four quadrants (`MiniCorner`,
+ *  tr/br/bl/tl). Has to agree with `SLOTS` in ways-to-win-card.tsx. */
+const CORNER_TO_MINI: Record<TileCorner, MiniCorner> = {
+  ne: "tr",
+  se: "br",
+  sw: "bl",
+  nw: "tl",
+};
 
 /**
  * Quote a tile id for use inside an attribute selector.
@@ -2529,21 +2544,54 @@ export function LiveBoard({
   // Toasts what the other player did between one projection and the next.
   usePeerNotices(board, me.role);
 
-  // The minimap wants an edge per thread so a thread keeps its corner as the
-  // board grows. Nothing in the projection records where a tile sits, so
-  // there is no edge to give it and the corners fill in thread order
-  // instead: stable for a given board, because thread order is placement
-  // order. See the parentEdge note in ways-to-win-card.tsx.
+  // The minimap wants the corner each thread's root actually sits on, read
+  // off the same layout the board itself draws from, not dealt out in
+  // thread order: the 2026-09-04 playtest found level 1's two threads (both
+  // hung off the bottom corners) lighting the top two on the stamp instead,
+  // "which are not even available", because the old code picked a corner by
+  // side rather than by where the tile really landed. See the `corner` note
+  // in ways-to-win-card.tsx.
+  const miniLayout = useMemo(
+    () =>
+      topicRootedLayout(
+        allTargets(board).map((t) => ({
+          id: t.id,
+          parentId: t.parentId,
+          side: t.side ?? null,
+        })),
+      ),
+    [board],
+  );
   const miniThreads = useMemo<MiniThread[]>(
     () =>
-      threads.map((thread) => ({
-        tileId: thread.rootId,
-        side: thread.root?.side ?? thread.orphans[0]?.side ?? "plus",
-        parentEdge: null,
-        resolved: thread.resolution !== null,
-        token: thread.resolution?.emoji ?? null,
-      })),
-    [threads],
+      threads.map((thread) => {
+        const topicPos = miniLayout.positions.get(TOPIC_CELL_ID);
+        const rootPos = miniLayout.positions.get(thread.rootId);
+        const corner: MiniCorner | null =
+          topicPos && rootPos
+            ? CORNER_TO_MINI[
+                cornerFromOffset(rootPos.x - topicPos.x, rootPos.y - topicPos.y)
+              ]
+            : null;
+        const mine = thread.pending[me.role];
+        const theirs = thread.pending[OTHER_SIDE[me.role]];
+        const pending: MiniThread["pending"] =
+          thread.resolution === null && mine !== null && theirs === null
+            ? { emoji: mine, mine: true }
+            : thread.resolution === null && theirs !== null && mine === null
+              ? { emoji: theirs, mine: false }
+              : null;
+        return {
+          tileId: thread.rootId,
+          side: thread.root?.side ?? thread.orphans[0]?.side ?? "plus",
+          parentEdge: null,
+          corner,
+          resolved: thread.resolution !== null,
+          token: thread.resolution?.emoji ?? null,
+          pending,
+        };
+      }),
+    [threads, miniLayout, me.role],
   );
   const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
 
@@ -2609,6 +2657,7 @@ export function LiveBoard({
   // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
   const sampleAnswers = useSampleAnswers();
   const pointedSlot = usePointedSlot();
+  const bossDraft = useBossDraft();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -2722,6 +2771,7 @@ export function LiveBoard({
         }
         slotSamples={sampleAnswers}
         pointedSlot={pointedSlot}
+        bossDraft={bossDraft}
         onPlace={(parentId, pos, sample, corner) => {
           setSelectedTileId(null);
           setArmedCardId(null);
@@ -2835,13 +2885,19 @@ export function LiveBoard({
               did not land. A card waiting on you is gold, a card waiting on
               them is plain, and a settled one fades back to a record. */}
             <TileThrowBadges board={board} tileId={tile.id} me={me} />
-            {/* A settled thread says so on the reason it started from, on the
-              top edge, opposite the thrown cards. Half strength while only
-              one side has laid a token down, because a thread with one token
-              on it is a question, not an answer. */}
-            <ThreadTokenBadge thread={threadByRoot.get(tile.id) ?? null} me={me} />
             <TileProposalBadge board={board} tileId={tile.id} me={me} />
           </div>
+        )}
+        // A settled thread says so on the reason it started from, on the
+        // bottom edge, the same edge TileThrowBadges uses above. Half
+        // strength while only one side has laid a token down, because a
+        // thread with one token on it is a question, not an answer. Drawn
+        // through renderOverlay rather than inside renderTile: the badge is
+        // meant to hang half off the tile's own bottom edge (matching the
+        // onboarding video), and the tile wrapper above is clipped to the
+        // octagon for hit-testing, which would cut the hanging half away.
+        renderOverlay={(tile) => (
+          <ThreadTokenBadge thread={threadByRoot.get(tile.id) ?? null} me={me} />
         )}
       />
 

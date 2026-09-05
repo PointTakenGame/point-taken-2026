@@ -19,6 +19,7 @@ import {
 } from "@/components/board/geometry";
 import {
   TOPIC_CELL_ID,
+  cornerOffset,
   legalPlacements,
   topicRootedLayout,
   type BoardLayout,
@@ -181,6 +182,17 @@ export interface SpatialBoardProps<T extends SpatialTile> {
   /** Draws one placed tile. Receives the tile and whether it is the hovered one. */
   renderTile: (tile: T, state: { hovered: boolean }) => ReactNode;
   /**
+   * Draws unclipped content for a placed tile, positioned identically to its
+   * clipped wrapper but with the octagon `clip-path` removed and pointer
+   * events disabled. For content that has to hang past the tile's own edge
+   * (a resolution badge straddling the bottom vertex), the same escape
+   * `draftAt` already uses below for the composer's Place and cancel
+   * buttons. Drawn in its own pass after every placed tile, so an overlay
+   * always paints above every tile's clipped wrapper regardless of board
+   * position.
+   */
+  renderOverlay?: (tile: T) => ReactNode;
+  /**
    * Called when a player clicks an open diagonal slot. The argument is the id
    * of the tile the new one would hang off, which is what the retired
    * `<select>` was asking for and what the composer needs. `corner` is the
@@ -208,6 +220,17 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * are drawn permanently anyway, so a topic slot here changes nothing.
    */
   pointedSlot?: { parentId: string; corner: TileCorner } | null;
+  /**
+   * The Gym boss's tile as he types it (`components/gym/boss-draft.ts`).
+   * Drawn as an always-visible, non-interactive slot at the cell it will
+   * land in, filled with the growing prefix of his line, so watching Bob
+   * write reads as somebody at the other keyboard rather than a tile that
+   * appears whole a beat after his "turn" ends (Steve, 2026-09-04). A live
+   * game never passes this. While it is set, any hover ghost or the pointed
+   * slot that would land on the same cell is left out, so the two do not
+   * draw on top of each other.
+   */
+  bossDraft?: { parentId: string; corner: TileCorner; side: Side; text: string } | null;
   /**
    * Where the caller is currently composing, if anywhere. The retired client
    * wrote the reason on the board rather than in a form under it: you clicked
@@ -381,6 +404,14 @@ const GHOST_WASH: Record<TileSide, string> = {
   neutral: "fill-transparent group-hover:fill-gray/10",
 };
 
+/** The Gym boss's draft slot is always filled in (there is no hover to wash
+ *  in on), so it carries its side's wash at rest rather than only on hover. */
+const BOSS_DRAFT_FILL: Record<TileSide, string> = {
+  plus: "fill-green/10",
+  minus: "fill-orange/10",
+  neutral: "fill-gray/10",
+};
+
 /**
  * The four diagonals, keyed the way the event log records them (`TileCorner`
  * in lib/events/types.ts) and in the same NE/SE/SW/NW order as
@@ -405,9 +436,15 @@ function cornerSide(corner: TileCorner): Side {
  * placement is exactly one diagonal step (dx, dy each +-1), so the sign of
  * each axis alone identifies the corner.
  */
-function cornerFromOffset(dx: number, dy: number): TileCorner {
+export function cornerFromOffset(dx: number, dy: number): TileCorner {
   if (dy < 0) return dx > 0 ? "ne" : "nw";
   return dx > 0 ? "se" : "sw";
+}
+
+/** Whether two grid cells are the same cell, for filtering a ghost or the
+ *  pointed slot out from under the Gym boss's draft. */
+function sameCell(a: GridPosition, b: GridPosition): boolean {
+  return a.x === b.x && a.y === b.y;
 }
 
 function GhostSlot({
@@ -416,7 +453,6 @@ function GhostSlot({
   label,
   side,
   mark = "+",
-  sample = null,
   stem = null,
   interactive = true,
   parentId,
@@ -425,12 +461,6 @@ function GhostSlot({
   style: CSSProperties;
   onClick: () => void;
   label: string;
-  /**
-   * A sample answer the coach has written for this slot, drawn inside it as
-   * a ghost so the player can read the move before making it (Steve,
-   * 2026-09-03). Gym only: nothing in a live game writes one.
-   */
-  sample?: string | null;
   /** Whose turn is about to be spent here. Colours the dash and the mark. */
   side: TileSide;
   /**
@@ -508,23 +538,14 @@ function GhostSlot({
         ) : null}
         <span
           className={`${GHOST_MARK[side]} font-primary leading-none transition-opacity duration-150 ${
-            sample ? "" : interactive ? "group-hover:opacity-100" : ""
+            interactive ? "group-hover:opacity-100" : ""
           }`}
           // Sized off the cell, not off the type scale, so it stays a mark on
-          // the board at every zoom instead of shrinking into body text. The
-          // mark shrinks when a sample is present, so the sample text below
-          // it has room: the slot is still an empty place to put a tile, and
-          // the sample is an offer inside it, not a tile that is already
-          // there.
-          style={{ fontSize: sample ? "1.75rem" : "3.5rem" }}
+          // the board at every zoom instead of shrinking into body text.
+          style={{ fontSize: "3.5rem" }}
         >
           {mark}
         </span>
-        {sample ? (
-          <span className="font-secondary text-ink-soft line-clamp-4 text-xs italic opacity-80">
-            {sample}
-          </span>
-        ) : null}
       </span>
     </>
   );
@@ -561,6 +582,75 @@ function GhostSlot({
 }
 
 /**
+ * The Gym boss's tile as he types it (`components/gym/boss-draft.ts`). Always
+ * visible and never a control: it sits at the cell his tile will land in and
+ * fills in with the growing prefix of his line, a caret blinking after it, so
+ * watching him write reads as somebody at the other keyboard rather than a
+ * tile that appears whole a beat after his "turn" ends (Steve, 2026-09-04).
+ *
+ * `aria-live="polite"` sits on a wrapper carrying a fixed label ("Bashful Bob
+ * is writing"), not on the growing text itself: the text changes on every
+ * keystroke, and a live region on it would have a screen reader announce the
+ * draft over and over as it grows instead of once when it starts.
+ */
+function BossDraftSlot({
+  style,
+  side,
+  text,
+  parentId,
+  corner,
+}: {
+  style: CSSProperties;
+  side: Side;
+  text: string;
+  parentId: string;
+  corner: TileCorner;
+}) {
+  const dataAttrs = {
+    "data-slot-parent": parentId,
+    "data-slot-corner": corner,
+    "data-boss-draft": true,
+  };
+
+  return (
+    <div
+      title="Bashful Bob is writing"
+      className="pointer-events-none absolute border-none bg-transparent p-0"
+      style={style}
+      {...dataAttrs}
+    >
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute"
+        style={{ inset: `${((1 - INNER_FRAME_RATIO) / 2) * 100}%` }}
+        aria-hidden="true"
+      >
+        <polygon
+          points={OCTAGON_POINTS}
+          className={`${GHOST_STROKE[side]} ${BOSS_DRAFT_FILL[side]}`}
+          strokeWidth={1.2}
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span
+        aria-live="polite"
+        className="absolute inset-0 z-10 flex flex-col items-center justify-center px-[16%] text-center"
+      >
+        <span className="sr-only">Bashful Bob is writing</span>
+        <span
+          aria-hidden="true"
+          className={`${GHOST_MARK[side]} font-secondary line-clamp-4 text-xs italic opacity-90`}
+        >
+          {text}
+          <span className="motion-safe:animate-pulse">▍</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
  * One rem in px, read off the document. Everything on the board is sized in
  * rem and fitting it to a pane needs the pane's pixels.
  *
@@ -588,9 +678,11 @@ export function SpatialBoard<T extends SpatialTile>({
   tiles,
   topic,
   renderTile,
+  renderOverlay,
   onPlace,
   slotSamples,
   pointedSlot = null,
+  bossDraft = null,
   draftAt = null,
   draft,
   placementEnabled = false,
@@ -661,6 +753,18 @@ export function SpatialBoard<T extends SpatialTile>({
     [ordered, layout],
   );
 
+  // The cell the Gym boss's draft will land in, if he is currently writing
+  // one. Computed the same way a committed placement is (parent's position
+  // plus the corner's offset), so the draft always sits exactly where his
+  // tile lands a moment later rather than drifting from it.
+  const bossDraftPos = useMemo(() => {
+    if (!bossDraft) return null;
+    const parentPos = layout.positions.get(bossDraft.parentId);
+    if (!parentPos) return null;
+    const offset = cornerOffset(bossDraft.corner);
+    return { x: parentPos.x + offset.x, y: parentPos.y + offset.y };
+  }, [bossDraft, layout]);
+
   // Open slots for a reply are shown for the hovered tile only. Showing every
   // open slot on the board at once turns a four-thread game into sixteen plus
   // signs and reads as noise rather than as an invitation. The topic's own
@@ -685,10 +789,14 @@ export function SpatialBoard<T extends SpatialTile>({
     };
     // The slot the coach is pointing at is drawn whether or not its parent
     // is under the cursor, and first, so it carries the first sample answer.
+    // Skipped if the boss's draft already occupies that cell: the two are
+    // never worth drawing on top of each other.
     const pointed =
       pointedSlot && pointedSlot.parentId !== TOPIC_CELL_ID
         ? slotsUnder(pointedSlot.parentId).filter(
-            (slot) => slot.corner === pointedSlot.corner,
+            (slot) =>
+              slot.corner === pointedSlot.corner &&
+              !(bossDraftPos && sameCell(slot.pos, bossDraftPos)),
           )
         : [];
     // The topic's four diagonals are drawn permanently by `rootGhosts`, all
@@ -698,10 +806,21 @@ export function SpatialBoard<T extends SpatialTile>({
     // nothing left for a hover ghost to add here.
     if (!hoveredId || hoveredId === TOPIC_CELL_ID) return pointed;
     const hovered = slotsUnder(hoveredId).filter(
-      (slot) => !pointed.some((p) => p.pos.x === slot.pos.x && p.pos.y === slot.pos.y),
+      (slot) =>
+        !pointed.some((p) => p.pos.x === slot.pos.x && p.pos.y === slot.pos.y) &&
+        !(bossDraftPos && sameCell(slot.pos, bossDraftPos)),
     );
     return [...pointed, ...hovered];
-  }, [draftAt, placementEnabled, hoveredId, layout, canPlaceOn, placeSide, pointedSlot]);
+  }, [
+    draftAt,
+    placementEnabled,
+    hoveredId,
+    layout,
+    canPlaceOn,
+    placeSide,
+    pointedSlot,
+    bossDraftPos,
+  ]);
 
   // The topic's open corners, drawn for as long as the game is still in its
   // root stage (`roots < rootTarget`, `lib/board/rules.ts`): every corner in
@@ -744,6 +863,9 @@ export function SpatialBoard<T extends SpatialTile>({
     for (const corner of cornersInPlay) {
       const pos = openByCorner.get(corner);
       if (!pos) continue;
+      // The boss's draft, if one is landing on this exact corner, replaces
+      // the placeholder rather than sitting beside it.
+      if (bossDraftPos && sameCell(pos, bossDraftPos)) continue;
       const side = cornerSide(corner);
       // A caller with no seat in play (the finished map) passes neutral and
       // sees every corner as an invitation, same as it always could. A player
@@ -761,7 +883,16 @@ export function SpatialBoard<T extends SpatialTile>({
       });
     }
     return slots;
-  }, [draftAt, placementEnabled, canPlaceOn, layout, placed, rootTarget, placeSide]);
+  }, [
+    draftAt,
+    placementEnabled,
+    canPlaceOn,
+    layout,
+    placed,
+    rootTarget,
+    placeSide,
+    bossDraftPos,
+  ]);
 
   const pitch = size * CELL_PITCH_RATIO;
 
@@ -1195,9 +1326,27 @@ export function SpatialBoard<T extends SpatialTile>({
           </div>
         ))}
 
+        {/* A second pass over the same tiles, deliberately unclipped. Kept
+            as its own loop rather than interleaved with the clipped wrapper
+            above so every overlay paints after (and therefore above) every
+            tile's octagon, no matter where the two tiles sit relative to
+            each other on the board. */}
+        {renderOverlay &&
+          placed.map(({ tile, pos }) => (
+            <div
+              key={`overlay:${tile.id}`}
+              className="pointer-events-none"
+              style={{ ...pixelStyle(pos, layout, size), clipPath: undefined }}
+            >
+              {renderOverlay(tile)}
+            </div>
+          ))}
+
         {rootGhosts.map(({ pos, parentId, corner, side, interactive, sampleIndex }) => {
-          // The ghost already prints the stem as a chip, so a sample that
-          // opens with the same words would read "Yes, because Yes, because".
+          // The sample itself is no longer shown in the slot (Steve,
+          // 2026-09-04: a player should pick a spot before the words are
+          // already there for them), but it still rides along to `onPlace`
+          // so the composer that opens after the click can type it in.
           const raw = interactive ? (slotSamples?.[sampleIndex] ?? null) : null;
           const sample = raw === null ? null : stripDuplicateLead(raw);
           return (
@@ -1206,13 +1355,10 @@ export function SpatialBoard<T extends SpatialTile>({
               style={pixelStyle(pos, layout, size)}
               label={
                 interactive
-                  ? sample
-                    ? `Lay down a tile here, with the coach's words to start from`
-                    : `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
+                  ? `Start a new thread on the ${side === "minus" ? "Minus" : "Plus"} side`
                   : `The ${side === "minus" ? "Minus" : "Plus"} side's opening reason`
               }
               side={side}
-              sample={sample}
               stem={tileLead(side, true, null)}
               mark={side === "minus" ? "\u2212" : "+"}
               interactive={interactive}
@@ -1224,25 +1370,32 @@ export function SpatialBoard<T extends SpatialTile>({
         })}
 
         {ghosts.map(({ pos, parentId, side, corner }, index) => {
+          // Same deal as the root slots above: the sample is not drawn, only
+          // handed to `onPlace` for the composer to type in after the click.
           const raw = slotSamples?.[index] ?? null;
           const sample = raw === null ? null : stripDuplicateLead(raw);
           return (
             <GhostSlot
               key={`${pos.x},${pos.y}`}
               style={pixelStyle(pos, layout, size)}
-              label={
-                sample
-                  ? `Lay down a tile here, with the coach's words to start from`
-                  : "Answer this reason here"
-              }
+              label="Click to write your reason here"
               side={side}
-              sample={sample}
               parentId={parentId}
               corner={corner}
               onClick={() => onPlace?.(parentId, pos, sample, corner)}
             />
           );
         })}
+
+        {bossDraft && bossDraftPos && (
+          <BossDraftSlot
+            style={pixelStyle(bossDraftPos, layout, size)}
+            side={bossDraft.side}
+            text={bossDraft.text}
+            parentId={bossDraft.parentId}
+            corner={bossDraft.corner}
+          />
+        )}
 
         {/* Drawn outside the ghost list on purpose. Open slots come and go
             with the hover, and the cursor leaves the board the instant

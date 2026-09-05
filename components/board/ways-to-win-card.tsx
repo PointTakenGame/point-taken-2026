@@ -22,18 +22,37 @@ import type { Side } from "@/lib/events/types";
  * target except the pencil, which reports through `onRevise`.
  */
 
+export type MiniCorner = "tr" | "br" | "bl" | "tl";
+
 export interface MiniThread {
   tileId: string;
   side: Side;
   /**
    * The board edge this thread's root tile sits on, or null when the caller has
    * no edge geometry to give. Kept on the payload but no longer read: corners
-   * are chosen by side now, and the live board has only ever passed null.
+   * come from `corner` now, or from side when the caller has none.
    */
   parentEdge: number | null;
+  /**
+   * The corner of the topic tile this thread's root actually sits on, read
+   * off the board's own layout, or null when the caller cannot say. Steve,
+   * 2026-09-04 playtest: level 1's two threads hang off the bottom corners
+   * and the stamp was lighting the top two, "which are not even available",
+   * because the corners were dealt out by side. A thread with a corner goes
+   * there; the rest fall back to the side queue.
+   */
+  corner?: MiniCorner | null;
   resolved: boolean;
   /** The resolution token that closed this thread, or null while it is still open. */
   token: string | null;
+  /**
+   * A token one side has put down that the other has not matched yet. `mine`
+   * says whose. Drawn faint in the corner so a thread waiting on the viewer's
+   * own token looks different from one nobody has moved on; the 2026-09-04
+   * playtest stalled on exactly that, a 👍 sitting unmatched with nothing
+   * on the stamp saying so.
+   */
+  pending?: { emoji: string; mine: boolean } | null;
 }
 
 type HoverPayload = { tileId: string; kind: "resolved" | "open" | "topic" } | null;
@@ -127,11 +146,23 @@ export function WaysToWinCard({
   const slots = useMemo(() => {
     const queue = threads.slice(0, 4);
     const used = new Set<number>();
-    const filled = SLOTS.map((slot) => {
+    // A thread that knows its corner takes it first, so the stamp is a
+    // picture of the board rather than of the placement order.
+    const byCorner = SLOTS.map((slot) => {
       const at = queue.findIndex(
-        (thread, index) => thread.side === slot.side && !used.has(index),
+        (thread, index) => thread.corner === slot.corner && !used.has(index),
       );
       if (at === -1) return { ...slot, thread: null as MiniThread | null };
+      used.add(at);
+      return { ...slot, thread: queue[at] as MiniThread | null };
+    });
+    const filled = byCorner.map((slot) => {
+      if (slot.thread) return slot;
+      const at = queue.findIndex(
+        (thread, index) =>
+          thread.side === slot.side && !thread.corner && !used.has(index),
+      );
+      if (at === -1) return slot;
       used.add(at);
       return { ...slot, thread: queue[at] as MiniThread | null };
     });
@@ -209,7 +240,11 @@ export function WaysToWinCard({
               thread
                 ? thread.resolved
                   ? "Thread resolved"
-                  : "Thread not yet resolved"
+                  : thread.pending
+                    ? thread.pending.mine
+                      ? "Your token is down on this thread, waiting for theirs"
+                      : "Their token is down on this thread, waiting for yours"
+                    : "Thread not yet resolved"
                 : `No thread started yet on this ${side === "plus" ? "Plus" : "Minus"} corner`
             }
             onMouseEnter={
@@ -229,6 +264,16 @@ export function WaysToWinCard({
               {thread ? (
                 thread.token ? (
                   <TokenGlyph token={thread.token} size={20} />
+                ) : thread.pending ? (
+                  // Half there: one side's token, faint, and pulsing when it
+                  // is the viewer's move that would close the thread.
+                  <span
+                    className={`flex items-center justify-center opacity-50 ${
+                      thread.pending.mine ? "" : "animate-pulse"
+                    }`}
+                  >
+                    <TokenGlyph token={thread.pending.emoji} size={18} />
+                  </span>
                 ) : null
               ) : (
                 <span

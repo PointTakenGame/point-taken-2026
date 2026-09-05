@@ -118,6 +118,18 @@ function sameOffset(a: GridPosition, b: GridPosition): boolean {
 }
 
 /**
+ * The offset a corner name points at, for a caller that has a `TileCorner`
+ * and needs the cell it names rather than the other way around. The Gym's
+ * boss draft (`components/gym/boss-draft.ts`) is the first such caller: the
+ * Director knows the corner its scripted move will land in before the tile
+ * exists to derive it from, so the spatial board needs this direction of the
+ * lookup too.
+ */
+export function cornerOffset(corner: TileCorner): GridPosition {
+  return CORNER_OFFSETS[corner];
+}
+
+/**
  * The order to try candidate cells in for a given tile: its stored corner
  * first, when it has one, then the rest of the caller's default order with
  * that corner's offset removed so it is not tried twice.
