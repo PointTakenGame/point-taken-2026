@@ -82,8 +82,18 @@ export type PlayerExpect =
  * `data-slot-parent` / `data-slot-corner` attributes, so nothing here knows
  * about uuids or the DOM.
  */
+/**
+ * A fixed piece of board chrome a beat can point at or reveal, as opposed to
+ * a tile or an empty slot: the ways-to-win card, the rule-card tray, and the
+ * move/zoom controls in the lower right. Steve, 2026-09-05: level 1 keeps
+ * the first two hidden until the beat that explains them.
+ */
+export type BoardSurface = "ways-to-win" | "card-tray" | "nav-controls";
+
 export type BeatAnchor =
-  { tile: TileKey } | { slot: { parent: TileKey | "topic"; corner: TileCorner } };
+  | { tile: TileKey }
+  | { slot: { parent: TileKey | "topic"; corner: TileCorner } }
+  | { ui: BoardSurface };
 
 interface BeatBase {
   id: string;
@@ -123,6 +133,17 @@ export type Beat =
       bossReplies?: string;
       /** What this pause's speech bubble points at. Unset docks it under the coach. */
       anchor?: BeatAnchor;
+      /**
+       * Hold the bubble back this long after the beat becomes current, so
+       * the coach visibly reads the board before speaking. Level 1 uses it
+       * for the pause after Bob's first violation lands.
+       */
+      delayMs?: number;
+      /**
+       * Surfaces from the level's `hiddenSurfaces` that become visible when
+       * this beat starts, and stay visible for the rest of the level.
+       */
+      reveal?: readonly BoardSurface[];
     })
   | (BeatBase & {
       kind: "player";
@@ -170,6 +191,20 @@ export interface Level {
    */
   bossHabit?: string;
   bossTip?: string;
+  /**
+   * Board chrome that starts hidden and only appears when a pause beat
+   * names it in `reveal`. Unset means everything is visible from the start,
+   * which is every level except level 1.
+   */
+  hiddenSurfaces?: readonly BoardSurface[];
+  /**
+   * Steve, 2026-09-05, level 1 only: a fully cooked tutorial. The player's
+   * tile text is the script's suggestion and cannot be edited, only placed;
+   * the only slot offered is the one the current beat points at; nothing
+   * can be placed under the player's own tiles; and while the expected move
+   * is a card throw no empty slots are drawn at all.
+   */
+  cooked?: boolean;
   beats: readonly Beat[];
   /** What the certificate lists. Display only until award events exist. */
   awards: { badges: readonly string[]; cardId: string };

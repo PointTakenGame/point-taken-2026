@@ -3,8 +3,21 @@ import type { Level } from "../script";
 /**
  * Level 1, Onboarding: Should a hot dog be called a sandwich?
  *
- * Structure ruled by Steve, 2026-09-05, replacing every earlier ordering of
- * this level: two thread starters, one for each side, Bob's root first.
+ * Rewritten by Steve, 2026-09-05, from his own level 1 playthrough. Two
+ * thread starters, one for each side, Bob's root first (unchanged from the
+ * earlier ordering). What changed is everything downstream of that: the
+ * second-thread pause is gone, a rule-card-vocabulary pause used to speak
+ * before the player had ever seen the board move, and two new pauses teach
+ * the board's own chrome (moving around, ways to win) at the moments that
+ * chrome actually turns useful instead of all at once up front.
+ *
+ * `hiddenSurfaces` keeps the ways-to-win card and the rule-card tray out of
+ * sight until this script itself reveals them (`p4b-ways-to-win`,
+ * `p5-first-card`): a level 1 player has not earned either idea yet, and
+ * showing the chrome before the concept invites the "why is that there"
+ * question the level answers a few beats later anyway. `cooked: true` locks
+ * the tutorial down further (see the field's doc in ../script.ts): the
+ * player only ever places the one suggestion this script hands them.
  *
  * Thread A is Bob's own root. The player answers it once, and Bob agrees
  * outright rather than arguing back, demonstrating Agree to agree before the
@@ -14,7 +27,10 @@ import type { Level } from "../script";
  * Taboo, which is where the card is taught and thrown. Bob rewrites the
  * tile, the player answers the rewrite, and Bob replies once more without
  * conceding. Neither of them moved, so it closes on Agree to disagree, four
- * tiles total.
+ * tiles total. Every reply on this thread argues the same point the
+ * player's own root opened with (nobody ordering a sandwich expects a hot
+ * dog): a 2026-09 playtest note flagged an earlier draft's reply drifting
+ * off its thread's root, which is the one rule threads have.
  *
  * The level ends there: two threads, both closed, one of each token shown
  * once. Bob is Plus, the player is Minus.
@@ -46,6 +62,10 @@ export const ONBOARDING: Level = {
   bossHabit: "talks about you instead of the question",
   bossTip:
     "when a reason turns into a comment about you instead of about the topic, throw the card at that tile",
+  // Steve, 2026-09-05: keep the ways-to-win card and the rule-card tray out
+  // of sight until the beats that explain them reveal them.
+  hiddenSurfaces: ["ways-to-win", "card-tray"],
+  cooked: true,
   awards: { badges: ["finish-one-game"], cardId: "you_is_taboo" },
   beats: [
     {
@@ -68,8 +88,8 @@ export const ONBOARDING: Level = {
     {
       kind: "pause",
       id: "p2-reason-tile",
-      title: "What a reason tile is",
-      body: "That's a reason tile. A short claim supporting one side, and it starts a thread. One idea per tile. If you've got two, that's two tiles. Your turn.",
+      title: "Reason tiles",
+      body: "When the game starts, each player gives their best reason for their side. Bob says yes to the topic question, so he put his best reason here. Your turn.",
       button: "Got it",
       anchor: { tile: "A" },
     },
@@ -82,7 +102,7 @@ export const ONBOARDING: Level = {
       // never drawn in the slot beforehand, so there is nothing to "pick"
       // here.
       coach:
-        "Start your first thread: why a hot dog isn't a sandwich. I wrote you a sample, change any of it.",
+        "Start your first thread by putting your best reason why a hot dog isn't a sandwich.\n\nOnce you click here, I'll write one for you to get you started. Just hit Place.",
       nudge: "That one goes here, under the topic.",
       expect: {
         kind: "tile",
@@ -90,45 +110,52 @@ export const ONBOARDING: Level = {
         parent: null,
         suggestions: [
           "No, because nobody who orders a sandwich would ever be handed a hot dog.",
-          "No, because a bun is one piece of bread that's been cut, not two slices.",
         ],
       },
       anchor: { slot: { parent: "topic", corner: "sw" } },
     },
     {
-      kind: "pause",
-      id: "p2b-second-thread",
-      title: "Your own thread",
-      body: "That's your own reason, a second thread under the topic, next to Bob's. Two threads now, and both have to close before the game ends.",
-      button: "My turn",
-      anchor: { tile: "B" },
-    },
-    {
       kind: "player",
       id: "player-answers-a",
-      coach: "Answer Bob's reason, at the top of his thread.",
+      coach:
+        "Once each player has their main reasons on the board, they reply to each other's reasons. Give a reply to Bob's reason in the highlighted spot connected to his first tile. Just click and I'll give you some text to start you out.",
       nudge: "Here, under Bob's tile, the one at the top of his thread.",
       expect: {
         kind: "tile",
         key: "A1",
         parent: "A",
         suggestions: [
-          "But a bun is hinged, that's one piece of bread, not two.",
-          "But a sandwich has to still work when you lay it flat, and a hot dog doesn't.",
+          "But a bun is one hinged piece of bread, and a sandwich needs two.",
         ],
       },
-      // No hand-written anchor: the director points at whichever of A's
-      // diagonals the board's own layout offers next, which is the same cell
-      // the click will land in. A corner written here by hand went stale the
-      // first time the placement order changed.
+      // Forced bottom-right rather than left to the board's own layout: at
+      // this point in the level a corner still reads as "the spot", not yet
+      // as one of several a thread could grow into. Steve, 2026-09-05:
+      // "let's not introduce the idea that threads can vary in their
+      // spatial location yet."
+      anchor: { slot: { parent: "A", corner: "se" } },
     },
     {
       kind: "pause",
       id: "p3-tiles-answer-tiles",
       title: "Tiles answer tiles",
-      body: "You answered Bob. A 'Hmm...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
+      body: "You answered Bob. We're making a threaded discussion.",
       button: "Got it",
       anchor: { tile: "A1" },
+    },
+    {
+      // Placed here, right after the player's first reply, rather than after
+      // Bob's second tile as Steve suggested when he asked for this hint: a
+      // player who has just placed one tile still has both hands free to
+      // explore the board, where placing it after bob-violation would land
+      // the same beat over the "you" attack, the level's actual tension
+      // point. Noted here as a deliberate placement choice, not a stray beat.
+      kind: "pause",
+      id: "p3b-move-the-board",
+      title: "Moving around",
+      body: "Grab anywhere on the board to move it. Or use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
+      button: "Got it",
+      anchor: { ui: "nav-controls" },
     },
     {
       kind: "boss",
@@ -143,7 +170,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p4-agree-to-agree",
       title: "Agree to agree",
-      body: "A thread closes when you both put the same token on it. 👍 Agree to agree: he changed his mind. Bob's put his down, put yours next to it.",
+      body: "Wow, congrats. You convinced Bashful Bob that he can agree to agree on this reason. That's generous of him. Putting a 👍 on a root reason tile shows that while you may not agree on the topic in general, you can agree that you've reached a consensus on this one thread.",
       button: "Got it",
       anchor: { tile: "A" },
     },
@@ -157,6 +184,15 @@ export const ONBOARDING: Level = {
       anchor: { tile: "A" },
     },
     {
+      kind: "pause",
+      id: "p4b-ways-to-win",
+      title: "Ways to win",
+      body: "Look: your 👍 just landed on this board. Close the other thread too and you and Bob win the game together.",
+      button: "Got it",
+      reveal: ["ways-to-win"],
+      anchor: { ui: "ways-to-win" },
+    },
+    {
       kind: "boss",
       id: "bob-violation",
       act: {
@@ -168,17 +204,29 @@ export const ONBOARDING: Level = {
     },
     {
       kind: "pause",
-      id: "p5-first-card",
-      title: "Your first rule card",
-      cardId: "you_is_taboo",
-      body: "That card is yours now. Something on the board breaks it. Throw the card at that tile.",
-      button: "Show me",
+      id: "p5-hold-up",
+      title: "Hold up",
+      body: "Stop. Bob just made this about you, not about the hot dog. There's something you can do about it.",
+      button: "Next",
+      // Held back so the coach visibly reads Bob's violation before
+      // speaking, rather than jumping on it the instant the tile lands.
+      delayMs: 2500,
       anchor: { tile: "B1" },
+    },
+    {
+      kind: "pause",
+      id: "p5-first-card",
+      cardId: "you_is_taboo",
+      title: "Your first rule card",
+      body: "This is a rule card: 'You' is taboo. Click the card, then click Bob's tile that broke it.",
+      button: "Got it",
+      reveal: ["card-tray"],
+      anchor: { ui: "card-tray" },
     },
     {
       kind: "player",
       id: "player-throws",
-      coach: "Throw it.",
+      coach: "Click the card, then click the tile.",
       nudge: "Hang on. Read Bob's last tile again. Is it about the hot dog?",
       // No points at level 1. The badge is the whole reward, and a first
       // throw that scores would teach the opposite of what the card is for.
@@ -197,8 +245,8 @@ export const ONBOARDING: Level = {
     {
       kind: "pause",
       id: "p6-what-a-card-does",
-      title: "What a card actually does",
-      body: "The card didn't delete anything. Bob rewrote the tile without the 'you' in it and the argument survived. That's the whole point. His reason was fine. The way he aimed it wasn't.",
+      title: "Rule cards keep your discussion calm and rational",
+      body: "After you flagged this rule card violation, Bob rewrote his tile to remove the personal attack. I think you'll agree that this way of discussing a topic is far more productive.",
       button: "Got it",
       anchor: { tile: "B1" },
     },
@@ -211,9 +259,11 @@ export const ONBOARDING: Level = {
         kind: "tile",
         key: "B2",
         parent: "B1",
+        // Stays on B's own root point (nobody ordering a sandwich expects a
+        // hot dog), the same claim player-root-b's suggestion opened with,
+        // rather than drifting onto a new argument about memory.
         suggestions: [
-          "Fine, forget memory: it's still one piece of bread, not two.",
-          "It's not about memory. Nobody doubts a hoagie is a sandwich either.",
+          "Still, nobody ordering a sandwich expects to be handed a hot dog either way.",
         ],
       },
     },
@@ -235,7 +285,7 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-token-b",
       coach:
-        "You're not going to agree on this one. 👀 Agree to disagree: neither of you has to move, and it still closes the thread.",
+        "I think you two just see the world differently, and it's time to wrap this thread up and agree to disagree. Click this root tile and choose the 👀 side-eye.",
       nudge:
         "Propose 👀 on your own thread. Neither of you has to change your mind for it to close.",
       expect: { kind: "token", thread: "B", emoji: "👀" },

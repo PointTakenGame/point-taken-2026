@@ -121,13 +121,16 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       null,
       null,
-      "No, because a bun is one piece of bread that's been cut, not two slices.",
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
     );
     // Nothing dismissed, yet p2 is done: the player's own root is the evidence.
+    // There is no pause between player-root-b and player-answers-a since the
+    // 2026-09-05 rewrite dropped p2b-second-thread, so the walk lands
+    // directly on that player beat rather than stalling on a pending pause.
     const progress = levelProgress(ONBOARDING, l.board());
     expect(progress.keys.B).toBe(b);
     expect(progress.done).toContain("p2-reason-tile");
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("p2b-second-thread");
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-answers-a");
     expect(progress.cursor).toBe(l.events.length);
   });
 
@@ -143,13 +146,13 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       null,
       null,
-      "No, because a bun is one piece of bread that's been cut, not two slices.",
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
     );
     const a1 = l.tile(
       PLAYER,
       a,
       a,
-      "But a bun is hinged, that's one piece of bread, not two.",
+      "But a bun is one hinged piece of bread, and a sandwich needs two.",
     );
     l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
     l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
@@ -178,7 +181,7 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       b1,
       b,
-      "Fine, forget memory: it's still one piece of bread, not two.",
+      "Still, nobody ordering a sandwich expects to be handed a hot dog either way.",
     );
     const b3 = l.tile(
       BOB,
@@ -203,7 +206,7 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       null,
       null,
-      "No, because a bun is one piece of bread that's been cut, not two slices.",
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
     );
     // The script wants the player answering Bob's thread next; this one
     // extends their own thread instead.
@@ -227,9 +230,14 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       null,
       null,
-      "No, because a bun is one piece of bread that's been cut, not two slices.",
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
     );
-    l.tile(PLAYER, a, a, "But a bun is hinged, that's one piece of bread, not two.");
+    l.tile(
+      PLAYER,
+      a,
+      a,
+      "But a bun is one hinged piece of bread, and a sandwich needs two.",
+    );
 
     l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-a");
@@ -265,7 +273,7 @@ describe("levelProgress on level 1", () => {
       PLAYER,
       b1,
       b,
-      "Fine, forget memory: it's still one piece of bread, not two.",
+      "Still, nobody ordering a sandwich expects to be handed a hot dog either way.",
     );
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-replies-again");
     l.tile(
@@ -329,9 +337,14 @@ describe("a legal token that is not the scripted one still ends level 1", () => 
       PLAYER,
       null,
       null,
-      "No, because a bun is one piece of bread that's been cut, not two slices.",
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
     );
-    l.tile(PLAYER, a, a, "But a bun is hinged, that's one piece of bread, not two.");
+    l.tile(
+      PLAYER,
+      a,
+      a,
+      "But a bun is one hinged piece of bread, and a sandwich needs two.",
+    );
 
     // Thread A: Bob goes first with the scripted 👍 and the player matches
     // it exactly. No deviation on this side, the control for the deviation
@@ -367,7 +380,7 @@ describe("a legal token that is not the scripted one still ends level 1", () => 
       PLAYER,
       b1,
       b,
-      "Fine, forget memory: it's still one piece of bread, not two.",
+      "Still, nobody ordering a sandwich expects to be handed a hot dog either way.",
     );
     l.tile(
       BOB,

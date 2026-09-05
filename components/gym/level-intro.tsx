@@ -9,26 +9,29 @@ import { OCTAGON_CLIP } from "@/components/board/geometry";
 import { SideAvatar } from "@/components/board/tile-shape";
 import type { BoardState } from "@/lib/board/project";
 import { SIGNING_LINES } from "@/lib/board/setup";
-import { coachCard } from "@/lib/coach/cards";
 import type { Level } from "@/lib/gym/script";
 
 /**
  * The two-card intro that opens a Gym level, in place of the plain
  * sign-and-start room this used to be. Card one introduces the boss and the
- * challenge (Figma `1058:211649`, "boss intro"); card two shows the rule
- * card the level teaches, the signing ritual, and the start button (Figma
- * `1077:220185`, "rule card intro"). Steve ruled 2026-09-04 (BRAIN-T260904-21)
- * to build from Rannie's staging rather than the old single-screen lobby.
+ * challenge (Figma `1058:211649`, "boss intro"). Card two used to show the
+ * level's rule card face down; Steve killed that on his level 1 playthrough,
+ * 2026-09-05: "we're telling about the rule card before they even understand
+ * that there are rule cards" applies to every level, not just this one, so
+ * no level intro shows a rule card any more. A rule card is only ever met on
+ * the board, the moment the script actually teaches it.
  *
- * The rule card on card two is shown face up only if the player already
- * earned it on an earlier clear. Otherwise it is a question mark: the rule
- * is discovered partway through the level, not handed out up front (Steve,
- * 2026-09-04, "we can always replace any rule cards that haven't been given
- * yet with a question mark"). The three signing lines are shown as read-only
- * small print, not four checkboxes: the Figma still draws four, but the
- * signing ritual is three lines signed as one act, settled on the 2026-08-31
- * call and restated in this repo's CLAUDE.md, and the Figma is the stale one
- * there.
+ * Card two is now the agreement: one sentence naming the level, the boss,
+ * and the topic, then the three signing-line pledges from `SIGNING_LINES`
+ * (`lib/board/setup.ts`), then "I agree to all three", which signs, then
+ * "Start the game", which stays disabled until agreed. Both call the same
+ * `signAgreement` / `startGame` actions the old sign-and-start card used. If
+ * the player already signed (a rejoin, or the peer started this screen
+ * first), it opens already agreed.
+ *
+ * `cardEarned` stays in the props so `components/gym/gym-lobby.tsx` (not
+ * this lane) does not need a matching edit; it is unused here now that no
+ * card is shown.
  *
  * Neither card renders LiveBoard. There is no board yet, only a level that
  * has not started, so the ground behind the cards is the same dot-grid and
@@ -48,12 +51,13 @@ export function LevelIntro({
   level,
   board,
   me,
-  cardEarned,
 }: {
   gameId: string;
   level: Level;
   board: BoardState;
   me: { playerId: string };
+  /** Unused now that no level intro shows a rule card. Kept in the type so
+   * gym-lobby.tsx, which is not this lane, needs no matching edit. */
   cardEarned: boolean;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
@@ -65,13 +69,7 @@ export function LevelIntro({
         {step === 1 ? (
           <BossIntroCard level={level} onNext={() => setStep(2)} />
         ) : (
-          <RuleCardIntroCard
-            gameId={gameId}
-            level={level}
-            board={board}
-            me={me}
-            cardEarned={cardEarned}
-          />
+          <AgreementCard gameId={gameId} level={level} board={board} me={me} />
         )}
       </main>
     </div>
@@ -112,10 +110,12 @@ function BoardChrome({ level }: { level: Level }) {
 
 function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) {
   const bossLines = level.bossName.split(" ");
-  const habitLine =
-    level.bossHabit && level.bossTip
-      ? `You will earn a rule card and beat the boss. The rule card you will learn is still face down: you find it partway through the level. ${level.bossName} ${level.bossHabit}.`
-      : "You will earn a rule card and beat the boss. The rule card you will learn is still face down: you find it partway through the level.";
+  // Steve, 2026-09-05: no level intro names the rule card up front any more
+  // ("we're telling about the rule card before they even understand that
+  // there are rule cards"), so this line is the boss's habit alone, with no
+  // mention of the card the level will teach. A level with no habit shows no
+  // line at all rather than a sentence about a card nobody has met yet.
+  const habitLine = level.bossHabit ? `${level.bossName} ${level.bossHabit}.` : null;
   const readyLine = `Ready? The topic: "${level.topic}". You're playing ${SIDE_WORD[level.playerSide]}.`;
 
   return (
@@ -157,7 +157,9 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
           {`Level ${level.number} Game Challenge`}
         </h2>
 
-        <p className="font-secondary text-ink-soft text-p-md">{habitLine}</p>
+        {habitLine ? (
+          <p className="font-secondary text-ink-soft text-p-md">{habitLine}</p>
+        ) : null}
 
         <p className="font-secondary text-ink text-p-md font-bold">{readyLine}</p>
 
@@ -173,40 +175,56 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
   );
 }
 
-function RuleCardIntroCard({
+/**
+ * The agreement screen. Replaces the old rule-card-plus-sign-and-start card
+ * (Steve, 2026-09-05): one sentence naming the level, boss, and topic, the
+ * three signing-line pledges read in full, then two steps in one place
+ * rather than one button doing both. "I agree to all three" signs; once
+ * signed, "Start the game" ungreys. A player who is already signed (a
+ * rejoin, or the peer opened this screen first and this player signed
+ * elsewhere) opens straight into the agreed state.
+ */
+function AgreementCard({
   gameId,
   level,
   board,
   me,
-  cardEarned,
 }: {
   gameId: string;
   level: Level;
   board: BoardState;
   me: { playerId: string };
-  cardEarned: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const mine = board.players.find((player) => player.id === me.playerId);
-  const signed = (mine?.signed?.length ?? 0) > 0;
-  const card = cardEarned ? coachCard(level.cardId) : undefined;
+  const [agreed, setAgreed] = useState((mine?.signed?.length ?? 0) > 0);
 
-  const go = () => {
+  const introLine =
+    level.number === 1
+      ? `You're about to play your first game, against ${level.bossName}, on the question: ${level.topic}`
+      : `You're about to play level ${level.number} against ${level.bossName}, on: ${level.topic}`;
+
+  const agree = () => {
     setError(null);
     startTransition(async () => {
-      if (!signed) {
-        const signedResult = await signAgreement(gameId);
-        if (!signedResult.ok) {
-          setError(signedResult.error);
-          return;
-        }
+      const result = await signAgreement(gameId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
-      const started = await startGame(gameId);
-      if (!started.ok) {
-        setError(started.error);
+      setAgreed(true);
+    });
+  };
+
+  const start = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await startGame(gameId);
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
       router.refresh();
@@ -214,65 +232,47 @@ function RuleCardIntroCard({
   };
 
   return (
-    <div className="flex w-full flex-col items-center">
-      <div className="border-green bg-card relative z-10 mb-[-2rem] flex w-56 flex-col items-center gap-2 rounded-2xl border-2 px-4 pt-7 pb-8 text-center shadow-[var(--shadow-sticker)]">
-        <span
-          className="border-ink absolute -top-3 -left-3 flex h-9 w-9 items-center justify-center border-[1.5px]"
-          style={{
-            clipPath: OCTAGON_CLIP,
-            backgroundColor: "color-mix(in srgb, var(--color-green) 60%, black)",
-          }}
-        >
-          <span className="font-figure text-p-sm leading-none font-black text-white">
-            {`L${level.number}`}
-          </span>
-        </span>
-        {card ? (
-          <>
-            <span className="text-4xl">{card.icon}</span>
-            <span className="font-primary text-ink text-p-md leading-tight uppercase">
-              {card.name}
-            </span>
-            <span className="font-secondary text-ink-soft text-p-sm">{card.plain}</span>
-          </>
-        ) : (
-          <>
-            <span className="bg-orange border-ink text-ink flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] text-2xl font-black">
-              ?
-            </span>
-            <span className="font-primary text-ink text-p-md leading-tight uppercase">
-              ?
-            </span>
-            <span className="font-secondary text-ink-soft text-p-sm">
-              You earn this card partway through the level.
-            </span>
-          </>
-        )}
-      </div>
+    <div className="sticker flex w-full flex-col items-center gap-4 p-8 text-center">
+      <p className="font-secondary text-ink text-p-md">{introLine}</p>
 
-      <div className="sticker flex w-full flex-col items-center gap-4 p-8 pt-12 text-center">
-        <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
-          {`Level ${level.number}: sign and start`}
-        </h2>
+      <p className="font-secondary text-ink text-p-md font-bold">
+        When you play Point Taken, you agree to three things:
+      </p>
 
-        <ol className="flex w-full flex-col gap-1">
-          {SIGNING_LINES.map((line, index) => (
-            <li key={line.id} className="font-label text-ink-soft text-p-sm uppercase">
-              {index === 0 ? "By starting you agree: " : null}
-              {line.text}
-            </li>
-          ))}
-        </ol>
+      <ol className="flex w-full flex-col gap-3 text-left">
+        {SIGNING_LINES.map((line) => (
+          <li key={line.id} className="flex flex-col gap-0.5">
+            <span className="font-primary text-ink text-p-md uppercase tracking-wide">
+              {line.title}
+            </span>
+            <span className="font-secondary text-ink-soft text-p-sm">{line.pledge}</span>
+          </li>
+        ))}
+      </ol>
 
-        <button type="button" className={PILL_DARK} disabled={pending} onClick={go}>
-          {"Start the game →"}
-        </button>
-        {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
+      <button
+        type="button"
+        className={PILL_DARK}
+        disabled={pending || agreed}
+        onClick={agree}
+      >
+        {agreed ? "Agreed" : "I agree to all three"}
+      </button>
 
-        <Link href="/" className={BACK_LINK}>
-          Back to your profile
-        </Link>
-      </div>
+      <button
+        type="button"
+        className={PILL_DARK}
+        disabled={pending || !agreed}
+        onClick={start}
+      >
+        {"Start the game →"}
+      </button>
+
+      {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
+
+      <Link href="/" className={BACK_LINK}>
+        Back to your profile
+      </Link>
     </div>
   );
 }
