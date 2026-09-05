@@ -116,6 +116,49 @@ describe("FinishedMap", () => {
     expect(html).toContain("[redacted]");
   });
 
+  it("shows the board's own lead-in on a reply from the other side, not a raw stored lead", () => {
+    const board = projectBoard(
+      events([
+        {
+          type: "topic_set",
+          payload: { text: "A topic.", origin: "custom", topic_id: null },
+        },
+        {
+          type: "tile_placed",
+          payload: {
+            tile_id: "t1",
+            parent_tile_id: null,
+            thread_root_id: "t1",
+            side: "plus",
+            text: "Rents outpace wages.",
+          },
+        },
+        {
+          type: "tile_placed",
+          payload: {
+            tile_id: "t2",
+            parent_tile_id: "t1",
+            thread_root_id: "t1",
+            side: "minus",
+            text: "But caps cut new supply.",
+          },
+        },
+      ]),
+    );
+
+    const html = renderToStaticMarkup(<FinishedMap board={board} />);
+    // The plain-text fallback under <details> is not stripped, so the "But"
+    // check only holds against the tile grid above it. Each tile also carries
+    // its full unstripped text in a `title` attribute for a hover tooltip,
+    // which is a deliberate exception to the same rule, so strip attributes
+    // before asserting on what actually prints inside the tile.
+    const gridHtml = html.split("<details")[0].replace(/title="[^"]*"/g, "");
+
+    expect(html).toContain("Hmm");
+    expect(gridHtml).not.toContain("But");
+    expect(gridHtml).toContain("Caps cut new supply.");
+  });
+
   it("says so plainly when a game has no reasons on it", () => {
     const board = projectBoard(
       events([
