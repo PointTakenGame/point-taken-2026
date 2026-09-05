@@ -1812,41 +1812,74 @@ function reducedMotionPreferred(): boolean {
  * and typing reads as an offer in a way a box that is simply already full
  * does not (Steve, 2026-09-04, live playtest). 25 to 35ms per character
  * with a little jitter, which keeps even a 60-character sample under the
- * 2.5s it takes to start feeling slow. A keypress or click in the box, or a
- * standing prefers-reduced-motion setting, jumps straight to the finished
- * text.
+ * 2.5s it takes to start feeling slow.
+ *
+ * A click or focus in the box is a read action: it jumps straight to the
+ * finished text, the same as letting it finish on its own, and either way
+ * the textarea then selects the whole line so a player who wants to edit
+ * can just start typing over it. Actually typing while the sample is still
+ * revealing itself is a write action instead: it stops the reveal in place
+ * and leaves the text exactly as that keystroke produced it, never jumping
+ * to the full sample first. See `stopTyping` vs `finishTyping` below.
+ *
+ * The reveal itself is elapsed-time based, not counted one tick at a time
+ * (Steve, 2026-09-05 playtest: a background tab's timers get clamped by the
+ * browser to roughly 1Hz, and a fixed one-char-per-tick loop then takes as
+ * long as the sample has characters, which is exactly the 60+ second stall
+ * on Place that was seen). Same fix as the boss's own typing in
+ * `components/gym/director.tsx` (commit 427bc9b): `shown` is worked out from
+ * how much real time has elapsed since the reveal started, so a single
+ * clamped tick catches straight up instead of costing one full tick's worth
+ * of delay per character, and a React Strict Mode remount starts a fresh,
+ * correct timeline rather than resuming a stale one.
  *
  * `sample` is only ever read at mount. `InTileComposer` is remounted (see
  * its `key` at the call site) whenever the slot it belongs to changes, so
  * there is no case where the text this hook is typing needs to change out
  * from under it mid-animation.
  */
+const SAMPLE_TYPE_MIN_MS = 25;
+const SAMPLE_TYPE_MAX_MS = 35;
+
 function useTypedSample(sample: string): {
   text: string;
   setText: (value: string) => void;
   typing: boolean;
   finishTyping: () => void;
+  stopTyping: () => void;
+  /** Bumps once each time the reveal finishes, on its own or via a click. */
+  finishedAt: number;
 } {
   const [reduced] = useState(reducedMotionPreferred);
   const [text, setText] = useState(reduced ? sample : "");
   const [typing, setTyping] = useState(!reduced && sample.length > 0);
+  const [finishedAt, setFinishedAt] = useState(0);
+  const stoppedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!typing) return;
-    let shown = 0;
+    stoppedRef.current = false;
+    const avgMsPerChar = (SAMPLE_TYPE_MIN_MS + SAMPLE_TYPE_MAX_MS) / 2;
+    const startedAt = performance.now();
+    const nextDelay = () =>
+      SAMPLE_TYPE_MIN_MS + Math.random() * (SAMPLE_TYPE_MAX_MS - SAMPLE_TYPE_MIN_MS);
     const tick = () => {
-      shown += 1;
+      if (stoppedRef.current) return;
+      const elapsed = performance.now() - startedAt;
+      const shown = Math.min(sample.length, Math.floor(elapsed / avgMsPerChar) + 1);
       setText(sample.slice(0, shown));
       if (shown >= sample.length) {
         timerRef.current = null;
         setTyping(false);
+        setFinishedAt(Date.now());
         return;
       }
-      timerRef.current = setTimeout(tick, 25 + Math.random() * 10);
+      timerRef.current = setTimeout(tick, nextDelay());
     };
-    timerRef.current = setTimeout(tick, 25 + Math.random() * 10);
+    timerRef.current = setTimeout(tick, nextDelay());
     return () => {
+      stoppedRef.current = true;
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = null;
     };
@@ -1856,13 +1889,28 @@ function useTypedSample(sample: string): {
 
   const finishTyping = () => {
     if (!typing) return;
+    stoppedRef.current = true;
     if (timerRef.current !== null) clearTimeout(timerRef.current);
     timerRef.current = null;
     setTyping(false);
     setText(sample);
+    setFinishedAt(Date.now());
   };
 
-  return { text, setText, typing, finishTyping };
+  // Called the instant the player's own keystroke lands while the sample is
+  // still revealing: stop the reveal where it is and leave `text` exactly as
+  // that keystroke's onChange already produced it. Unlike finishTyping, this
+  // never writes `sample` into `text` and never counts as "finished" (no
+  // select-all follows it), because the player did not ask to see the rest.
+  const stopTyping = () => {
+    if (!typing) return;
+    stoppedRef.current = true;
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setTyping(false);
+  };
+
+  return { text, setText, typing, finishTyping, stopTyping, finishedAt };
 }
 
 function InTileComposer({
@@ -1894,10 +1942,22 @@ function InTileComposer({
   corner: TileCorner;
   onDone: () => void;
 }) {
-  const { text, setText, typing, finishTyping } = useTypedSample(initialText);
+  const { text, setText, typing, finishTyping, stopTyping, finishedAt } =
+    useTypedSample(initialText);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const verdict = canPlaceTile(board, text, parentTileId);
+
+  // Runs after the sample finishes, whether it ran out on its own or a click
+  // or arrow key jumped it there: select the whole line so a player who
+  // wants to keep it can leave it, and a player who wants their own words
+  // can just start typing over the selection in one motion. `finishedAt` is
+  // 0 until the first finish, so the mount render is a no-op here.
+  useEffect(() => {
+    if (finishedAt === 0) return;
+    textareaRef.current?.select();
+  }, [finishedAt]);
   /**
    * Why Place is dead, on the screen rather than in the button's tooltip.
    *
@@ -1917,7 +1977,7 @@ function InTileComposer({
     text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
-    if (!verdict.ok || typing) return;
+    if (!verdict.ok) return;
     setError(null);
     startTransition(async () => {
       const result = await placeTile(gameId, { text, parentTileId, corner });
@@ -1942,6 +2002,7 @@ function InTileComposer({
             // The click that opened this cell was the request for a cursor
             // in it; the whole gesture is one motion.
             autoFocus
+            ref={textareaRef}
             className="mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
             style={{ fontSize: `${TILE_BODY_PX}px` }}
             rows={3}
@@ -1949,26 +2010,48 @@ function InTileComposer({
             maxLength={TILE_MAX_CHARS}
             disabled={pending}
             placeholder="A reason for your side."
-            onChange={(event) => setText(event.target.value)}
-            // While the sample is still typing itself in, a click or a
-            // keypress here means "I've seen enough, give me the rest,"
-            // not "let me edit this half-finished word."
+            onChange={(event) => {
+              // The player's own keystroke just landed; it wins outright.
+              // Stop the reveal where it is rather than letting the next
+              // tick overwrite what they just produced, and never jump to
+              // the full sample first (that would replace their words with
+              // the coach's, which is the bug this fixes).
+              if (typing) stopTyping();
+              setText(event.target.value);
+            }}
+            // A click or focus is a read action, not a write: it may finish
+            // the sample, but it never touches what the player has typed.
             onClick={() => {
               if (typing) finishTyping();
             }}
+            onFocus={() => {
+              if (typing) finishTyping();
+            }}
             onKeyDown={(event) => {
-              if (typing) {
-                event.preventDefault();
-                finishTyping();
-                return;
-              }
               if (event.key === "Escape") {
                 event.preventDefault();
                 onDone();
+                return;
               }
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
                 submit();
+                return;
+              }
+              // A navigation key while the sample is still revealing is a
+              // read action too, the same as a click: finish the line so
+              // the player can move the caret through it and edit, rather
+              // than typing over half of it.
+              if (
+                typing &&
+                (event.key === "ArrowLeft" ||
+                  event.key === "ArrowRight" ||
+                  event.key === "ArrowUp" ||
+                  event.key === "ArrowDown" ||
+                  event.key === "Home" ||
+                  event.key === "End")
+              ) {
+                finishTyping();
               }
             }}
           />
@@ -1992,14 +2075,8 @@ function InTileComposer({
           <button
             type="button"
             className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-5 py-1.5 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
-            disabled={pending || !verdict.ok || typing}
-            title={
-              typing
-                ? "Still typing..."
-                : !verdict.ok
-                  ? verdict.error
-                  : "Place it (or press Return)"
-            }
+            disabled={pending || !verdict.ok}
+            title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
             onClick={submit}
           >
             {pending ? "Placing..." : "Place"}

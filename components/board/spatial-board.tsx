@@ -235,6 +235,8 @@ export interface SpatialBoardProps<T extends SpatialTile> {
     corner: TileCorner;
     side: Side;
     text: string;
+    /** The boss's own name, for the slot's label. See boss-draft.ts. */
+    bossName: string;
     /** Skips the rest of the typing and plays the move now, if clicked. */
     finishNow?: () => void;
   } | null;
@@ -613,10 +615,13 @@ function GhostSlot({
  * thinking). The tile itself is placed exactly as it would have been on its
  * own; this only skips the reveal animation.
  *
- * `aria-live="polite"` sits on a wrapper carrying a fixed label ("Bashful Bob
- * is writing"), not on the growing text itself: the text changes on every
- * keystroke, and a live region on it would have a screen reader announce the
- * draft over and over as it grows instead of once when it starts.
+ * `aria-live="polite"` sits on a wrapper carrying a fixed label
+ * ("{bossName} is writing"), not on the growing text itself: the text
+ * changes on every keystroke, and a live region on it would have a screen
+ * reader announce the draft over and over as it grows instead of once when
+ * it starts. `bossName` comes from the level (Director), not a per-boss
+ * default here: it used to read "Bashful Bob" on every level, Rambling Rosa
+ * included (2026-09 playtest).
  */
 function BossDraftSlot({
   style,
@@ -624,6 +629,7 @@ function BossDraftSlot({
   text,
   parentId,
   corner,
+  bossName,
   onFinishNow,
 }: {
   style: CSSProperties;
@@ -631,6 +637,7 @@ function BossDraftSlot({
   text: string;
   parentId: string;
   corner: TileCorner;
+  bossName: string;
   onFinishNow?: () => void;
 }) {
   const dataAttrs = {
@@ -639,8 +646,8 @@ function BossDraftSlot({
     "data-boss-draft": true,
   };
   const label = onFinishNow
-    ? "Bashful Bob is writing. Click to show the rest of his line now."
-    : "Bashful Bob is writing";
+    ? `${bossName} is writing. Click to show the rest of the line now.`
+    : `${bossName} is writing`;
 
   return (
     <div
@@ -681,7 +688,7 @@ function BossDraftSlot({
         aria-live="polite"
         className="absolute inset-0 z-10 flex flex-col items-center justify-center px-[16%] text-center"
       >
-        <span className="sr-only">Bashful Bob is writing</span>
+        <span className="sr-only">{bossName} is writing</span>
         <span
           aria-hidden="true"
           className={`${GHOST_MARK[side]} font-secondary line-clamp-4 text-xs italic opacity-90`}
@@ -1344,17 +1351,27 @@ export function SpatialBoard<T extends SpatialTile>({
   const zoomTo = useCallback(
     (next: number, anchor?: { x: number; y: number }) => {
       const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
-      setZoom((current) => {
-        if (clamped === current) return current;
-        const at = anchor ?? { x: (pane?.w ?? 0) / 2, y: (pane?.h ?? 0) / 2 };
-        // Keep whatever is under the anchor point under it after the scale.
-        setPan((p) => ({
-          x: at.x - ((at.x - p.x) * clamped) / current,
-          y: at.y - ((at.y - p.y) * clamped) / current,
-        }));
-        return clamped;
-      });
+      if (clamped === zoomRef.current) return;
+      const at = anchor ?? { x: (pane?.w ?? 0) / 2, y: (pane?.h ?? 0) / 2 };
+      // Same ratio-about-a-point math as the automatic refit's rescale branch
+      // above: computed here, in the handler body, off `zoomRef.current` read
+      // once, rather than inside the functional-updater form of `setZoom`.
+      // That nested shape (`setZoom((current) => { ...; setPan(...); return
+      // clamped; })`) put a side effect inside a state updater, and React's
+      // Strict Mode double-invokes updater functions to catch exactly that:
+      // the nested `setPan` call fired twice per click, the second time
+      // compounding the first's already-moved pan into the ratio a second
+      // time, which is what threw the board off screen (Steve, 2026-09-05
+      // playtest: three fitted boards in a row, every "+" press). Keeping
+      // `setZoom` and `setPan` as two plain, top-level calls here means
+      // there is no updater function for Strict Mode to double-invoke.
+      const ratio = clamped / zoomRef.current;
+      setZoom(clamped);
       zoomRef.current = clamped;
+      setPan((p) => ({
+        x: at.x - (at.x - p.x) * ratio,
+        y: at.y - (at.y - p.y) * ratio,
+      }));
       touched.current = true;
     },
     [pane],
@@ -1577,6 +1594,7 @@ export function SpatialBoard<T extends SpatialTile>({
             text={bossDraft.text}
             parentId={bossDraft.parentId}
             corner={bossDraft.corner}
+            bossName={bossDraft.bossName}
             onFinishNow={bossDraft.finishNow}
           />
         )}
