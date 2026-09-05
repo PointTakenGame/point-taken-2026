@@ -100,6 +100,38 @@ export async function setDisplayName(
 }
 
 /**
+ * Draw a fresh name and give it to a player who already has one. The
+ * settings page no longer lets a player type a name, only reroll one, so
+ * this is the write path behind that button: same retry-past-a-collision
+ * shape as `ensureDisplayName`, but it always writes rather than only when
+ * `display_name` is still null.
+ */
+export async function rerollDisplayName(playerId: Uuid): Promise<PlayerRow> {
+  for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
+    const candidate =
+      attempt < NAME_ATTEMPTS - 2
+        ? generateDisplayName()
+        : `${generateDisplayName()} ${numericTail()}`;
+
+    const { data, error } = await serviceClient()
+      .from("players")
+      .update({ display_name: candidate })
+      .eq("id", playerId)
+      .select()
+      .single();
+
+    if (!error) return data as PlayerRow;
+    // A taken name is an ordinary outcome of 632k names and a redraw.
+    if (error.code === UNIQUE_VIOLATION) continue;
+    throw new Error(`reroll display name failed: ${error.message}`);
+  }
+
+  throw new Error(
+    `could not find a free display name for ${playerId} in ${NAME_ATTEMPTS} tries`,
+  );
+}
+
+/**
  * Turn the coach on or off for this player. It is a preference, not a move: it
  * stays off the event log, and it only ever affects whose reasons get read.
  */
