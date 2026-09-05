@@ -230,7 +230,14 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * slot that would land on the same cell is left out, so the two do not
    * draw on top of each other.
    */
-  bossDraft?: { parentId: string; corner: TileCorner; side: Side; text: string } | null;
+  bossDraft?: {
+    parentId: string;
+    corner: TileCorner;
+    side: Side;
+    text: string;
+    /** Skips the rest of the typing and plays the move now, if clicked. */
+    finishNow?: () => void;
+  } | null;
   /**
    * Where the caller is currently composing, if anywhere. The retired client
    * wrote the reason on the board rather than in a form under it: you clicked
@@ -295,6 +302,17 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * through at the same time.
    */
   reserveBottom?: number;
+  /**
+   * A strip across the top of the pane the coach's target should not land
+   * under, in rem. Unlike `reserveRight`/`reserveBottom` this never affects
+   * `fit`: the coach persona floats over the board rather than pushing it,
+   * so a normal zoom-to-fit is unaffected. Only the "frame the coach's
+   * target" behaviour below reads it, and only while a `pointedSlot` or
+   * `bossDraft` is actually set, so a live game (which passes neither) is
+   * untouched whether or not a caller bothers to pass this. Callers with no
+   * coach on screen pass nothing.
+   */
+  reserveTop?: number;
   /** Tile edge length in rem. */
   size?: number;
   /** Extra controls rendered inside the zoom cluster, to its right. The
@@ -582,11 +600,18 @@ function GhostSlot({
 }
 
 /**
- * The Gym boss's tile as he types it (`components/gym/boss-draft.ts`). Always
- * visible and never a control: it sits at the cell his tile will land in and
- * fills in with the growing prefix of his line, a caret blinking after it, so
- * watching him write reads as somebody at the other keyboard rather than a
- * tile that appears whole a beat after his "turn" ends (Steve, 2026-09-04).
+ * The Gym boss's tile as he types it (`components/gym/boss-draft.ts`). Sits
+ * at the cell his tile will land in and fills in with the growing prefix of
+ * his line, a caret blinking after it, so watching him write reads as
+ * somebody at the other keyboard rather than a tile that appears whole a
+ * beat after his "turn" ends (Steve, 2026-09-04).
+ *
+ * Clickable for as long as `onFinishNow` is passed, which the Director keeps
+ * doing until the move actually goes out: a player who has already seen Bob
+ * type once can tap the draft to skip straight to the finished line (Steve,
+ * 2026-09-05 playtest, on a slow line reading as a stall rather than as
+ * thinking). The tile itself is placed exactly as it would have been on its
+ * own; this only skips the reveal animation.
  *
  * `aria-live="polite"` sits on a wrapper carrying a fixed label ("Bashful Bob
  * is writing"), not on the growing text itself: the text changes on every
@@ -599,23 +624,42 @@ function BossDraftSlot({
   text,
   parentId,
   corner,
+  onFinishNow,
 }: {
   style: CSSProperties;
   side: Side;
   text: string;
   parentId: string;
   corner: TileCorner;
+  onFinishNow?: () => void;
 }) {
   const dataAttrs = {
     "data-slot-parent": parentId,
     "data-slot-corner": corner,
     "data-boss-draft": true,
   };
+  const label = onFinishNow
+    ? "Bashful Bob is writing. Click to show the rest of his line now."
+    : "Bashful Bob is writing";
 
   return (
     <div
-      title="Bashful Bob is writing"
-      className="pointer-events-none absolute border-none bg-transparent p-0"
+      title={label}
+      aria-label={onFinishNow ? label : undefined}
+      role={onFinishNow ? "button" : undefined}
+      tabIndex={onFinishNow ? 0 : undefined}
+      onClick={onFinishNow}
+      onKeyDown={
+        onFinishNow
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onFinishNow();
+              }
+            }
+          : undefined
+      }
+      className={`absolute border-none bg-transparent p-0 ${onFinishNow ? "cursor-pointer" : "pointer-events-none"}`}
       style={style}
       {...dataAttrs}
     >
@@ -691,6 +735,7 @@ export function SpatialBoard<T extends SpatialTile>({
   rootTarget = 4,
   reserveRight = 0,
   reserveBottom = 0,
+  reserveTop = 0,
   // The declared box is the outer ring, so `size * CELL_PITCH_RATIO` is the
   // grid pitch, and at 18.5 that comes out at the retired client's 14rem
   // columns exactly. It sat at 14 for a while, which quietly drew the whole
@@ -764,6 +809,19 @@ export function SpatialBoard<T extends SpatialTile>({
     const offset = cornerOffset(bossDraft.corner);
     return { x: parentPos.x + offset.x, y: parentPos.y + offset.y };
   }, [bossDraft, layout]);
+
+  // The cell a `pointedSlot` names, computed the same way `bossDraftPos` is.
+  // Used only by the "frame the coach's target" effect below: `ghosts`
+  // already resolves `pointedSlot` a different way (filtering the parent's
+  // legal placements), and duplicating that here would be the wrong tool for
+  // a plain "where is this corner" lookup.
+  const pointedSlotPos = useMemo(() => {
+    if (!pointedSlot) return null;
+    const parentPos = layout.positions.get(pointedSlot.parentId);
+    if (!parentPos) return null;
+    const offset = cornerOffset(pointedSlot.corner);
+    return { x: parentPos.x + offset.x, y: parentPos.y + offset.y };
+  }, [pointedSlot, layout]);
 
   // Open slots for a reply are shown for the hovered tile only. Showing every
   // open slot on the board at once turns a four-thread game into sixteen plus
@@ -929,18 +987,29 @@ export function SpatialBoard<T extends SpatialTile>({
    * empty area, because the canvas was nearly twice as tall as the two tiles
    * in it. Fit to the tiles instead, and the empty ring stays where it belongs,
    * off screen and ready.
+   *
+   * Placed tiles are not the only thing "Zoom to fit" promises to show,
+   * though: a two-thread board only fit the second thread's placed tiles and
+   * clipped the first thread's still-open ghost corner off the edge of the
+   * screen (second playtest). The invitations drawn one cell past the last
+   * tile, and whatever the coach is pointing at or the boss is drafting, are
+   * on screen too, so they belong in the same box.
    */
   const content = useMemo(() => {
     let minX = Infinity;
     let maxX = -Infinity;
     let minY = Infinity;
     let maxY = -Infinity;
-    for (const pos of layout.positions.values()) {
+    const include = (pos: GridPosition) => {
       minX = Math.min(minX, pos.x);
       maxX = Math.max(maxX, pos.x);
       minY = Math.min(minY, pos.y);
       maxY = Math.max(maxY, pos.y);
-    }
+    };
+    for (const pos of layout.positions.values()) include(pos);
+    for (const ghost of ghosts) include(ghost.pos);
+    for (const root of rootGhosts) include(root.pos);
+    if (bossDraftPos) include(bossDraftPos);
     if (minX === Infinity) {
       return { left: 0, top: 0, width: canvasWidth, height: canvasHeight };
     }
@@ -950,7 +1019,7 @@ export function SpatialBoard<T extends SpatialTile>({
       width: (maxX - minX) * pitch + size,
       height: (maxY - minY) * pitch + size,
     };
-  }, [layout, pitch, size, canvasWidth, canvasHeight]);
+  }, [layout, pitch, size, canvasWidth, canvasHeight, ghosts, rootGhosts, bossDraftPos]);
 
   // The pane's own size, which is the screen. Needed to fit and to centre.
   useLayoutEffect(() => {
@@ -1147,6 +1216,120 @@ export function SpatialBoard<T extends SpatialTile>({
     // switch the automatic refit off for the rest of the game.
     return () => cancelAnimationFrame(frame);
   }, [draftAt, pane, pan, zoom, remPx, layout, pitch, size, reserveRight, reserveBottom]);
+
+  /**
+   * Frame the coach's target.
+   *
+   * When the Director publishes a pointed slot or a boss draft cell, the
+   * coach is telling the player exactly where to look, so a pan here is the
+   * pan the player is expecting, unlike the "never pan on the player's
+   * behalf" rule the composer-visibility effect above follows for its own,
+   * unannounced, adjustment. `bossDraft` wins when both are set: his tile is
+   * the thing actually landing, mid-turn, over whatever slot the coach may
+   * still be pointing at from the beat before.
+   *
+   * Pans and zooms out (never in) only as far as needed to bring the target
+   * fully inside the pane, clear of the reserved furniture on every edge,
+   * including a `reserveTop` strip for the persistent coach persona pill.
+   * Does nothing if the target is already fully visible there, and never
+   * runs mid-drag: this is the board choosing to look somewhere, not a
+   * correction to fight a player who is already navigating.
+   */
+  useEffect(() => {
+    if (!pane || panning || dragRef.current) return;
+    const targetPos = bossDraftPos ?? pointedSlotPos;
+    if (!targetPos) return;
+    const pad = FIT_MARGIN / 2;
+    const safeLeft = pad;
+    const safeTop = Math.max(pad, reserveTop * remPx);
+    const safeRight = pane.w - reserveRight * remPx - pad;
+    const safeBottom = pane.h - reserveBottom * remPx - pad;
+    if (safeRight <= safeLeft || safeBottom <= safeTop) return;
+    const cellLeft = (targetPos.x + layout.offsetX) * pitch;
+    const cellTop = (targetPos.y + layout.offsetY) * pitch;
+    const box = (scale: number, at: GridPosition) => ({
+      left: at.x + cellLeft * scale,
+      top: at.y + cellTop * scale,
+      right: at.x + cellLeft * scale + size * scale,
+      bottom: at.y + cellTop * scale + size * scale,
+    });
+    const fullyVisible = (b: {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+    }) =>
+      b.left >= safeLeft &&
+      b.top >= safeTop &&
+      b.right <= safeRight &&
+      b.bottom <= safeBottom;
+    const currentScale = remPx * zoom;
+    if (fullyVisible(box(currentScale, pan))) return;
+    // Only shrink as far as the cell itself needs to fit the safe area: a
+    // pan alone is nearly always enough, since one cell is far smaller than
+    // the pane, and shrinking further than that would zoom the whole board
+    // out for no reason the player could see.
+    let candidate = currentScale;
+    const cellSize = size * candidate;
+    const safeWidth = safeRight - safeLeft;
+    const safeHeight = safeBottom - safeTop;
+    if (cellSize > safeWidth || cellSize > safeHeight) {
+      for (let i = 0; i < 12 && candidate > MIN_ZOOM * remPx; i++) {
+        candidate *= 0.92;
+        if (size * candidate <= safeWidth && size * candidate <= safeHeight) break;
+      }
+      candidate = Math.max(MIN_ZOOM * remPx, candidate);
+    }
+    const nextZoom = candidate / remPx;
+    // Minimal nudge, not a recentre: clamp the target's box into the safe
+    // rectangle from whichever edge it is crossing, rather than centring it,
+    // so a target that is only barely off-screen does not jump further than
+    // it has to.
+    const b = box(candidate, pan);
+    let dx = 0;
+    if (b.left < safeLeft) dx = safeLeft - b.left;
+    else if (b.right > safeRight) dx = safeRight - b.right;
+    let dy = 0;
+    if (b.top < safeTop) dy = safeTop - b.top;
+    else if (b.bottom > safeBottom) dy = safeBottom - b.bottom;
+    const nextPan = { x: pan.x + dx, y: pan.y + dy };
+    if (
+      Math.abs(nextZoom - zoom) < 0.001 &&
+      Math.abs(nextPan.x - pan.x) < 0.5 &&
+      Math.abs(nextPan.y - pan.y) < 0.5
+    ) {
+      return;
+    }
+    // Next frame, matching the composer-visibility effect: the target is
+    // arriving as this runs, and a synchronous `setState` here is a
+    // cascading render for a view the player has not been shown yet.
+    const frame = requestAnimationFrame(() => {
+      setZoom(nextZoom);
+      zoomRef.current = nextZoom;
+      setPan(nextPan);
+    });
+    // Deliberately leaves `touched` alone, the same way the composer effect
+    // does: this is the board following the coach's own attention, not the
+    // player choosing a view, and marking it touched would switch the
+    // automatic refit off for the rest of the game.
+    return () => cancelAnimationFrame(frame);
+    // `pan` and `zoom` are read above but deliberately excluded: they are
+    // this effect's own output, and depending on them would refire it after
+    // every frame it just requested, fighting itself instead of settling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    bossDraftPos,
+    pointedSlotPos,
+    pane,
+    panning,
+    layout,
+    pitch,
+    size,
+    remPx,
+    reserveRight,
+    reserveBottom,
+    reserveTop,
+  ]);
 
   /**
    * One click of the pan pad, in screen pixels. Independent of zoom on
@@ -1394,6 +1577,7 @@ export function SpatialBoard<T extends SpatialTile>({
             text={bossDraft.text}
             parentId={bossDraft.parentId}
             corner={bossDraft.corner}
+            onFinishNow={bossDraft.finishNow}
           />
         )}
 

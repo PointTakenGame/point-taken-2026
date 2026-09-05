@@ -18,8 +18,11 @@ import type { Side } from "@/lib/events/types";
  * corner fills in with the resolving token once that thread closes, and a
  * center pencil stands in for revising the topic. Hovering a corner or the
  * pencil is reported upward via `onHover` so the caller can spotlight the
- * matching tile on the real board; the minimap itself is not a click
- * target except the pencil, which reports through `onRevise`.
+ * matching tile on the real board; the pencil is a click target through
+ * `onRevise`, and a corner whose thread carries an `onOpen` is a click
+ * target too, opening that thread's root tile the way the board's own
+ * `ThreadTokenBadge` does (Steve, 2026-09-05 playtest: the icons were inert).
+ * A corner without one, or with no thread at all, stays decorative.
  */
 
 export type MiniCorner = "tr" | "br" | "bl" | "tl";
@@ -53,6 +56,13 @@ export interface MiniThread {
    * on the stamp saying so.
    */
   pending?: { emoji: string; mine: boolean } | null;
+  /**
+   * Opens this thread's root tile card, the same way the board's own
+   * `ThreadTokenBadge` does. Undefined when there is nothing to open yet (a
+   * thread whose root has not landed), in which case the corner draws as a
+   * plain span rather than a button that would do nothing on click.
+   */
+  onOpen?: () => void;
 }
 
 type HoverPayload = { tileId: string; kind: "resolved" | "open" | "topic" } | null;
@@ -222,42 +232,35 @@ export function WaysToWinCard({
       )}
 
       <div className="relative mx-auto my-1 aspect-square w-[74%]">
-        {slots.map(({ corner, side, thread }) => (
-          <button
-            key={corner}
-            type="button"
-            tabIndex={-1}
-            // A slot with a thread in it is drawn as a filled octagon with an
-            // offwhite one inset inside, so an open thread reads as an outline
-            // in its own side colour and a resolved one fills in. An empty slot
-            // is the same shape at a quarter strength, carrying its side's sign.
-            className={`absolute aspect-square w-[32%] border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] ${CORNER_POSITION[corner]} ${
-              thread
-                ? `cursor-help hover:scale-110 ${SIDE_FILL[side]}`
-                : `cursor-default ${SIDE_FILL_EMPTY[side]}`
-            }`}
-            aria-label={
-              thread
-                ? thread.resolved
-                  ? "Thread resolved"
-                  : thread.pending
-                    ? thread.pending.mine
-                      ? "Your token is down on this thread, waiting for theirs"
-                      : "Their token is down on this thread, waiting for yours"
-                    : "Thread not yet resolved"
-                : `No thread started yet on this ${side === "plus" ? "Plus" : "Minus"} corner`
-            }
-            onMouseEnter={
-              thread
-                ? () =>
-                    onHover?.({
-                      tileId: thread.tileId,
-                      kind: thread.resolved ? "resolved" : "open",
-                    })
-                : undefined
-            }
-            onMouseLeave={thread ? () => onHover?.(null) : undefined}
-          >
+        {slots.map(({ corner, side, thread }) => {
+          // A slot with a thread in it is drawn as a filled octagon with an
+          // offwhite one inset inside, so an open thread reads as an outline
+          // in its own side colour and a resolved one fills in. An empty slot
+          // is the same shape at a quarter strength, carrying its side's sign.
+          const openable = Boolean(thread?.onOpen);
+          const className = `absolute aspect-square w-[32%] border-none p-0 transition-transform [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)] ${CORNER_POSITION[corner]} ${
+            thread
+              ? `${openable ? "cursor-pointer" : "cursor-help"} hover:scale-110 ${SIDE_FILL[side]}`
+              : `cursor-default ${SIDE_FILL_EMPTY[side]}`
+          }`;
+          const label = thread
+            ? thread.resolved
+              ? "Thread resolved"
+              : thread.pending
+                ? thread.pending.mine
+                  ? "Your token is down on this thread, waiting for theirs"
+                  : "Their token is down on this thread, waiting for yours"
+                : "Thread not yet resolved"
+            : `No thread started yet on this ${side === "plus" ? "Plus" : "Minus"} corner`;
+          const onMouseEnter = thread
+            ? () =>
+                onHover?.({
+                  tileId: thread.tileId,
+                  kind: thread.resolved ? "resolved" : "open",
+                })
+            : undefined;
+          const onMouseLeave = thread ? () => onHover?.(null) : undefined;
+          const content = (
             <span
               className={`bg-offwhite absolute inset-[3px] flex items-center justify-center [clip-path:inherit] ${thread?.resolved ? SIDE_FILL[side] : ""}`}
             >
@@ -283,8 +286,40 @@ export function WaysToWinCard({
                 </span>
               )}
             </span>
-          </button>
-        ))}
+          );
+          // A thread with nothing to open yet (its root has not landed) is
+          // drawn as a plain span: a button that does nothing on click reads
+          // as broken, not as decorative, and this one already looks
+          // clickable (`cursor-help`, the hover scale) for a different
+          // reason, so the element itself has to say which it is.
+          if (thread && !openable) {
+            return (
+              <span
+                key={corner}
+                className={className}
+                aria-label={label}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+              >
+                {content}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={corner}
+              type="button"
+              tabIndex={openable ? 0 : -1}
+              className={className}
+              aria-label={label}
+              onClick={openable ? thread!.onOpen : undefined}
+              onMouseEnter={onMouseEnter}
+              onMouseLeave={onMouseLeave}
+            >
+              {content}
+            </button>
+          );
+        })}
         <button
           type="button"
           className="bg-neutral-black group/topic absolute top-[34%] left-[34%] aspect-square w-[32%] cursor-pointer border-none p-0 [clip-path:polygon(29%_0,71%_0,100%_29%,100%_71%,71%_100%,29%_100%,0_71%,0_29%)]"

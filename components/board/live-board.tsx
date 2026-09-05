@@ -2578,6 +2578,12 @@ export function LiveBoard({
       ),
     [board],
   );
+  // Moved above `miniThreads` (was declared after it, further down this
+  // function): the mini icons' `onOpen` (BRAIN-T260905, "ways to win icons
+  // are inert") opens a tile the same way `ThreadTokenBadge` does, and a
+  // `const` declared later in the same render is not visible yet when
+  // `useMemo` calls its function body immediately.
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const miniThreads = useMemo<MiniThread[]>(
     () =>
       threads.map((thread) => {
@@ -2605,6 +2611,12 @@ export function LiveBoard({
           resolved: thread.resolution !== null,
           token: thread.resolution?.emoji ?? null,
           pending,
+          // Same pattern as `ThreadTokenBadge`'s `onOpen` below: opens the
+          // same tile card the reason itself opens. Only when the root has
+          // actually landed (`thread.root`, not just `thread.rootId`, which
+          // survives even for an orphaned thread whose root is gone): a mini
+          // icon for a thread with nothing to open stays inert on purpose.
+          onOpen: thread.root ? () => setSelectedTileId(thread.rootId) : undefined,
         };
       }),
     [threads, miniLayout, me.role],
@@ -2674,7 +2686,6 @@ export function LiveBoard({
   const sampleAnswers = useSampleAnswers();
   const pointedSlot = usePointedSlot();
   const bossDraft = useBossDraft();
-  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
   // instead of opening that tile's actions, so the two never fire at once.
@@ -2762,6 +2773,12 @@ export function LiveBoard({
         // because a player who opened the composer is typing in it rather
         // than reading the tile behind it.
         reserveBottom={13}
+        // The coach persona pill (`CoachPersona`, components/gym/director.tsx)
+        // is `top-4` plus its own padded height, and is the one piece of coach
+        // furniture with a fixed, knowable position: its speech bubble already
+        // tracks the target it is talking about, so only this strip needs
+        // reserving. A live game runs no coach and passes 0.
+        reserveTop={board.mode === "gym" ? 5 : 0}
         draftAt={draft?.pos ?? null}
         draft={
           draft && (
