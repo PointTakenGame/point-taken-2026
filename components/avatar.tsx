@@ -9,11 +9,15 @@ import { avatarMark } from "@/lib/avatar";
  */
 
 const SIZE = {
-  sm: "h-8 w-8 text-xs",
-  lg: "h-14 w-14 text-p-md",
+  sm: "h-8 w-8 rounded-full text-xs",
+  lg: "h-14 w-14 rounded-full text-p-md",
   // The profile header wants something closer to the weight of a portrait than
   // a list row's marker, so it gets its own step rather than stretching `lg`.
-  xl: "h-20 w-20 text-xl",
+  xl: "h-20 w-20 rounded-full text-xl",
+  // The profile hero (Rannie's Profile frame, adopted 2026-09-04) draws the
+  // avatar as a large rounded square rather than a disc, so this step also
+  // overrides the shape.
+  hero: "h-32 w-32 rounded-2xl text-4xl",
 } as const;
 
 export function Avatar({
@@ -31,7 +35,7 @@ export function Avatar({
     <span
       aria-hidden="true"
       style={{ background }}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide text-neutral-white ${SIZE[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center font-semibold tracking-wide text-neutral-white ${SIZE[size]}`}
     >
       {initials}
     </span>

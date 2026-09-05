@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { createRoom } from "@/app/join/actions";
+import { ArrowGlyph } from "@/components/account/account-shell";
 
 /**
  * The one action on the profile: back into the game you are in the middle of,
@@ -20,6 +21,13 @@ import { createRoom } from "@/app/join/actions";
  * than the plain form-base treatment everywhere else: this is the single
  * highest-priority action here, and Rannie's frames reserve that colour for
  * exactly one call to action per card for the same reason.
+ *
+ * `compact` (2026-09-04, BRAIN-T260904-40) drops the card and renders only the
+ * button, for the Live play card on the profile hero, where the card around it
+ * already carries the heading and the blurb. The caller passes the button
+ * class, because on that card it is the dark secondary button (Gym play holds
+ * the orange one) and it carries the circled arrow, the profile's mark for a
+ * button that leaves the page.
  */
 
 // Restyled 2026-09-02: this now sits inside a sticker panel on the profile, and
@@ -35,6 +43,8 @@ export function ResumeOrStart({
   gameId,
   waiting,
   topic,
+  compact = false,
+  className,
 }: {
   /** The game still running, if there is one. */
   gameId: string | null;
@@ -42,6 +52,10 @@ export function ResumeOrStart({
   waiting: boolean;
   /** The topic of that game, when somebody has set one. */
   topic: string | null;
+  /** Button only, no card around it. */
+  compact?: boolean;
+  /** Button class in compact mode; ignored otherwise. */
+  className?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -61,6 +75,29 @@ export function ResumeOrStart({
         setFailed(err instanceof Error ? err.message : String(err));
       }
     });
+  }
+
+  if (compact) {
+    const buttonClass = className ?? BUTTON;
+    if (gameId) {
+      return (
+        <Link href={`/game/${gameId}`} className={buttonClass}>
+          {waiting ? "Back to your room" : "Back to your game"}
+          <ArrowGlyph onDark />
+        </Link>
+      );
+    }
+    return (
+      <span className="flex flex-col items-start gap-2">
+        <button type="button" className={buttonClass} disabled={pending} onClick={begin}>
+          {pending ? "Opening a room..." : "Live play"}
+          <ArrowGlyph onDark />
+        </button>
+        {failed && (
+          <span className="font-secondary text-p-sm text-stat-warm">{failed}</span>
+        )}
+      </span>
+    );
   }
 
   if (gameId) {

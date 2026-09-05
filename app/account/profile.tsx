@@ -1,24 +1,14 @@
-import Link from "next/link";
-
 import { readPlayerAwards } from "@/lib/db/awards";
-import type { GameTopic } from "@/lib/db/games";
 import type { PlayerStats } from "@/lib/db/stats";
 import type { Uuid } from "@/lib/events/types";
 import { SCRIPTED_LEVELS } from "@/lib/gym/levels";
-import { Counter } from "@/components/counter";
-import { LocalDay } from "@/components/local-day";
-import { StreakCounters } from "@/components/streak-counters";
 import { AccountShell, Panel, SectionHeading } from "@/components/account/account-shell";
 import { CalendarStrip } from "@/components/account/calendar-strip";
-import { MatchList } from "@/components/account/match-list";
-import { PlayCards } from "@/components/account/play-cards";
-import { ActiveBoss } from "@/components/account/progression/active-boss";
+import { ProfileHero } from "@/components/account/hero";
 import { BadgeStrip } from "@/components/account/progression/badge-strip";
 import { CertificateWall } from "@/components/account/progression/certificate-wall";
 import { LadderStrip } from "@/components/account/progression/ladder-strip";
-import { StatTiles } from "@/components/account/progression/stat-tiles";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
-import { Avatar } from "@/components/avatar";
 import { joinedThisWeek, loadAccount } from "./data";
 
 /**
@@ -55,32 +45,22 @@ import { joinedThisWeek, loadAccount } from "./data";
  * the shape of the ladder above level 4, the display names of the badges, and
  * the calendar at the foot, and only those still carry a "Sample" tag.
  *
- * The archive itself moved to /account/history, which is her own arrangement:
- * History is one of the four tabs. This page keeps the four most recent games,
- * because a profile with no games visible on it is a profile that does not know
- * you.
- */
-
-/** How many of the archive fits on the profile before it becomes the archive. */
-const RECENT = 4;
-
-/**
- * How many different things this player has argued about.
+ * The archive itself lives at /account/history, which is her own arrangement:
+ * History is one of the four tabs.
  *
- * Matched on the text, case and surrounding space ignored, so arguing the same
- * question twice counts once. A topic whose text has been redacted is left out
- * rather than counted: the text is gone on purpose, and counting it would mean
- * guessing whether it was a repeat.
+ * Restyled again 2026-09-04 (BRAIN-T260904-40), this time object by object
+ * against the same frame, after Steve asked for the list of what she draws
+ * that this page did not and agreed to all twenty items. The order of the
+ * page is now hers: identity block and the two play cards as the hero, three
+ * stat tiles under them, the notebook ladder with the boss briefing inside it,
+ * certificates, badges, and the events list at the foot. What left the page:
+ * the identity card's nine-counter grid and the streaks (the hero's three
+ * tiles are the numbers that matter at a glance; the rest is History's job),
+ * and the four recent matches, since History already lists every game and a
+ * profile that repeats the next tab is padding. Components no longer used
+ * here (Counter, StreakCounters, MatchList on this page) stay in the tree for
+ * the tabs that still use them.
  */
-function countTopics(topics: Map<Uuid, GameTopic>): number {
-  const seen = new Set<string>();
-  for (const topic of topics.values()) {
-    if (topic.redacted) continue;
-    const key = topic.text.trim().toLowerCase();
-    if (key) seen.add(key);
-  }
-  return seen.size;
-}
 
 /**
  * Which level "Enter the gym" should open: the first scripted level this
@@ -121,10 +101,10 @@ function Signature({ stats }: { stats: PlayerStats }) {
 }
 
 export async function Profile({ playerId }: { playerId: Uuid }) {
-  const [
-    { player, stats, games, playedAt, topics, opponents, cardsThrown, resolutions },
-    awards,
-  ] = await Promise.all([loadAccount(playerId), readPlayerAwards(playerId)]);
+  const [{ player, stats, games, playedAt, topics }, awards] = await Promise.all([
+    loadAccount(playerId),
+    readPlayerAwards(playerId),
+  ]);
 
   // The game to offer going back to. `games` is already newest first, so the
   // first hit is the most recent one. A game underway beats a room still
@@ -136,15 +116,15 @@ export async function Profile({ playerId }: { playerId: Uuid }) {
     null;
 
   const thisWeek = joinedThisWeek(playedAt);
-  // Nobody wants to read "0 per game" on a profile with no games in it.
-  const perGame =
-    stats.games_played > 0
-      ? (stats.tiles_placed / stats.games_played).toFixed(1).replace(/\.0$/, "")
-      : null;
 
   return (
     <AccountShell tab="profile">
-      <PlayCards
+      <ProfileHero
+        player={player}
+        playerId={playerId}
+        awards={awards}
+        stats={stats}
+        gamesThisWeek={thisWeek}
         currentLevelId={currentLevelId(awards.clearedLevels)}
         resumeGameId={inFlight?.id ?? null}
         resumeWaiting={inFlight?.status === "lobby"}
@@ -152,95 +132,12 @@ export async function Profile({ playerId }: { playerId: Uuid }) {
       />
 
       <LadderStrip awards={awards} />
-      <StatTiles awards={awards} stats={stats} gamesThisWeek={thisWeek} />
-      <ActiveBoss awards={awards} />
       <CertificateWall awards={awards} />
       <BadgeStrip awards={awards} />
-
-      <Panel className="mb-8">
-        <div className="flex flex-wrap items-center gap-6 pb-6">
-          <Avatar playerId={playerId} name={player?.display_name ?? null} size="xl" />
-          <div className="flex flex-col gap-1">
-            <h1 className="font-figure text-ink text-3xl font-black tracking-wide uppercase">
-              {player?.display_name ?? "Your account"}
-            </h1>
-            <p className="font-label text-ink-soft text-sm">
-              {player?.claimed_at ? (
-                <>
-                  Player since <LocalDay iso={player.claimed_at} />
-                </>
-              ) : (
-                "This account is anonymous. Attach an email to keep it."
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <Counter
-            label="Games played"
-            value={stats.games_played}
-            note={thisWeek > 0 ? `+${thisWeek} this week` : undefined}
-          />
-          {/*
-            "Ended", not "finished": `games_completed` counts every game whose
-            status reached `ended`, which includes one somebody walked out of.
-            Calling that finished contradicts the history row, which reads
-            "Unfinished" for the same game. The stricter number (games that
-            reached a win condition) cannot be worked out here, because
-            `listGamesForPlayer` is capped at fifty and a headline stat derived
-            from a capped list quietly goes wrong on the fifty-first game.
-            Splitting the two is a stats change, so it is flagged rather than
-            made: BRAIN-T260824-29.
-          */}
-          <Counter label="Games ended" value={stats.games_completed} />
-          <Counter label="Topics debated" value={countTopics(topics)} />
-          <Counter
-            label="Threads resolved"
-            value={stats.threads_resolved}
-            noteTone="good"
-          />
-          <Counter
-            label="Tiles placed"
-            value={stats.tiles_placed}
-            note={perGame === null ? undefined : `${perGame} per game`}
-          />
-          {/*
-            Two more cards, or none: the streak is worked out in the browser,
-            because only the browser knows which day it is where the reader is.
-          */}
-          <StreakCounters playedAt={playedAt} />
-        </div>
-      </Panel>
 
       <div className="mb-8">
         <Signature stats={stats} />
       </div>
-
-      <section className="mb-8">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <SectionHeading
-            title="Recent matches"
-            note={`${games.length} game${games.length === 1 ? "" : "s"}`}
-          />
-          {games.length > RECENT ? (
-            <Link
-              href="/account/history"
-              className="font-label text-ink hover:text-stat-warm text-sm font-bold transition-colors"
-            >
-              View all &rarr;
-            </Link>
-          ) : null}
-        </div>
-        <MatchList
-          games={games.slice(0, RECENT)}
-          topics={topics}
-          opponents={opponents}
-          cardsThrown={cardsThrown}
-          resolutions={resolutions}
-          empty="No games yet. The first one starts the archive."
-        />
-      </section>
 
       <CalendarStrip />
     </AccountShell>

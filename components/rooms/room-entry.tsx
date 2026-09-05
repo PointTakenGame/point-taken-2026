@@ -115,8 +115,13 @@ export function JoinByCode({ signedIn }: { signedIn: boolean }) {
 
   return (
     <div className="flex w-full flex-col items-center gap-2">
+      {/*
+        Wraps rather than overflowing: inside the profile's Live play card the
+        input and the link do not fit on one line, and a link that breaks
+        mid-word looks broken (BRAIN-T260904-40).
+      */}
       <form
-        className="flex w-full items-center justify-center gap-4"
+        className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2"
         onSubmit={(e) => {
           e.preventDefault();
           enter(() => joinRoom(code));
@@ -133,11 +138,11 @@ export function JoinByCode({ signedIn }: { signedIn: boolean }) {
           autoComplete="off"
           spellCheck={false}
           placeholder="Enter Room Number"
-          className="border-ink text-ink placeholder:text-ink-soft w-72 rounded-[10px] border bg-transparent px-4 py-3 text-center font-secondary tracking-widest uppercase"
+          className="border-ink text-ink placeholder:text-ink-soft w-72 max-w-full rounded-[10px] border bg-transparent px-4 py-3 text-center font-secondary tracking-widest uppercase"
         />
         <button
           type="submit"
-          className="text-ink font-secondary cursor-pointer underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
+          className="text-ink font-secondary cursor-pointer whitespace-nowrap underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
           disabled={blocked || pending || code.trim().length !== JOIN_CODE_LENGTH}
         >
           {pending ? "Working..." : "Join a game"}
