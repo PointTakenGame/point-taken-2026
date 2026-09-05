@@ -14,6 +14,14 @@ import { useRouter } from "next/navigation";
 import { bossAct } from "@/app/gym/actions";
 import { clearBossDraft, publishBossDraft } from "@/components/gym/boss-draft";
 import {
+  clearCookedPlacement,
+  publishCookedPlacement,
+} from "@/components/gym/cooked-placement";
+import {
+  clearHiddenSurfaces,
+  publishHiddenSurfaces,
+} from "@/components/gym/hidden-surfaces";
+import {
   clearSampleAnswers,
   publishSampleAnswers,
 } from "@/components/gym/sample-answers";
@@ -43,6 +51,7 @@ import {
   scriptContext,
   type Beat,
   type BeatAnchor,
+  type BoardSurface,
   type Level,
   type LevelProgress,
   type PlayerExpect,
@@ -184,6 +193,9 @@ function resolveAnchor(
     const id = keys[anchor.tile];
     return id ? `[data-tile-id="${cssEscape(id)}"]` : null;
   }
+  if ("ui" in anchor) {
+    return `[data-ui="${cssEscape(anchor.ui)}"]`;
+  }
   const parentValue =
     anchor.slot.parent === "topic" ? TOPIC_CELL_ID : keys[anchor.slot.parent];
   if (!parentValue) return null;
@@ -275,6 +287,26 @@ function bossTilePlan(
   const corner = cornerFromOffset(parentPos, open);
   if (!corner) return null;
   return { text, parentId, corner };
+}
+
+/**
+ * Which of the level's `hiddenSurfaces` are still hidden, given how far the
+ * script has gotten. A surface stays hidden until some pause beat at or
+ * before the current one names it in `reveal`; `progress.index` only moves
+ * forward (`levelProgress` in lib/gym/script.ts), so a surface already
+ * revealed can never go back into this set on a later render or a reload.
+ */
+function stillHidden(level: Level, progress: LevelProgress): readonly BoardSurface[] {
+  const all = level.hiddenSurfaces;
+  if (!all || all.length === 0) return [];
+  const revealed = new Set<BoardSurface>();
+  const last = progress.complete ? level.beats.length - 1 : progress.index;
+  for (let i = 0; i <= last && i < level.beats.length; i += 1) {
+    const beat = level.beats[i];
+    if (beat.kind !== "pause" || !beat.reveal) continue;
+    for (const surface of beat.reveal) revealed.add(surface);
+  }
+  return all.filter((surface) => !revealed.has(surface));
 }
 
 /**
@@ -544,6 +576,56 @@ function Director({
     return () => clearPointedTile();
   }, [pointedTileId]);
 
+  // Board chrome level 1 keeps off screen until the beat that explains it.
+  // Every other level's `hiddenSurfaces` is unset, so this is always [].
+  const hidden = useMemo(() => stillHidden(level, progress), [level, progress]);
+  useEffect(() => {
+    publishHiddenSurfaces(hidden);
+    return () => clearHiddenSurfaces();
+  }, [hidden]);
+
+  // A cooked level (level 1 today) narrows placement down to one choice:
+  // the slot the beat already points at, nothing under the player's own
+  // tiles, no hover ghosts, and a locked draft. `pointedSlot` above is the
+  // slot the beat's anchor resolves to regardless of level; here it doubles
+  // as the one legal placement, and is already null for a beat with no slot
+  // anchor (a throw, a token, a tile anchor), which is exactly when nothing
+  // should be offered at all.
+  const cookedPlacement = useMemo(
+    () =>
+      level.cooked
+        ? {
+            onlySlot: pointedSlot,
+            ownReplies: false,
+            ghosts: false,
+            lockedText: true,
+          }
+        : null,
+    [level.cooked, pointedSlot],
+  );
+  useEffect(() => {
+    if (!cookedPlacement) return;
+    publishCookedPlacement(cookedPlacement);
+    return () => clearCookedPlacement();
+  }, [cookedPlacement]);
+
+  // Pause beats can ask to hold their bubble back a moment
+  // (`Beat.delayMs`), so the coach visibly reads the board before speaking,
+  // instead of the bubble appearing the instant the beat becomes current.
+  // Keyed on beat id rather than reset synchronously in this effect: a beat
+  // with no delay is simply always ready (see `bubbleReady` below), and one
+  // with a delay becomes ready only once its own timer's callback says so,
+  // which is what keeps this off the `react-hooks/set-state-in-effect` rule
+  // the same way the boss-typing effect above does.
+  const [readyBeatId, setReadyBeatId] = useState<string | null>(null);
+  const delayMs = beat?.kind === "pause" ? (beat.delayMs ?? 0) : 0;
+  useEffect(() => {
+    if (!beatId || !delayMs) return;
+    const timer = window.setTimeout(() => setReadyBeatId(beatId), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [beatId, delayMs]);
+  const bubbleReady = delayMs === 0 || readyBeatId === beatId;
+
   if (!beat) return null;
 
   const dismiss = (id: string) => {
@@ -557,8 +639,8 @@ function Director({
 
   return (
     <>
-      <CoachPersona step={step} score={score} />
-      {beat.kind === "pause" ? (
+      <CoachPersona step={step} score={score} thinking={!bubbleReady} />
+      {!bubbleReady ? null : beat.kind === "pause" ? (
         <PauseBubble
           beat={beat}
           level={level}
@@ -588,9 +670,12 @@ function Director({
 function CoachPersona({
   step,
   score,
+  thinking = false,
 }: {
   step: string;
   score: { total: number; delta: number; label: string } | null;
+  /** True while a beat's `delayMs` is holding its bubble back. */
+  thinking?: boolean;
 }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4">
@@ -601,7 +686,11 @@ function CoachPersona({
         <span aria-hidden className="text-2xl leading-none">
           🧘
         </span>
-        <span className="font-label text-ink-soft">Coach · {step}</span>
+        {thinking ? (
+          <span className="font-label text-ink-soft italic">reading the board...</span>
+        ) : (
+          <span className="font-label text-ink-soft">Coach · {step}</span>
+        )}
         {score ? (
           <span className="font-label text-ink shrink-0">
             {score.total} pts
@@ -791,7 +880,9 @@ function LineBubble({
         beat.expect.kind === "tile" &&
         beat.expect.suggestions.length > 0 ? (
           <span className="font-label text-ink-soft">
-            Click where I&rsquo;m pointing, then edit the sample before you place it.
+            {level.cooked
+              ? "Click where I’m pointing, then hit Place."
+              : "Click where I’m pointing, then edit the sample before you place it."}
           </span>
         ) : null}
 
