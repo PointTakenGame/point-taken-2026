@@ -6,6 +6,9 @@ export interface AgreementLine {
   id: string;
   family: string;
   text: string;
+  /** The full pledge sentence. Shown under the family name; `text` is the
+   * short label only and would repeat the heading. */
+  pledge?: string;
 }
 
 const GLYPH_FOR: Record<string, "monacle" | "heart" | "glasses" | "book" | "party"> = {
@@ -57,7 +60,9 @@ export function PlayerAgreement({
             <h3 className="font-secondary text-p-sm text-neutral-black font-bold">
               {line.family}
             </h3>
-            <p className="font-secondary text-p-sm text-gray">{line.text}</p>
+            <p className="font-secondary text-p-sm text-gray">
+              {line.pledge ?? line.text}
+            </p>
           </span>
         </div>
       ))}
