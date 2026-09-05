@@ -88,101 +88,198 @@ const beatAt = (l: ReturnType<typeof log>, dismissed?: ReadonlySet<string>) =>
   currentBeat(ONBOARDING, levelProgress(ONBOARDING, l.board(), dismissed))?.id;
 
 describe("levelProgress on level 1", () => {
-  it("opens on the first pause, and the player's beat once it is read", () => {
+  it("opens on the first pause, and Bob's beat once it is read", () => {
     const l = opened();
     expect(beatAt(l)).toBe("p1-board");
-    expect(beatAt(l, new Set(["p1-board"]))).toBe("player-root-b");
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-root-b");
+    expect(beatAt(l, new Set(["p1-board"]))).toBe("bob-root-a");
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-root-a");
   });
 
-  it("binds the player's root tile to key B and stops on the next pause", () => {
+  it("binds Bob's root tile to key A and stops on the next pause", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
+    const a = l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
     const progress = levelProgress(ONBOARDING, l.board());
-    expect(progress.keys.B).toBe(b);
-    expect(progress.done).toEqual(["p1-board", "player-root-b"]);
+    expect(progress.keys.A).toBe(a);
+    expect(progress.done).toEqual(["p1-board", "bob-root-a"]);
     expect(currentBeat(ONBOARDING, progress)?.id).toBe("p2-reason-tile");
   });
 
   it("treats a pause as read once the board has moved past it", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    // Nothing dismissed, yet p2 is done: Bob's reply is the evidence.
+    l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because a bun is one piece of bread that's been cut, not two slices.",
+    );
+    // Nothing dismissed, yet p2 is done: the player's own root is the evidence.
     const progress = levelProgress(ONBOARDING, l.board());
-    expect(progress.keys.B1).toBe(b1);
+    expect(progress.keys.B).toBe(b);
     expect(progress.done).toContain("p2-reason-tile");
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("p3-tiles-answer-tiles");
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("p2b-second-thread");
     expect(progress.cursor).toBe(l.events.length);
   });
 
   it("binds answers by parent and side, in order", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    const b2 = l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
+    const a = l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because a bun is one piece of bread that's been cut, not two slices.",
+    );
+    const a1 = l.tile(
+      PLAYER,
+      a,
+      a,
+      "But a bun is hinged, that's one piece of bread, not two.",
+    );
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
+    l.push("thread_resolved", { thread_root_id: a, emoji: "👍", note: null });
+    const b1 = l.tile(
+      BOB,
+      b,
+      b,
+      "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a rule.",
+    );
+    const throwSeq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: b1 },
+      PLAYER,
+    );
+    l.push(
+      "tile_revised",
+      {
+        tile_id: b1,
+        text: "But the ballpark version of this argument is about memory, not about what the food is.",
+        in_response_to_seq: throwSeq,
+      },
+      BOB,
+    );
+    const b2 = l.tile(
+      PLAYER,
+      b1,
+      b,
+      "Fine, forget memory: it's still one piece of bread, not two.",
+    );
+    const b3 = l.tile(
+      BOB,
+      b2,
+      b,
+      "Maybe, but a name can outlast its own history. I still think it's a sandwich.",
+    );
     const progress = levelProgress(ONBOARDING, l.board(), ALL_PAUSES_DISMISSED);
-    expect(progress.keys).toEqual({ B: b, B1: b1, B2: b2, A: a, A1: a1 });
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("bob-token-b");
+    expect(progress.keys).toEqual({ A: a, B: b, A1: a1, B1: b1, B2: b2, B3: b3 });
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-token-b");
   });
 
   it("does not bind a tile the player hung in the wrong place", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    // The script wants the player under Bob's reply; this one opens a second root.
-    l.tile(PLAYER, null, null, "Then a taco is a sandwich.");
+    l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because a bun is one piece of bread that's been cut, not two slices.",
+    );
+    // The script wants the player answering Bob's thread next; this one
+    // extends their own thread instead.
+    l.tile(PLAYER, b, b, "It's still not a sandwich.");
     const progress = levelProgress(ONBOARDING, l.board(), ALL_PAUSES_DISMISSED);
-    expect(progress.keys.B2).toBeUndefined();
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-answers-b1");
+    expect(progress.keys.A1).toBeUndefined();
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-answers-a");
     // The board moved past the cursor, which is what the director reads as a nudge.
     expect(l.board().lastSeq).toBeGreaterThan(progress.cursor);
   });
 
   it("walks tokens, the throw, the revision and the ending to completion", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
+    const a = l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because a bun is one piece of bread that's been cut, not two slices.",
+    );
+    l.tile(PLAYER, a, a, "But a bun is hinged, that's one piece of bread, not two.");
 
-    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, BOB);
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-b");
-    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, PLAYER);
-    l.push("thread_resolved", { thread_root_id: b, emoji: "👍", note: null });
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-a");
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
+    l.push("thread_resolved", { thread_root_id: a, emoji: "👍", note: null });
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-violation");
 
-    const a3 = l.tile(
+    const b1 = l.tile(
       BOB,
-      a1,
-      a,
-      "You only say that because you have never had one at the ballpark.",
+      b,
+      b,
+      "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a rule.",
     );
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-throws");
     const throwSeq = l.push(
       "card_thrown",
-      { card_id: "you_is_taboo", rung_id: null, target_tile_id: a3 },
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: b1 },
       PLAYER,
     );
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-revises");
     l.push(
       "tile_revised",
       {
-        tile_id: a3,
-        text: "At the ballpark nobody calls it a sandwich.",
+        tile_id: b1,
+        text: "But the ballpark version of this argument is about memory, not about what the food is.",
         in_response_to_seq: throwSeq,
       },
       BOB,
     );
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-a");
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-answers-b1");
 
-    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👀" }, PLAYER);
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-token-a");
-    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👀" }, BOB);
-    l.push("thread_resolved", { thread_root_id: a, emoji: "👀", note: null });
+    const b2 = l.tile(
+      PLAYER,
+      b1,
+      b,
+      "Fine, forget memory: it's still one piece of bread, not two.",
+    );
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-replies-again");
+    l.tile(
+      BOB,
+      b2,
+      b,
+      "Maybe, but a name can outlast its own history. I still think it's a sandwich.",
+    );
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-b");
+
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👀" }, PLAYER);
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-token-b");
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👀" }, BOB);
+    l.push("thread_resolved", { thread_root_id: b, emoji: "👀", note: null });
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("win");
     l.push("game_ended", { win_condition: "threads_resolved" });
 
@@ -222,58 +319,78 @@ describe("a legal token that is not the scripted one still ends level 1", () => 
 
   it("resolves both threads and ends the game when the player answers 👍 where the script says 👀", () => {
     const l = opened();
-    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
+    const a = l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because a bun is one piece of bread that's been cut, not two slices.",
+    );
+    l.tile(PLAYER, a, a, "But a bun is hinged, that's one piece of bread, not two.");
 
-    // Thread B: the boss goes first with the scripted 👍 and the player
-    // matches it exactly. No deviation on this side, the control for the
-    // deviation on thread A below.
-    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, BOB);
-    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, PLAYER);
-    const mirroredB = mirroredBossToken(l.board(), b, "minus", "👍");
-    expect(mirroredB).toBe("👍");
-    l.push("thread_resolved", { thread_root_id: b, emoji: mirroredB, note: null });
+    // Thread A: Bob goes first with the scripted 👍 and the player matches
+    // it exactly. No deviation on this side, the control for the deviation
+    // on thread B below.
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
+    const mirroredA = mirroredBossToken(l.board(), a, "minus", "👍");
+    expect(mirroredA).toBe("👍");
+    l.push("thread_resolved", { thread_root_id: a, emoji: mirroredA, note: null });
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-violation");
 
-    const a3 = l.tile(
+    const b1 = l.tile(
       BOB,
-      a1,
-      a,
-      "You only say that because you have never had one at the ballpark.",
+      b,
+      b,
+      "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a rule.",
     );
     const throwSeq = l.push(
       "card_thrown",
-      { card_id: "you_is_taboo", rung_id: null, target_tile_id: a3 },
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: b1 },
       PLAYER,
     );
     l.push(
       "tile_revised",
       {
-        tile_id: a3,
-        text: "At the ballpark nobody calls it a sandwich.",
+        tile_id: b1,
+        text: "But the ballpark version of this argument is about memory, not about what the food is.",
         in_response_to_seq: throwSeq,
       },
       BOB,
     );
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-a");
+    const b2 = l.tile(
+      PLAYER,
+      b1,
+      b,
+      "Fine, forget memory: it's still one piece of bread, not two.",
+    );
+    l.tile(
+      BOB,
+      b2,
+      b,
+      "Maybe, but a name can outlast its own history. I still think it's a sandwich.",
+    );
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-b");
 
-    // Thread A: the script narrates 👀 here. The player places 👍 instead,
+    // Thread B: the script narrates 👀 here. The player places 👍 instead,
     // a different token that is just as legal. The walker's loosened
     // player-token match (lib/gym/script.ts) still counts this beat as
     // done, because the player has some pending token on the thread.
-    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-token-a");
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, PLAYER);
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-token-b");
 
     // The boss mirrors what the player actually placed, 👍, not the
     // scripted 👀. That mirroring, not a match against the script, is what
     // closes the thread.
-    const mirroredA = mirroredBossToken(l.board(), a, "minus", "👀");
-    expect(mirroredA).toBe("👍");
-    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: mirroredA }, BOB);
-    l.push("thread_resolved", { thread_root_id: a, emoji: mirroredA, note: null });
+    const mirroredB = mirroredBossToken(l.board(), b, "minus", "👀");
+    expect(mirroredB).toBe("👍");
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: mirroredB }, BOB);
+    l.push("thread_resolved", { thread_root_id: b, emoji: mirroredB, note: null });
     l.push("game_ended", { win_condition: "threads_resolved" });
 
     expect(l.board().status).toBe("ended");
