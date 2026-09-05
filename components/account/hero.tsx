@@ -5,7 +5,7 @@ import type { PlayerStats } from "@/lib/db/stats";
 import type { PlayerRow } from "@/lib/db/types";
 import { levelById } from "@/lib/gym/levels";
 import { ladderFor } from "@/lib/progression/state";
-import { Avatar } from "@/components/avatar";
+import { AvatarPicker } from "@/components/account/avatar-picker";
 import { ArrowGlyph, BUTTON_PRIMARY } from "@/components/account/account-shell";
 import { LocalDay } from "@/components/local-day";
 import { ResumeOrStart } from "@/components/resume-or-start";
@@ -36,6 +36,12 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * has three: games played, cooperation, and a rank. Rank and the global
  * percentile are undecided systems (BRAIN-T260817-02), so the third tile is
  * points, which is real.
+ *
+ * **The avatar is clickable, added 2026-09-04 (BRAIN-T260904-42).** It opens
+ * a picker of the nine emoji Point Taken Heart already offers; the work is in
+ * `components/account/avatar-picker.tsx`, this file only hands it the three
+ * fields it needs. Nobody is picked by default, so a player who never opens
+ * it keeps the same derived initials mark this page always drew.
  */
 
 const CARD = "sticker hex-confetti flex flex-col gap-3 p-6";
@@ -114,7 +120,11 @@ export function ProfileHero({
   return (
     <div className="grid gap-10 pb-12 lg:grid-cols-[minmax(220px,1fr)_minmax(0,2.4fr)]">
       <div className="flex flex-col items-center gap-3 pt-6 text-center">
-        <Avatar playerId={playerId} name={player?.display_name ?? null} size="hero" />
+        <AvatarPicker
+          playerId={playerId}
+          name={player?.display_name ?? null}
+          currentEmoji={player?.avatar_emoji ?? null}
+        />
         <h1 className="font-primary text-ink pt-2 text-3xl tracking-wide uppercase">
           {player?.display_name ?? "Your account"}
         </h1>

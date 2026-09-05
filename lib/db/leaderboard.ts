@@ -31,6 +31,8 @@ export interface LeaderboardRow {
   playerId: Uuid;
   /** Null when a player has never been named. The page supplies a fallback. */
   displayName: string | null;
+  /** Null for a player who has not picked one, which keeps the initials mark. */
+  avatarEmoji: string | null;
   gamesPlayed: number;
   /**
    * Games that reached one of the two cooperative win conditions. Not "games
@@ -122,26 +124,15 @@ export async function readLeaderboard(
     .slice(0, LEADERBOARD_SIZE)
     .map(([playerId]) => playerId);
 
-  const { data: playerRows, error } = await serviceClient()
-    .from("players")
-    .select("id, display_name")
-    .in("id", candidates);
-
-  if (error) throw new Error(`leaderboard names failed: ${error.message}`);
-
-  const names = new Map<Uuid, string | null>(
-    ((playerRows ?? []) as Pick<PlayerRow, "id" | "display_name">[]).map((row) => [
-      row.id,
-      row.display_name,
-    ]),
-  );
+  const identities = await playerIdentities(candidates);
 
   const rows = await Promise.all(
     candidates.map(async (playerId): Promise<LeaderboardRow> => {
       const stats = await getPlayerStats(playerId);
       return {
         playerId,
-        displayName: names.get(playerId) ?? null,
+        displayName: identities.get(playerId)?.display_name ?? null,
+        avatarEmoji: identities.get(playerId)?.avatar_emoji ?? null,
         gamesPlayed: stats.games_played,
         wins: winsFrom(stats),
         cooperation: stats.threads_resolved,
@@ -155,5 +146,49 @@ export async function readLeaderboard(
       b[metric] - a[metric] ||
       a.gamesPlayed - b.gamesPlayed ||
       a.playerId.localeCompare(b.playerId),
+  );
+}
+
+type Identity = Pick<PlayerRow, "display_name" | "avatar_emoji">;
+
+/**
+ * Names and avatars for the rows on the board.
+ *
+ * The avatar column arrived with migration 0015 (2026-09-05). Applying that
+ * migration to the dev project needs a person to run it (the session that
+ * wrote it was not allowed to), so until it is applied the select falls back
+ * to names only rather than taking the whole leaderboard down with a
+ * "column does not exist" error. Postgres error 42703 is that one condition;
+ * anything else still throws. Remove the fallback once 0015 is on every
+ * database this code runs against.
+ */
+async function playerIdentities(ids: Uuid[]): Promise<Map<Uuid, Identity>> {
+  const withAvatar = await serviceClient()
+    .from("players")
+    .select("id, display_name, avatar_emoji")
+    .in("id", ids);
+  if (!withAvatar.error) {
+    return new Map(
+      ((withAvatar.data ?? []) as (Identity & { id: Uuid })[]).map((row) => [
+        row.id,
+        { display_name: row.display_name, avatar_emoji: row.avatar_emoji },
+      ]),
+    );
+  }
+  if (withAvatar.error.code !== "42703") {
+    throw new Error(`leaderboard names failed: ${withAvatar.error.message}`);
+  }
+  const namesOnly = await serviceClient()
+    .from("players")
+    .select("id, display_name")
+    .in("id", ids);
+  if (namesOnly.error) {
+    throw new Error(`leaderboard names failed: ${namesOnly.error.message}`);
+  }
+  return new Map(
+    ((namesOnly.data ?? []) as { id: Uuid; display_name: string | null }[]).map((row) => [
+      row.id,
+      { display_name: row.display_name, avatar_emoji: null },
+    ]),
   );
 }

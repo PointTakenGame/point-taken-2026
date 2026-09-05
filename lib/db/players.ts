@@ -117,3 +117,24 @@ export async function setCoachEnabled(
   if (error) throw new Error(`set coach_enabled failed: ${error.message}`);
   return data as PlayerRow;
 }
+
+/**
+ * Set or clear a player's chosen avatar emoji. `emoji` must already be one of
+ * `PLAYER_EMOJIS` (checked by the caller and, as a backstop, by the database
+ * constraint in `0015_player_avatar.sql`); null clears the pick and returns
+ * the player to their derived initials mark.
+ */
+export async function setAvatarEmoji(
+  playerId: Uuid,
+  emoji: string | null,
+): Promise<PlayerRow> {
+  const { data, error } = await serviceClient()
+    .from("players")
+    .update({ avatar_emoji: emoji })
+    .eq("id", playerId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`set avatar_emoji failed: ${error.message}`);
+  return data as PlayerRow;
+}

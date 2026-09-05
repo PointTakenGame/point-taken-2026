@@ -159,7 +159,12 @@ export default async function LeaderboardPage({
                   >
                     {places[index]}
                   </span>
-                  <Avatar playerId={row.playerId} name={row.displayName} size="sm" />
+                  <Avatar
+                    playerId={row.playerId}
+                    name={row.displayName}
+                    size="sm"
+                    emoji={row.avatarEmoji}
+                  />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-2">
                       <span

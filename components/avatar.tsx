@@ -20,14 +20,27 @@ const SIZE = {
   hero: "h-32 w-32 rounded-2xl text-4xl",
 } as const;
 
+// An emoji reads small next to the letter-height a font size was tuned for,
+// so it gets its own scale: about 0.8 of the tile, big enough to read as a
+// picture rather than a stray character.
+const EMOJI_SIZE = {
+  sm: "text-[1.6rem]",
+  lg: "text-[2.8rem]",
+  xl: "text-4xl",
+  hero: "text-6xl",
+} as const;
+
 export function Avatar({
   playerId,
   name,
   size = "sm",
+  emoji = null,
 }: {
   playerId: string;
   name: string | null;
   size?: keyof typeof SIZE;
+  /** A chosen avatar emoji (`players.avatar_emoji`), or null to fall back to initials. */
+  emoji?: string | null;
 }) {
   const { background, initials } = avatarMark(playerId, name);
 
@@ -37,7 +50,11 @@ export function Avatar({
       style={{ background }}
       className={`inline-flex shrink-0 items-center justify-center font-semibold tracking-wide text-neutral-white ${SIZE[size]}`}
     >
-      {initials}
+      {emoji ? (
+        <span className={`leading-none ${EMOJI_SIZE[size]}`}>{emoji}</span>
+      ) : (
+        initials
+      )}
     </span>
   );
 }

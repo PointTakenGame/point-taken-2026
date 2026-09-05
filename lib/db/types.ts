@@ -41,6 +41,11 @@ export interface PlayerRow {
   /** Player has asked the coach to read their reasons. Off by default. */
   coach_enabled: boolean;
   kind: PlayerKind;
+  /**
+   * One of the nine fixed emoji in `lib/avatar.ts`'s `PLAYER_EMOJIS`, or null
+   * to keep the derived initials mark. Null until a player opens the picker.
+   */
+  avatar_emoji: string | null;
 }
 
 export interface GameRow {
