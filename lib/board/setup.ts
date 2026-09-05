@@ -14,24 +14,59 @@ import type { Side, Uuid } from "@/lib/events/types";
 
 export interface SigningLine {
   id: string;
-  /** The short line the player affirms. */
+  /**
+   * Kept for older consumers that only read `text`. Equal to `title` now:
+   * the placeholder slogans ("Play fair", "Stay on the thread", "Pin it
+   * down") are gone, replaced by the real agreement below.
+   */
   text: string;
   /** The badge family name it belongs to, shown beside it. */
   family: string;
+  /** The line's heading. Equal to `family` today, kept as its own field
+   * because the two mean different things (a badge family vs. a line's own
+   * heading) even though they read the same for all three lines so far. */
+  title: string;
+  /** The full sentence the player is agreeing to. */
+  pledge: string;
 }
 
 /**
  * The three lines both players affirm before play, per the 2026-08-22 ruling
  * (BIZ-T260822-04). A ritual, not a consent form: no partial signing.
  *
- * The ids are the shipped vocabulary from the event catalogue. Rannie's frame
- * draws a fourth line, folded into Play fair; "I'll control my emotions" was
- * cut; the old game's same_team id is dead.
+ * The ids are the shipped vocabulary from the event catalogue and stay fixed
+ * regardless of wording changes, since `agreement_signed.items` records them
+ * per game. Steve, 2026-09-05, from his level 1 playthrough: the earlier
+ * placeholder slogans read as "trash" and are replaced here with the real
+ * agreement text from the production game. Rannie's frame draws a fourth
+ * line, folded into Mutual Respect; "I'll control my emotions" was cut; the
+ * old game's same_team id is dead.
  */
 export const SIGNING_LINES: readonly SigningLine[] = [
-  { id: "mutual_respect", text: "Play fair", family: "Mutual Respect" },
-  { id: "honest_thinking", text: "Stay on the thread", family: "Honest Thinking" },
-  { id: "shared_facts", text: "Pin it down", family: "Shared Facts" },
+  {
+    id: "mutual_respect",
+    family: "Mutual Respect",
+    title: "Mutual Respect",
+    text: "Mutual Respect",
+    pledge:
+      "I'm here to think, not to troll. I'll be kind and generous, I'll critique arguments and not people, and I might even revise my position (no promises).",
+  },
+  {
+    id: "honest_thinking",
+    family: "Honest Thinking",
+    title: "Honest Thinking",
+    text: "Honest Thinking",
+    pledge:
+      "I'll think with clear reasons and humility, not with aggression and arrogance.",
+  },
+  {
+    id: "shared_facts",
+    family: "Shared Facts",
+    title: "Shared Facts",
+    text: "Shared Facts",
+    pledge:
+      'Facts matter, so I\'ll track them down collaboratively and use them honestly, without bias for "my side."',
+  },
 ];
 
 export const SIGNING_LINE_IDS: readonly string[] = SIGNING_LINES.map((line) => line.id);
