@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { setCoachEnabled, setDisplayName } from "@/lib/db/players";
+import { isPlayerEmoji } from "@/lib/avatar";
+import { setAvatarEmoji, setCoachEnabled, setDisplayName } from "@/lib/db/players";
 import { validateDisplayName } from "@/lib/names/validate";
 import { currentPlayerId, sessionClient } from "@/lib/supabase/session";
 
@@ -58,6 +59,31 @@ export async function setCoach(enabled: boolean): Promise<SettingsResult> {
   return {
     ok: true,
     message: enabled ? "The coach will read your reasons." : "The coach will stay quiet.",
+  };
+}
+
+/**
+ * Set the player's avatar emoji, or clear it back to the derived initials
+ * mark with `emoji: null`. The nine choices live in `lib/avatar.ts`'s
+ * `PLAYER_EMOJIS`; anything else is rejected here rather than trusted through
+ * to the database constraint, so a bad value reads back as a settings error
+ * instead of a failed update.
+ */
+export async function setAvatar(emoji: string | null): Promise<SettingsResult> {
+  const playerId = await currentPlayerId();
+  if (!playerId) return SIGNED_OUT;
+
+  if (emoji !== null && !isPlayerEmoji(emoji)) {
+    return { ok: false, error: "That is not one of the avatars on offer." };
+  }
+
+  await setAvatarEmoji(playerId, emoji);
+
+  revalidatePath("/settings");
+  revalidatePath("/account");
+  return {
+    ok: true,
+    message: emoji ? "Avatar updated." : "Back to your initials.",
   };
 }
 
