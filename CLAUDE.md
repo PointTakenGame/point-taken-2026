@@ -268,14 +268,23 @@ Settled, and not up for redesign in a surface pull request:
 - a level opens on Rannie's two cards over the empty board (boss intro, then rule card intro),
   with START THE GAME signing the three lines and starting in one act. A rule card not yet
   earned is shown as a question mark, never named early. Steve, 2026-09-04, `BRAIN-T260904-21`.
+- the thread ceiling is four on the tile board, the centre tile's four diagonals, and six only
+  in compact mode when it ships; `MAX_THREADS` in `lib/board/rules.ts` says four. There is no
+  minimum: a game ends when every live thread resolves. Steve, 2026-09-05, `BRAIN-T260905-33`.
+- tokens are named Agree to agree (👍) and Agree to disagree (👀); the three-way split of 👀
+  waits for level 6 and above. Steve, 2026-09-05, `BRAIN-T260905-30`.
+- a rule card is thrown by two clicks, the card then the tile. No drag. Steve, 2026-09-05,
+  `BRAIN-T260905-35`.
+- ranking players by cooperative measures is allowed; a single blended competitive score and
+  head-to-head records are not. Steve, 2026-09-05, `BRAIN-T260905-34`.
+- level 1 opens on two roots, Bob's first; his thread closes Agree to agree at two tiles, the
+  player's teaches You is Taboo at Bob's first reply and closes Agree to disagree at four.
+  Steve, 2026-09-05, `BRAIN-T260905-32`; the script is `lib/gym/levels/onboarding.ts`.
 
 Still moving, and known to be inconsistent between the code and the design documents:
 
 - the badge taxonomy, and the name of every level above 4. A second, undecided naming ladder
   is drawn throughout the Figma; whether level 5 splits into 5A and 5B was deferred explicitly.
 - the shape of the coach's turn
-- how many threads a game must have before it can end. `rules.md:273` says six is the ceiling,
-  the 2026-08-31 geometry ruling caps the tile board at four and defers six to compact mode,
-  and `MAX_THREADS` in `lib/board/rules.ts` still says six. Tracked as `BRAIN-T260831-12`.
 
 **Do not resolve any of these by choosing one. Flag it.**
