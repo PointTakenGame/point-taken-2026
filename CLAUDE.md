@@ -265,9 +265,19 @@ Settled, and not up for redesign in a surface pull request:
   but are reached from the Profile (the level progress ladder is the level select, the
   cooperation tile opens the leaderboard); the board, the landing, and the host screen carry no
   tab bar. Steve, 2026-09-04, `BRAIN-T260904-22`, matching Rannie's connector arrows.
-- a level opens on Rannie's two cards over the empty board (boss intro, then rule card intro),
-  with START THE GAME signing the three lines and starting in one act. A rule card not yet
-  earned is shown as a question mark, never named early. Steve, 2026-09-04, `BRAIN-T260904-21`.
+- a level opens on two cards over the empty board: the boss intro, then the agreement. The
+  agreement names the level, the boss, and the topic, then the three pledges from the
+  production game (Mutual Respect, Honest Thinking, Shared Facts, `SIGNING_LINES` in
+  `lib/board/setup.ts`), one button agrees to all three, and only then does START THE GAME
+  ungrey. No level shows a rule card before play; a card is met on the board the moment the
+  script teaches it. Steve, 2026-09-05, `BRAIN-T260905-39`, superseding the rule-card intro
+  card of `BRAIN-T260904-21`. The question-mark rule for an unearned card still applies
+  wherever a card is listed.
+- level 1 is cooked: the coach's suggested text is placed as written with one Place button
+  and no editing, only the slot the coach points at is offered, nothing is offered under the
+  player's own tiles, and no empty slot is drawn while a card throw is expected. Ways to Win
+  and the card tray stay hidden until the script reveals them. Levels 2 to 4 are not cooked
+  unless Steve says so. Steve, 2026-09-05, `BRAIN-T260905-40` and `BRAIN-T260905-43`.
 - the thread ceiling is four on the tile board, the centre tile's four diagonals, and six only
   in compact mode when it ships; `MAX_THREADS` in `lib/board/rules.ts` says four. There is no
   minimum: a game ends when every live thread resolves. Steve, 2026-09-05, `BRAIN-T260905-33`.
