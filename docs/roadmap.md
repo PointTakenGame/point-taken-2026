@@ -193,7 +193,11 @@ the mechanic only if its track is scheduled; do not infer a level from a track.
   events since `0014_awards.sql` landed `[unratified: components/account/progression/certificate-wall.tsx,
   app/account/profile.tsx]`. This overturns the earlier deferral `[ruled] (BRAIN-T260816-15)`.
 - **6.2 Rule-card onboarding pop-up, one per rung.**
-- **6.3 The signing ritual in every level.**
+- **6.3 Built: the signing ritual in every level.** Every level opens on a boss-intro card, then an
+  agreement card carrying the three `SIGNING_LINES` pledges in full, signed as one act before the
+  level's own "Start the game" button ungreys `[ruled Steve 2026-09-05, BRAIN-T260905-39]`
+  (`components/gym/level-intro.tsx`, its `AgreementCard`). See `rules.md` section 10 for the full
+  flow and `rules.md` section 3 for the pledge text itself.
 - **6.4 Compact display**, near-half only. It is a per-account visual preference, never synced, never
   logged `[ruled]` (Q10).
 - **6.5 Partner-just-moved notification: in-app, opt-out, no email** `[ruled]`; email costs real money

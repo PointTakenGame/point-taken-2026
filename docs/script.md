@@ -411,9 +411,12 @@ against `lib/gym/script.ts`'s `Level` type: pauses with coach commentary, a boss
 a boss token, a required player action, a card throw, an edit, or a win. Nothing here
 is an LLM call; every boss line, coach nudge, and reaction is written text chosen by
 which beat is current. Entering a level goes through `components/gym/level-intro.tsx`
-first (two cards: a boss-intro card, then a rule-card-intro card, per Figma nodes
-`1058:211649` and `1077:220185`, `[ruled]` per that file's own header, BRAIN-T260904-21)
-and ends, on a win, at `components/gym/certificate.tsx`.
+first: a boss-intro card, then an agreement card naming the level, the boss, and the
+topic and carrying the three `SIGNING_LINES` pledges in full, signed as one act before
+"Start the game" ungreys `[ruled Steve 2026-09-05, BRAIN-T260905-39]`. This supersedes
+the earlier rule-card-intro card that showed the level's rule card face down before
+the player had ever seen the board move `[ruled BRAIN-T260904-21, superseded]`, and it
+ends, on a win, at `components/gym/certificate.tsx`.
 
 The four levels, current field values (`lib/gym/levels/onboarding.ts`,
 `ground-rules.ts`, `claim-size.ts`, `clarity.ts`), all `[ruled]` against the 2026-08-22
@@ -437,37 +440,59 @@ reply to either root until both are down [ruled Steve 2026-09-05, BRAIN-T260905-
 
 **Level 1's beat order** [ruled Steve 2026-09-05, BRAIN-T260905-32, `lib/gym/levels/onboarding.ts`].
 Nothing is explained ahead of time: each token is explained when it is placed, the
-card when it is broken. In beat order, the coach and boss strings players actually
-see:
+card when it is broken. Level 1 also runs "cooked" [ruled Steve 2026-09-05,
+BRAIN-T260905-40 and BRAIN-T260905-43]: every player tile below is the script's
+suggestion, placed as written with no editing, into the one slot the beat points at,
+and the Ways to Win card and the rule-card tray both stay off the board
+(`hiddenSurfaces: ["ways-to-win", "card-tray"]`) until the beats below reveal them.
+In beat order, the coach and boss strings players actually see:
 
 1. A pause explains the board: "You're Minus: a hot dog is not a sandwich. Bob's
    Plus, he thinks it is. He goes first."
 2. Bob places his own root first: "Yes, because a hot dog is a filling served inside
    bread, and that's what a sandwich is."
-3. A pause explains what a reason tile is, then the player places their own root
-   next to Bob's, coached: "Start your first thread: why a hot dog isn't a sandwich.
-   I wrote you a sample, change any of it."
-4. A pause marks it as a second thread, then the player answers Bob's root, coached:
-   "Answer Bob's reason, at the top of his thread."
-5. A pause explains that tiles answer tiles, then Bob agrees outright rather than
-   arguing back: "You're right, I hadn't thought of that." A pause names the token
-   he places, 👍, Agree to agree, and the player mirrors it, coached: "Put your 👍
-   down and the thread closes." That thread closes at two tiles.
-6. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo: "But you
+3. A pause explains what a reason tile is ("Bob says yes to the topic question, so
+   he put his best reason here. Your turn."), then the player places their own root
+   next to Bob's, coached: "Start your first thread by putting your best reason why
+   a hot dog isn't a sandwich," with the suggested tile "No, because nobody who
+   orders a sandwich would ever be handed a hot dog," placed as given, not typed or
+   edited.
+4. The player answers Bob's root, coached: "Give a reply to Bob's reason in the
+   highlighted spot connected to his first tile," suggested text "But a bun is one
+   hinged piece of bread, and a sandwich needs two." A pause then names what just
+   happened: "You answered Bob. We're making a threaded discussion."
+5. A pause teaches the board's own navigation: drag to pan, arrows, zoom,
+   fit-to-screen `[unratified: lib/gym/levels/onboarding.ts, beat
+   p3b-move-the-board]`. Placed here, right after the player's first reply, rather
+   than after Bob's violation tile as Steve suggested when he asked for this hint:
+   the level's actual tension point is the "you" attack two beats later, and a
+   player who has just placed one tile still has both hands free to explore.
+6. Bob agrees outright rather than arguing back: "You're right, I hadn't thought of
+   that." A pause names the token, 👍, Agree to agree, and the player mirrors it,
+   coached: "Put your 👍 down and the thread closes." That thread closes at two
+   tiles.
+7. A pause reveals the Ways to Win card for the first time [ruled Steve 2026-09-05,
+   BRAIN-T260905-40]: "Look: your 👍 just landed on this board. Close the other
+   thread too and you and Bob win the game together."
+8. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo: "But you
    only think that because you grew up eating them at ballparks. That's nostalgia,
-   not a rule." A pause names the card there and the player throws it, coached:
-   "Throw it."
-7. Bob revises the thrown tile: "But the ballpark version of this argument is about
+   not a rule." A held pause calls it out ("Bob just made this about you, not about
+   the hot dog"), then a second pause reveals the rule-card tray and names the card:
+   "This is a rule card: 'You' is taboo. Click the card, then click Bob's tile that
+   broke it." The player throws it.
+9. Bob revises the thrown tile: "But the ballpark version of this argument is about
    memory, not about what the food is." A pause explains what the card actually did,
    then the player answers the revision, coached: "Answer Bob back, right under his
-   tile."
-8. Bob replies once more without conceding: "Maybe, but a name can outlast its own
-   history. I still think it's a sandwich." The player proposes 👀, Agree to
-   disagree, coached: "You're not going to agree on this one. 👀 Agree to disagree:
-   neither of you has to move, and it still closes the thread."
-9. Bob asks for the confirm before mirroring it: "...sorry. I don't like to assume."
-   Once the player asks, Bob places his 👀 and that thread, four tiles now, closes
-   the level: both tokens have been seen in play.
+   tile," suggested text "Still, nobody ordering a sandwich expects to be handed a
+   hot dog either way."
+10. Bob replies once more without conceding: "Maybe, but a name can outlast its own
+    history. I still think it's a sandwich." The player proposes 👀, Agree to
+    disagree, coached: "I think you two just see the world differently, and it's
+    time to wrap this thread up and agree to disagree."
+11. Bob asks for the confirm before mirroring it: "...sorry. I don't like to
+    assume." A pause names the rule: "He won't place his until you ask. Agreement
+    gets asked for, not assumed." Once the player asks, Bob places his 👀 and that
+    thread, four tiles now, closes the level: both tokens have been seen in play.
 
 Bob's boss-tile text uses "But" as its literal reply lead (`onboarding.ts`'s
 hardcoded lines), which is separate from the live board's dynamic "Hmm" reply-stem

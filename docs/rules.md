@@ -68,7 +68,19 @@ True today in the code:
    [unratified: lib/names/validate.ts:10-11]. Both bounds are player-visible:
    too short reads "A name needs at least two characters." and too long reads
    "A name can be at most 40 characters." (`:55`, `:60`).
-3. Both players sign the agreement. **Three lines** [ruled BIZ-T260822-07 guide §2.6]: "Play fair" (family Mutual Respect), "Stay on the thread" (Honest Thinking), "Pin it down" (Shared Facts). It is a ritual, not a consent form: there is no partial signing ("Signing means standing behind every line.") [unratified: lib/board/setup.ts:31].
+3. Both players sign the agreement. **Three lines** [ruled BIZ-T260822-04]: Mutual Respect, Honest
+   Thinking, Shared Facts. The old placeholder slogans ("Play fair," "Stay on the thread," "Pin it
+   down") are gone; each line's title is now its own family name, paired with the real pledge sentence
+   [ruled Steve 2026-09-05, from his own level 1 playthrough, `lib/board/setup.ts:45-70`]:
+   - Mutual Respect: "I'm here to think, not to troll. I'll be kind and generous, I'll critique
+     arguments and not people, and I might even revise my position (no promises)."
+   - Honest Thinking: "I'll think with clear reasons and humility, not with aggression and arrogance."
+   - Shared Facts: "Facts matter, so I'll track them down collaboratively and use them honestly,
+     without bias for \"my side.\""
+
+   It is a ritual, not a consent form: there is no partial signing, and Rannie's frame draws a fourth
+   line ("I'll control my emotions") folded into Mutual Respect rather than shipped on its own
+   [unratified: lib/board/setup.ts:33-41].
 4. Either player sets the topic, from a 17-entry library or written fresh [unratified: lib/board/setup.ts:55]. Either player can start; nobody waits on a host.
 5. Play begins. Tiles go down, threads grow, tokens close threads, cards get thrown.
 
@@ -239,7 +251,20 @@ Level 3 is the only level that asks the player to fix themselves rather than cat
 
 Level-specific mechanics [ruled guide §3 to §6]:
 
-- **Level 1**: about 9 tiles, 8 to 10 minutes, no points at all. Bob commits exactly one violation, then apologises for assuming. Root stage is 2, not 4, so the level opens on two roots, one from each side, Bob's first, and nothing may reply to either until both are down [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/gym/levels/onboarding.ts:39]. Nothing is explained ahead of time: each token is explained when it is placed, the card when it is broken. The beat order: Bob places his own root, the player places their own, the player answers Bob's root, and Bob agrees outright rather than arguing back, placing 👍 unprompted; the player mirrors it and that thread, Agree to agree, closes at two tiles. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo, which is where the card is taught and thrown; Bob revises the tile, the player answers, Bob replies once more without conceding, and the player proposes 👀, which Bob mirrors only after being asked to confirm. That thread, Agree to disagree, closes at four tiles, and the level ends there with both tokens seen in play [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/gym/levels/onboarding.ts, full beat list].
+- **Level 1**: about 9 tiles, 8 to 10 minutes, no points at all. Bob commits exactly one violation, then apologises for assuming. Root stage is 2, not 4, so the level opens on two roots, one from each side, Bob's first, and nothing may reply to either until both are down [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/gym/levels/onboarding.ts:39]. Nothing is explained ahead of time: each token is explained when it is placed, the card when it is broken. The beat order: Bob places his own root, the player places their own, the player answers Bob's root, and Bob agrees outright rather than arguing back, placing 👍 unprompted; the player mirrors it and that thread, Agree to agree, closes at two tiles. A pause right after the player's first reply teaches the board's own navigation (drag to pan, arrows, zoom, fit-to-screen) `[unratified: lib/gym/levels/onboarding.ts, beat p3b-move-the-board]`: Steve asked for this hint after Bob's violation tile, where the "you" attack is the level's actual tension point, but it is placed one beat earlier instead, while the player's hands are still free to explore rather than fixed on the fight. A second pause, right after the player closes the first thread, reveals the Ways to Win card for the first time [ruled Steve 2026-09-05, BRAIN-T260905-40, lib/gym/levels/onboarding.ts, beat p4b-ways-to-win]. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo, which is where the card is taught and thrown; Bob revises the tile, the player answers, Bob replies once more without conceding, and the player proposes 👀, which Bob mirrors only after being asked to confirm. That thread, Agree to disagree, closes at four tiles, and the level ends there with both tokens seen in play [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/gym/levels/onboarding.ts, full beat list].
+
+  Level 1 is also "cooked" and its board chrome starts hidden, both by the level script rather
+  than by any general Gym rule [ruled Steve 2026-09-05, BRAIN-T260905-40 and BRAIN-T260905-43].
+  `Level.cooked: true` (`lib/gym/script.ts`) restricts placement to whatever the current beat
+  points at: the player's tile text is the script's suggestion and cannot be edited, only
+  placed, the only slot offered is the one the beat names, nothing can be placed under the
+  player's own tiles, and no empty slot is drawn while a card throw is expected. `hiddenSurfaces:
+  ["ways-to-win", "card-tray"]` keeps both pieces of chrome off the board until the beats above
+  reveal them, since a level 1 player has not earned either idea yet.
+
+  `GAP: whether cooked placement and hidden chrome extend to levels 2 to 4, or are a level-1-only onboarding device, is not ruled anywhere. cooked-placement.ts's own doc comment says every other level gets the unrestricted NONE value today, but that is the current build, not a decision that it stays that way.`
+
+  `GAP: the level 1 script's own doc comment says the player's tile text "cannot be edited, only placed" (lib/gym/script.ts, Level.cooked). That is true only at the moment of placement: canEditTile in lib/board/rules.ts has no cooked or level awareness at all, so the same tile can be freely rewritten afterward through the on-tile pencil. Whether the suggested text should stay locked once placed, or whether letting a player edit it away is fine because level 1 never checks what the tile says, is not ruled either way.`
 - **Level 2**: about 16 tiles, 15 minutes. Threads are health, energy, evenings, coordination. Introduces removing, withdrawing or adding, and relocating a tile by grab handle.
 - **Level 3**: about 18 tiles, 15 to 18 minutes. The self-check runs on the word list in section 7 with no model call [ruled BIZ-T260823-74]. This is the only place in the first release where points move backwards: 10 docked as "oversized claim" and
   10 refunded as "brought back to size", net zero, once per Gym run [ruled BIZ-T260824-09].
@@ -253,7 +278,7 @@ Finishing a level does not unlock the next one, because there is no lock: all fo
 
 True today in the code: all four Gym levels are fully scripted and playable end to end against their boss [unratified: lib/gym/levels/onboarding.ts and its three siblings; played and cleared in full by `docs/handoffs/2026-09-04_overnight-result.md`, tid BRAIN-T260904-20]. `app/gym/page.tsx` is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip (`components/account/progression/ladder-strip.tsx`) is the level select now [ruled Steve 2026-09-04, cited in app/gym/page.tsx's own doc comment].
 
-Opening a level is two cards, not one screen: a boss-intro card, then a rule-card-intro card that also carries the signing lines and the start button [ruled BRAIN-T260904-21, components/gym/level-intro.tsx]. A rule card the player has not yet earned shows as a question mark rather than its name or icon [unratified: components/gym/level-intro.tsx]. The button reads "Start the game" and, in one act, signs the agreement if it is not already signed and starts the game [unratified: components/gym/level-intro.tsx, `go()`].
+Opening a level is two cards, not one screen: a boss-intro card, then an agreement card naming the level, the boss, and the topic, and carrying the three `SIGNING_LINES` pledges in full [ruled Steve 2026-09-05, BRAIN-T260905-39, components/gym/level-intro.tsx]. The agreement card has two separately gated buttons: "I agree to all three" signs, and "Start the game" stays disabled until signed [unratified: components/gym/level-intro.tsx, `go()`]. No level shows a rule card before play; a card is met on the board the moment the level's script teaches it, the same as any other level. This supersedes the earlier rule-card-intro card, which showed the level's rule card face down before the player had ever seen the board move [ruled BRAIN-T260904-21, superseded]. The question-mark rule for an unearned card still applies wherever a card is listed elsewhere.
 
 First-release totals as designed: 4 of 11 rule cards, 4 of 8 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Deferred to level 5 and later: importance ranking, the revise-topic win condition inside the Gym, the Steel Man card, communal points, and generosity tokens [unratified: guide §7].
 

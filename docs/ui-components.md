@@ -164,6 +164,9 @@ reads as two columns of compact threads"); the finished board now composes `fini
   token the other player has already placed in gold with a caption "They put this down. Match it to close
   the thread." `[unratified]` (`components/board/resolution-picker.tsx:33,45,57-69`).
 - `board/rule-card-popup.tsx`: a rule card shown as reference, built on `TilePopover` with an empty body.
+  Not rendered anywhere in the app: `level-intro.tsx` no longer shows a rule card at all
+  `[ruled Steve 2026-09-05, BRAIN-T260905-39]`, and `rule-card-tray.tsx` does not import it either. The
+  only caller is its own test file `[unratified]` (`components/board/rule-card-popup.test.tsx`).
 - `board/rule-card-tray.tsx`: the "My rule cards" deck row with per-card counts; a first-use hint above it
   ("Click a card, then click the reason it applies to.") is owned and gated by `live-board.tsx`, not by
   the tray component itself `[unratified]` (`components/board/rule-card-tray.tsx:24-85`,
@@ -183,10 +186,21 @@ reads as two columns of compact threads"); the finished board now composes `fini
 - `board/tile-picker.tsx`: (new since the last pass; not read for this document, `GAP:` needs its own
   description).
 - `board/tile-shape.tsx`: the rotated-diamond tile primitive every other tile-like component builds on.
+  A `weight` prop takes `"normal"` (3px border) or `"root"` (9px border, three times as thick), used for
+  the topic tile and any reason tile with no parent, so both read as load-bearing at a glance
+  `[ruled Steve 2026-09-05]` (`components/board/tile-shape.tsx:235-237`, `TILE_BORDER_PX` in
+  `components/board/geometry.ts:111-115`). The octagon's corner cut ships as a clean 29% in
+  `OCTAGON_CLIP` (`components/board/geometry.ts:60`), but that file's own header comment records
+  measuring Rannie's render at a cut reaching full width somewhere between 29.1% and 29.9%.
+  `GAP:` whether the tile's corner cuts should read as sharp or slightly rounded is not settled;
+  the shipped 29% is a single clean value chosen inside a measurement range that disagreed with
+  itself, not a value Steve has confirmed against the design.
 - `board/token-glyph.tsx`: lookup from a resolution-token unicode character to its SVG art and label.
 - `board/topic-cell.tsx`: (new since the last pass; not read for this document, `GAP:` needs its own
   description; likely related to or replacing `topic-tile.tsx`, not confirmed).
-- `board/topic-tile.tsx`: the neutral "TOPIC" watermark diamond; display-only in this pass.
+- `board/topic-tile.tsx`: the neutral "TOPIC" watermark diamond; display-only in this pass. Renders with
+  `weight="root"`, the same thick border as a thread's opening reason, since the topic tile is load-bearing
+  too `[ruled Steve 2026-09-05]` (`components/board/topic-tile.tsx:20`).
 - `board/use-game-feed.ts`: hook that triggers a server re-projection when the other player moves.
 - `board/ways-to-win-card.tsx`: no longer a display-only minimap. The four corner slots (root tiles) and
   the center "TOPIC" octagon are now hoverable and clickable: hovering spotlights the matching tile on the
@@ -249,10 +263,13 @@ document)
   scripted beat) `[unratified]` (e.g. `lib/gym/levels/claim-size.ts:182,211,285,288-300`).
 - `gym/gym-lobby.tsx`: (not read in full for this document; the ladder/level-select surface itself is
   `account/progression/ladder-strip.tsx` below, per BRAIN-T260904-22).
-- `gym/level-intro.tsx`: one component, two cards toggled by internal state before a level starts: a boss
-  portrait/title/tip card with "Next →," then a rule-card card (the card face-up if already earned, else a
-  "?" placeholder) showing the three signing lines read-only and a "Start the game →" button that signs and
-  starts in one action `[unratified]` (`components/gym/level-intro.tsx:15-79,113-268`).
+- `gym/level-intro.tsx`: one component, two cards toggled by internal state before a level starts. Card
+  one is the boss portrait/title/tip card with "Next →." Card two used to show the level's rule card face
+  down; that is gone `[ruled Steve 2026-09-05, BRAIN-T260905-39]`, since telling a player about a rule
+  card before they know rule cards exist undercuts the moment the board later teaches it. Card two is now
+  an agreement screen: one sentence naming the level, boss, and topic, the three `SIGNING_LINES` pledges
+  read in full, then two separately gated buttons, "I agree to all three" (signs) and "Start the game →"
+  (disabled until signed) `[unratified]` (`components/gym/level-intro.tsx:111-278`).
 - `gym/pointed-slot.ts`, `gym/pointed-tile.ts`: `useSyncExternalStore` pub/sub stores letting the director
   tell the spatial board which empty slot or existing tile to auto-frame.
 - `gym/sample-answers.ts`: (not read in full for this document).
@@ -395,6 +412,33 @@ corner, per the spec's note that the two placements differ materially and the fl
 requested back. **Nothing mounts it.** Its only importer is
 `components/info/paths-to-winning-card.test.tsx`; see sections 3 and 9.
 
+### Tile popup (`components/board/live-board.tsx`)
+Clicking a reason on the board opens a card, `TileNode` rendered with `onBoard` true. Three moves,
+gated separately, as of Steve's 2026-09-05 ruling on the tile card:
+
+- **Edit moved off the card and onto the tile.** A player's own reason now carries a small pencil icon
+  drawn on the tile itself rather than an "Edit" row inside the card, so editing reads as "a standard
+  pencil icon on top of the tile" `[ruled Steve 2026-09-05]` (`components/board/live-board.tsx:432-449`).
+  The icon renders only when `mine && editVerdict?.ok` and sits at the tile's top-right corner
+  (`style={{ right: CORNER_INSET, top: CORNER_INSET }}`), the mirror of `TileProposalBadge`'s top-left
+  placement, so the two never collide `[unratified]` (`components/board/live-board.tsx:3138-3156`,
+  `TileProposalBadge` at `:2586-2602`).
+- **Remove is offered only on a terminal tile**, one with no live replies under it
+  (`isTerminal = tile.children.filter(c => !c.removed).length === 0`), gated `mine && isTerminal`
+  `[ruled Steve 2026-09-05]` (`components/board/live-board.tsx:1055,1275,1288`). This check lives in the
+  presentation layer only: `lib/board/rules.ts`'s `canRemoveTile` has no children check and does not know
+  about terminal tiles at all. A core follow-up to move the rule into `canRemoveTile` itself is filed as
+  `BRAIN-T260905-45` and not yet done `[unratified]` (`lib/board/rules.ts:285-295`).
+- **The card no longer restates the tile's own text.** The octagon is already on the board a few pixels
+  away in its own hand and colour, so the card's job is only what a player cannot already see by looking
+  `[ruled Steve 2026-09-05]` (`components/board/live-board.tsx:3461-3467`).
+
+All action items render as real `<button type="button">` elements, not links or plain text
+(`ActionItem` at `components/board/live-board.tsx:481`; Edit/Remove rows at `:1314,1323`). A second,
+simpler "yours:" link row exists for a non-`onBoard` context (the folded thread drawer) and still shows
+plain "edit"/"remove" text links there; its "remove" link is gated only by the raw `removeVerdict`, not
+by `isTerminal` `[unratified]` (`components/board/live-board.tsx:1310-1332`).
+
 ### Turn timers
 There is no turn timer component to build. Turn timers are out of scope for this edition by ruling
 [ruled Steve 2026-09-03, BRAIN-T260903-01]; they belong to the Heart edition. `app/how-to-play/page.tsx:110`
@@ -511,8 +555,12 @@ streaks because the data model does not support them, which is a second, indepen
 unshown. Emoji resolutions broken out by type (fact/priorities/taste) remains a field Figma shows that
 the app does not store this way. One conflict this list used to carry as unresolved is now settled: Figma's
 signing-ritual frame draws four lines; shipped code keeps three, folding "I'll control my emotions" into
-"Play fair" and cutting it as its own line `[ruled]` (`lib/board/setup.ts:22-35`). One conflict remains
-settled: Rannie's live-board frame has no hand/throw mechanic for picking up and throwing a rule card at
+Mutual Respect and cutting it as its own line `[ruled]` (`lib/board/setup.ts:45-70`). The three pledges'
+short labels ("Play fair," "Stay on the thread," "Pin it down") are also gone: each pledge's title is now
+its own family name (Mutual Respect, Honest Thinking, Shared Facts) read out in full, not a nickname
+`[ruled Steve 2026-09-05]` (`lib/board/setup.ts:45-70`); see `rules.md` section 3 for the full pledge text.
+One conflict remains settled: Rannie's live-board frame has no hand/throw mechanic for picking up and
+throwing a rule card at
 a tile, which the brief called "the single largest new interaction in the whole roadmap." Shipped code
 uses a two-click flow (click a card in the tray, then click the tile to play it on), with a first-use
 hint saying exactly that (`components/board/live-board.tsx:3253-3264`). The two-click flow is the

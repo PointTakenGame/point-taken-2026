@@ -689,7 +689,7 @@ cannot conclude the function is open.
   compact mode `[ruled Steve 2026-09-05, BRAIN-T260905-33]`. A fourth item
   once listed here, whether the
   agreement is three lines or four, is settled at three (`rules.md` section 3,
-  and `SIGNING_LINES` in `lib/board/setup.ts:31-35` ships three).
+  and `SIGNING_LINES` in `lib/board/setup.ts:45-70` ships three).
 - **This document reflects one read of `0001`-`0015`.** `0001`, `0002`, and
   `0004` were previously confirmed via their own prose specs plus targeted
   code reads (`lib/events/types.ts`, `lib/db/types.ts`) rather than a full
