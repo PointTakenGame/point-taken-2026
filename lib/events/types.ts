@@ -65,7 +65,7 @@ export interface GameStartedPayload {
    * How many thread roots the board opens with. Until that many roots are
    * down, no tile may hang off another one: the game starts by putting the
    * disagreement's main branches on the table, not by diving into the first
-   * one. Four in a live game and in gym levels 2 and up, two in gym level 1.
+   * one. Four in a live game and in gym levels 2 and up, one in gym level 1.
    *
    * Settings rather than a constant because it varies per game, and settings
    * rather than a mode switch because a gym game and a live game are the same

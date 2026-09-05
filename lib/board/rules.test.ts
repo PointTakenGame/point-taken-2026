@@ -357,7 +357,7 @@ describe("the root stage", () => {
     expect(canPlaceTile(boardWithRoots(4), "But no.", "r0")).toEqual({ ok: true });
   });
 
-  it("takes the target off the game, so gym level 1 opens after two", () => {
+  it("takes the target off the game, so a two-root game opens after two", () => {
     const board = boardWithRoots(2, 2);
     expect(board.settings?.rootTarget).toBe(2);
     expect(canPlaceTile(board, "But no.", "r0")).toEqual({ ok: true });

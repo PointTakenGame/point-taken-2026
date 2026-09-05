@@ -74,8 +74,8 @@ export const MAX_THREADS = 6;
  * shape the game exists to avoid.
  *
  * Per game, off `game_started`, not per mode. Four in live play and in gym
- * levels 2 and up; two in gym level 1, whose whole job is teaching what a
- * thread is and which would be padding at four. A game_started written before
+ * levels 2 and up; one in gym level 1, which teaches what a thread is by
+ * playing the player's own thread out before the boss opens a second. A game_started written before
  * the field existed reads as the live four (LIVE_ROOT_TARGET, project.ts).
  */
 export { LIVE_ROOT_TARGET } from "./project";
@@ -231,7 +231,7 @@ export function canPlaceTile(
     // disagreement on the table, and only then goes down one of them, so
     // nothing hangs off anything until the opening roots are down. The number
     // is per game (game_started's root_target), not per mode: four in live
-    // play and in gym levels 2 and up, two in gym level 1.
+    // play and in gym levels 2 and up, one in gym level 1.
     const target = rootTarget(board);
     const roots = liveThreads(board).length;
     if (roots < target) {
