@@ -105,6 +105,7 @@ import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 import { useBossDraft } from "@/components/gym/boss-draft";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
+import { usePointedTile } from "@/components/gym/pointed-tile";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
 
 /**
@@ -2091,6 +2092,19 @@ function InTileComposer({
             Cancel
           </button>
         </div>
+        {/* Live count against the same limit the Place button's own verdict
+            enforces (`canPlaceTile`, `TILE_MAX_CHARS`), so a player closing in
+            on the limit sees it coming rather than discovering it only when
+            typing just stops working. */}
+        <span
+          className={`bg-offwhite rounded-full px-3 py-1 text-xs shadow-md ${
+            text.length >= TILE_MAX_CHARS
+              ? "text-red-600"
+              : "text-neutral-black opacity-60"
+          }`}
+        >
+          {text.length} / {TILE_MAX_CHARS}
+        </span>
         {/* Its own pill for the same reason the buttons have one: this lands
             on top of a neighbouring octagon as often as not, and grey text on
             a tile is not readable. */}
@@ -2762,6 +2776,7 @@ export function LiveBoard({
   // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
   const sampleAnswers = useSampleAnswers();
   const pointedSlot = usePointedSlot();
+  const pointedTileId = usePointedTile();
   const bossDraft = useBossDraft();
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
@@ -2881,6 +2896,7 @@ export function LiveBoard({
         }
         slotSamples={sampleAnswers}
         pointedSlot={pointedSlot}
+        pointedTileId={pointedTileId}
         bossDraft={bossDraft}
         onPlace={(parentId, pos, sample, corner) => {
           setSelectedTileId(null);

@@ -221,6 +221,15 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    */
   pointedSlot?: { parentId: string; corner: TileCorner } | null;
   /**
+   * The id of an already-placed tile the gym coach is pointing at
+   * (`components/gym/pointed-tile.ts`), the relocate lesson in level 2 being
+   * the first beat that names one. Purely a camera hint: unlike
+   * `pointedSlot` there is nothing to draw, the tile is already on the
+   * board, only "frame the coach's target" below reads it, to pan or zoom
+   * the tile into view the way it already does for a pointed slot.
+   */
+  pointedTileId?: string | null;
+  /**
    * The Gym boss's tile as he types it (`components/gym/boss-draft.ts`).
    * Drawn as an always-visible, non-interactive slot at the cell it will
    * land in, filled with the growing prefix of his line, so watching Bob
@@ -733,6 +742,7 @@ export function SpatialBoard<T extends SpatialTile>({
   onPlace,
   slotSamples,
   pointedSlot = null,
+  pointedTileId = null,
   bossDraft = null,
   draftAt = null,
   draft,
@@ -829,6 +839,16 @@ export function SpatialBoard<T extends SpatialTile>({
     const offset = cornerOffset(pointedSlot.corner);
     return { x: parentPos.x + offset.x, y: parentPos.y + offset.y };
   }, [pointedSlot, layout]);
+
+  // The cell an already-placed `pointedTileId` sits in, read straight off
+  // the layout: unlike a slot there is no corner offset to add, the tile is
+  // already there. Same "frame the coach's target" consumer as the two
+  // above; a resumed game's leftover pan/zoom has no reason to already show
+  // whatever tile the current beat is pointing at.
+  const pointedTilePos = useMemo(() => {
+    if (!pointedTileId) return null;
+    return layout.positions.get(pointedTileId) ?? null;
+  }, [pointedTileId, layout]);
 
   // Open slots for a reply are shown for the hovered tile only. Showing every
   // open slot on the board at once turns a four-thread game into sixteen plus
@@ -1244,7 +1264,7 @@ export function SpatialBoard<T extends SpatialTile>({
    */
   useEffect(() => {
     if (!pane || panning || dragRef.current) return;
-    const targetPos = bossDraftPos ?? pointedSlotPos;
+    const targetPos = bossDraftPos ?? pointedSlotPos ?? pointedTilePos;
     if (!targetPos) return;
     const pad = FIT_MARGIN / 2;
     const safeLeft = pad;
@@ -1327,6 +1347,7 @@ export function SpatialBoard<T extends SpatialTile>({
   }, [
     bossDraftPos,
     pointedSlotPos,
+    pointedTilePos,
     pane,
     panning,
     layout,
