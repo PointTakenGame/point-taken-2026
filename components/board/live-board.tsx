@@ -1750,6 +1750,7 @@ function ResolutionRow({
         <ResolutionPicker
           tokens={RESOLUTION_TOKENS}
           disabledTokens={disabledTokens}
+          theirs={otherToken}
           onPick={place}
         />
       )}
@@ -2449,9 +2450,13 @@ function TileProposalBadge({
 function ThreadTokenBadge({
   thread,
   me,
+  onOpen,
 }: {
   thread: BoardThread | null;
   me: { playerId: string; role: Side };
+  /** Opens this thread's root tile card. Only the pending badge uses this; a
+   *  settled thread has nothing left to do. */
+  onOpen?: () => void;
 }) {
   if (!thread) return null;
   const settled = thread.resolution?.emoji ?? null;
@@ -2503,17 +2508,28 @@ function ThreadTokenBadge({
     );
   }
 
+  // Unlike the settled stamp, a pending token is unfinished business: it is
+  // your move (or theirs) to close the thread, and clicking it opens the
+  // same tile card the reason itself opens, which is where the picker to
+  // close it lives. The overlay row that draws this badge is
+  // `pointer-events-none` (spatial-board.tsx), so the button opts itself
+  // back in.
   return (
-    <span
+    <button
+      type="button"
+      onClick={onOpen}
       style={{ left: "50%", bottom: 0 }}
-      className={`absolute z-20 flex -translate-x-1/2 translate-y-1/2 animate-pulse items-center justify-center rounded-2xl border-2 border-dashed p-1.5 shadow-md ${
+      className={`pointer-events-auto absolute z-20 flex -translate-x-1/2 translate-y-1/2 animate-pulse cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed p-1.5 shadow-md ${
         yours ? "border-gold bg-sand" : "border-gray/40 bg-offwhite opacity-70"
       }`}
       title={words}
     >
       <TokenGlyph token={token} size={64} />
+      <span className="font-secondary text-p-sm text-neutral-black">
+        {yours ? "Your move" : "Waiting on them"}
+      </span>
       <span className="sr-only">{words}</span>
-    </span>
+    </button>
   );
 }
 
@@ -2897,7 +2913,11 @@ export function LiveBoard({
         // onboarding video), and the tile wrapper above is clipped to the
         // octagon for hit-testing, which would cut the hanging half away.
         renderOverlay={(tile) => (
-          <ThreadTokenBadge thread={threadByRoot.get(tile.id) ?? null} me={me} />
+          <ThreadTokenBadge
+            thread={threadByRoot.get(tile.id) ?? null}
+            me={me}
+            onOpen={() => setSelectedTileId(tile.id)}
+          />
         )}
       />
 
@@ -3128,7 +3148,14 @@ export function LiveBoard({
               ? "Playing that card..."
               : armedCardId
                 ? "Now click the reason you want to play it on."
-                : null)
+                : // First-use nudge: shown until this player has thrown any
+                  // card at all, then it steps aside for the refusal/arm
+                  // hints above. A tester dragged a card onto a tile and
+                  // nothing happened, because throwing one is click-then-
+                  // click, not drag-and-drop, and nothing on the tray said so.
+                  deck.length > 0 && Object.keys(cardCounts).length === 0
+                  ? "Click a card, then click the reason it applies to."
+                  : null)
           }
         />
       </div>
@@ -3197,12 +3224,12 @@ export function LiveBoard({
               played on. */}
           {threadByRoot.has(selectedTile.id) && (
             <div className="border-neutral-black/15 mt-3 flex flex-col gap-2 border-t pt-3">
-              {/* The card's question, so it is set like one. It used to be a
-                  small grey all-caps rule sitting above a bolder, larger line
-                  of instruction, which put the emphasis on how to work the
-                  control rather than on what it is asking. */}
+              {/* An action heading, not a question. "Where do you two
+                  disagree?" read as a prompt with no action attached to it;
+                  the tokens below it are the action, so the heading now
+                  names the thing pressing them does. */}
               <h4 className="font-primary text-p-md text-neutral-black">
-                Where do you two disagree?
+                Close this thread
               </h4>
               <ResolutionRow
                 gameId={gameId}
