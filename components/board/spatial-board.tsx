@@ -27,6 +27,7 @@ import {
 } from "@/components/board/layout";
 import { stripDuplicateLead, tileLead } from "@/components/board/side-label";
 import type { TileSide } from "@/components/board/tile-shape";
+import type { CookedPlacement } from "@/components/gym/cooked-placement";
 import type { Side, TileCorner } from "@/lib/events/types";
 
 /**
@@ -335,6 +336,16 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * whatever it wants beside it; the board only reports the click.
    */
   onSelect?: (tileId: string) => void;
+  /**
+   * Restricts what placement affordances the board draws, for a cooked Gym
+   * level walking a player through one exact move. Defaults to today's
+   * unrestricted live-game behaviour (every legal ghost drawn, own replies
+   * included, free text) so a caller that has not been updated is untouched.
+   * `onlySlot` (when `ghosts` is false) is the one slot, if any, still drawn
+   * and clickable; everything else the ghost logic would otherwise offer
+   * (hover ghosts on other tiles, the other root diagonals) is withheld.
+   */
+  placement?: CookedPlacement;
 }
 
 interface PositionedTile<T> {
@@ -760,6 +771,7 @@ export function SpatialBoard<T extends SpatialTile>({
   size = OUTER_FRAME_REM,
   extraControls,
   onSelect,
+  placement = { onlySlot: null, ownReplies: true, ghosts: true, lockedText: false },
 }: SpatialBoardProps<T>) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<GridPosition>({ x: 0, y: 0 });
@@ -890,6 +902,14 @@ export function SpatialBoard<T extends SpatialTile>({
     // 2026-09-04). Nothing else can go straight on the topic, so there is
     // nothing left for a hover ghost to add here.
     if (!hoveredId || hoveredId === TOPIC_CELL_ID) return pointed;
+    // A cooked level withholds ordinary hover ghosts entirely: the coach's
+    // `pointed` slot above is the only move on offer, so nothing else lights
+    // up under the cursor (Steve's 2026-09-05 ruling: no hover ghosts, no
+    // other root diagonals, nothing under the player's own tiles).
+    if (!placement.ghosts) return pointed;
+    const hoveredTile = placed.find((p) => p.tile.id === hoveredId)?.tile;
+    if (!placement.ownReplies && hoveredTile && hoveredTile.side === placeSide)
+      return pointed;
     const hovered = slotsUnder(hoveredId).filter(
       (slot) =>
         !pointed.some((p) => p.pos.x === slot.pos.x && p.pos.y === slot.pos.y) &&
@@ -905,6 +925,8 @@ export function SpatialBoard<T extends SpatialTile>({
     placeSide,
     pointedSlot,
     bossDraftPos,
+    placement,
+    placed,
   ]);
 
   // The topic's open corners, drawn for as long as the game is still in its
@@ -931,7 +953,15 @@ export function SpatialBoard<T extends SpatialTile>({
     if (rootsPlaced >= rootTarget) return [];
     // A two-root game only ever offers the two bottom corners (SE for Plus,
     // SW for Minus); the top two are not in play at all, gym level 1 or not.
-    const cornersInPlay = rootTarget <= 2 ? ROOT_CORNERS_TWO : CORNER_ORDER;
+    // A cooked level narrows this further, to the one corner (if any) the
+    // coach's anchor names: no other root diagonal is drawn at all.
+    const cornersInPlay = !placement.ghosts
+      ? placement.onlySlot && placement.onlySlot.parentId === TOPIC_CELL_ID
+        ? [placement.onlySlot.corner]
+        : []
+      : rootTarget <= 2
+        ? ROOT_CORNERS_TWO
+        : CORNER_ORDER;
     const open = legalPlacements(layout, TOPIC_CELL_ID, null);
     const openByCorner = new Map(
       open.map((pos) => [cornerFromOffset(pos.x - topicPos.x, pos.y - topicPos.y), pos]),
@@ -977,6 +1007,7 @@ export function SpatialBoard<T extends SpatialTile>({
     rootTarget,
     placeSide,
     bossDraftPos,
+    placement,
   ]);
 
   const pitch = size * CELL_PITCH_RATIO;
@@ -1654,7 +1685,10 @@ export function SpatialBoard<T extends SpatialTile>({
       {/* Bottom right, one row: how to move, then how much to see. Both live
           in the strip below the right rail, which is the only clear band on
           this screen. */}
-      <div className="absolute right-8 bottom-8 z-30 flex items-center gap-2">
+      <div
+        data-ui="nav-controls"
+        className="absolute right-8 bottom-8 z-30 flex items-center gap-2"
+      >
         {/*
           The pan pad.
 

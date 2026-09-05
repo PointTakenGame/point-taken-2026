@@ -104,6 +104,8 @@ import {
 import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 import { useBossDraft } from "@/components/gym/boss-draft";
+import { useCookedPlacement } from "@/components/gym/cooked-placement";
+import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
 import { usePointedTile } from "@/components/gym/pointed-tile";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
@@ -1921,6 +1923,7 @@ function InTileComposer({
   parentTileId,
   parentSide,
   initialText = "",
+  locked = false,
   corner,
   onDone,
 }: {
@@ -1939,6 +1942,12 @@ function InTileComposer({
    * Typed in rather than dropped in whole; see `useTypedSample`.
    */
   initialText?: string;
+  /**
+   * Steve, 2026-09-05: a cooked level's draft is the script's suggestion and
+   * nothing else. The textarea stops taking keystrokes once the sample has
+   * finished typing itself in; Place and Cancel are the only moves left.
+   */
+  locked?: boolean;
   /** Which diagonal of the parent this box occupies, recorded on the tile. */
   corner: TileCorner;
   onDone: () => void;
@@ -2010,8 +2019,16 @@ function InTileComposer({
             value={text}
             maxLength={TILE_MAX_CHARS}
             disabled={pending}
+            readOnly={locked}
+            aria-readonly={locked}
             placeholder="A reason for your side."
             onChange={(event) => {
+              // Cooked mode: the sample is the reason, and Place is the only
+              // move. `readOnly` already stops the browser from firing this
+              // for a real keystroke; this guard is only for a locked box
+              // remounting with a shorter `initialText`, which would
+              // otherwise read as an edit that never happened.
+              if (locked) return;
               // The player's own keystroke just landed; it wins outright.
               // Stop the reveal where it is rather than letting the next
               // tick overwrite what they just produced, and never jump to
@@ -2778,6 +2795,12 @@ export function LiveBoard({
   const pointedSlot = usePointedSlot();
   const pointedTileId = usePointedTile();
   const bossDraft = useBossDraft();
+  // Board chrome level 1 keeps off screen until the Director's script says
+  // otherwise (components/gym/hidden-surfaces.ts). Empty in a live game.
+  const hiddenSurfaces = useHiddenSurfaces();
+  // How tightly a cooked level narrows placement down to one choice
+  // (components/gym/cooked-placement.ts). Unrestricted in a live game.
+  const cookedPlacement = useCookedPlacement();
   // Throwing a card is arm-then-target: pick the card in the tray, then click
   // the reason it answers. While a card is armed a click on a tile plays it
   // instead of opening that tile's actions, so the two never fire at once.
@@ -2885,6 +2908,7 @@ export function LiveBoard({
                   : (sideOf.get(draft.parentId) ?? null)
               }
               initialText={draft.sample ?? ""}
+              locked={cookedPlacement.lockedText}
               corner={draft.corner}
               // A fresh box per slot, so the coach's words load into the one
               // that was clicked rather than being ignored because the
@@ -2898,6 +2922,7 @@ export function LiveBoard({
         pointedSlot={pointedSlot}
         pointedTileId={pointedTileId}
         bossDraft={bossDraft}
+        placement={cookedPlacement}
         onPlace={(parentId, pos, sample, corner) => {
           setSelectedTileId(null);
           setArmedCardId(null);
@@ -3098,14 +3123,25 @@ export function LiveBoard({
             permanent corner. */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-end gap-2">
+            {/* Steve, 2026-09-05: the boss's own face is who you are looking
+                at; the side's plus/minus octagon is a label on it, not the
+                other way around. The emoji is now the primary badge and the
+                octagon the small corner mark, where the two used to be
+                sized the other way round. */}
             <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-              <SideAvatar side={opponentSide} className="h-12 w-12" />
               {opponentEmoji ? (
                 <span
                   aria-hidden="true"
-                  className="border-ink bg-orange absolute -right-1.5 -bottom-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 text-base leading-none shadow-md"
+                  className="border-ink bg-orange flex h-12 w-12 items-center justify-center rounded-full border-2 text-2xl leading-none shadow-md"
                 >
                   {opponentEmoji}
+                </span>
+              ) : (
+                <SideAvatar side={opponentSide} className="h-12 w-12" />
+              )}
+              {opponentEmoji ? (
+                <span className="absolute -right-1.5 -bottom-1.5">
+                  <SideAvatar side={opponentSide} className="h-6 w-6" />
                 </span>
               ) : null}
             </div>
@@ -3137,36 +3173,41 @@ export function LiveBoard({
             one as a paragraph, and Rannie draws a single card. The three lines
             the paragraph had that the diagram did not are now lines on the
             diagram's card. */}
-        <WaysToWinCard
-          threads={miniThreads}
-          resolvedCount={resolvedCount}
-          // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+
-          // move. The pencil already knows how to go quiet when this game's
-          // rules do not allow a revision at all (`endsOnTopic`); reusing
-          // that same "no hint, no handler" shape is how it stays quiet
-          // while the move is held back from the live game too.
-          onRevise={
-            canStartLaterMove(board, "topic_revision")
-              ? () => setTopicEditing(true)
-              : undefined
-          }
-          reviseHint={
-            endsOnTopic && canStartLaterMove(board, "topic_revision")
-              ? "Write the version you would both sign."
-              : null
-          }
-          ceilingNote={ceilingNote}
-          showRevise={canStartLaterMove(board, "topic_revision")}
-          // BRAIN-T260903-06: the footer names the topic-revision ending as
-          // something you can go do right now, so it is gated the same way
-          // the pencil is, rather than describing a door the card itself has
-          // just closed.
-          footer={
-            endsOnTopic && canStartLaterMove(board, "topic_revision")
-              ? "Either ending is a win, and it is the same win for both of you."
-              : null
-          }
-        />
+        {/* Held back until the Director reveals it (level 1's script), a
+            live game never hides this: `hiddenSurfaces` is always empty
+            there. */}
+        {hiddenSurfaces.includes("ways-to-win") ? null : (
+          <WaysToWinCard
+            threads={miniThreads}
+            resolvedCount={resolvedCount}
+            // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+
+            // move. The pencil already knows how to go quiet when this game's
+            // rules do not allow a revision at all (`endsOnTopic`); reusing
+            // that same "no hint, no handler" shape is how it stays quiet
+            // while the move is held back from the live game too.
+            onRevise={
+              canStartLaterMove(board, "topic_revision")
+                ? () => setTopicEditing(true)
+                : undefined
+            }
+            reviseHint={
+              endsOnTopic && canStartLaterMove(board, "topic_revision")
+                ? "Write the version you would both sign."
+                : null
+            }
+            ceilingNote={ceilingNote}
+            showRevise={canStartLaterMove(board, "topic_revision")}
+            // BRAIN-T260903-06: the footer names the topic-revision ending as
+            // something you can go do right now, so it is gated the same way
+            // the pencil is, rather than describing a door the card itself has
+            // just closed.
+            footer={
+              endsOnTopic && canStartLaterMove(board, "topic_revision")
+                ? "Either ending is a win, and it is the same win for both of you."
+                : null
+            }
+          />
+        )}
 
         {/* The coach is a card in this rail in Rannie's frame, under Ways to
             win. It spent a while as a wide bar across the top centre, where
@@ -3234,41 +3275,45 @@ export function LiveBoard({
           ordinary desktop widths. The right inset below reserves that
           cluster's own footprint plus its gutter, so this column centres
           itself in what is left rather than in the whole screen. */}
-      <div
-        className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
-        style={{ right: "23rem" }}
-      >
-        <RuleCardTray
-          deck={deck}
-          counts={cardCounts}
-          armedCardId={armedCardId}
-          onArm={(cardId) => {
-            setArmedCardId(cardId);
-            setThrowError(null);
-            // A card and a tile's action card both want the click on a tile,
-            // so arming one closes the other, and closes an open draft with it.
-            if (cardId) {
-              setSelectedTileId(null);
-              setDraft(null);
+      {/* Held back until the Director reveals it (level 1's script), a live
+          game never hides this: `hiddenSurfaces` is always empty there. */}
+      {hiddenSurfaces.includes("card-tray") ? null : (
+        <div
+          className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+          style={{ right: "23rem" }}
+        >
+          <RuleCardTray
+            deck={deck}
+            counts={cardCounts}
+            armedCardId={armedCardId}
+            onArm={(cardId) => {
+              setArmedCardId(cardId);
+              setThrowError(null);
+              // A card and a tile's action card both want the click on a tile,
+              // so arming one closes the other, and closes an open draft with it.
+              if (cardId) {
+                setSelectedTileId(null);
+                setDraft(null);
+              }
+            }}
+            hint={
+              throwError ??
+              (throwPending
+                ? "Playing that card..."
+                : armedCardId
+                  ? "Now click the reason you want to play it on."
+                  : // First-use nudge: shown until this player has thrown any
+                    // card at all, then it steps aside for the refusal/arm
+                    // hints above. A tester dragged a card onto a tile and
+                    // nothing happened, because throwing one is click-then-
+                    // click, not drag-and-drop, and nothing on the tray said so.
+                    deck.length > 0 && Object.keys(cardCounts).length === 0
+                    ? "Click a card, then click the reason it applies to."
+                    : null)
             }
-          }}
-          hint={
-            throwError ??
-            (throwPending
-              ? "Playing that card..."
-              : armedCardId
-                ? "Now click the reason you want to play it on."
-                : // First-use nudge: shown until this player has thrown any
-                  // card at all, then it steps aside for the refusal/arm
-                  // hints above. A tester dragged a card onto a tile and
-                  // nothing happened, because throwing one is click-then-
-                  // click, not drag-and-drop, and nothing on the tray said so.
-                  deck.length > 0 && Object.keys(cardCounts).length === 0
-                  ? "Click a card, then click the reason it applies to."
-                  : null)
-          }
-        />
-      </div>
+          />
+        </div>
+      )}
 
       {/* Click a reason, act on that reason, right where it sits. The card
           follows its tile through pan and zoom, so the two never drift apart.

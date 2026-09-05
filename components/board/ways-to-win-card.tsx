@@ -193,7 +193,10 @@ export function WaysToWinCard({
     // 11px all-caps label, which is the styling this project gives to a
     // section marker inside a panel, and this is not a marker inside anything.
     // It is the one card in the rail that says what the game is for.
-    <div className="border-gray/30 bg-offwhite w-full rounded-2xl border px-5 py-4 shadow-md select-none">
+    <div
+      data-ui="ways-to-win"
+      className="border-gray/30 bg-offwhite w-full rounded-2xl border px-5 py-4 shadow-md select-none"
+    >
       <h4 className="font-primary text-neutral-black text-p-lg mb-3">Ways to win</h4>
 
       <div className="flex items-center gap-2">

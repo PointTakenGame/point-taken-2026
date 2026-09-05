@@ -40,7 +40,7 @@ export function RuleCardTray({
   if (deck.length === 0) return null;
 
   return (
-    <div className="w-[34rem]">
+    <div data-ui="card-tray" className="w-[34rem]">
       {/* The label is a tab on the bar's top edge, not a line inside it,
           which is how Rannie draws it: the tray reads as a thing pulled up
           from the bottom of the screen rather than as another card floating
