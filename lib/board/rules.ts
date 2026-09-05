@@ -57,12 +57,16 @@ export function isResolutionToken(value: string): value is ResolutionToken {
 }
 
 /**
- * The most threads a game may hold. Steve, 2026-08-23: games end by resolving
- * every thread, up to six. The cap is what makes that ending reachable, since
- * a board people can keep widening never runs out of threads to resolve.
- * Enforced on placement: a tile that would open a seventh thread is refused.
+ * The most threads a game may hold. Games end by resolving every thread, and
+ * the cap is what makes that ending reachable, since a board people can keep
+ * widening never runs out of threads to resolve. Four is the tile board's
+ * capacity: a centre tile has four diagonals (Steve, 2026-08-31 and
+ * 2026-09-05). Compact mode, when it ships, raises this to six, three a side;
+ * until then six is unreachable and the constant says what the board can
+ * draw. Enforced on placement: a tile that would open one thread too many is
+ * refused.
  */
-export const MAX_THREADS = 6;
+export const MAX_THREADS = 4;
 
 /**
  * The root stage: how many thread roots a board opens with before any tile may
@@ -219,7 +223,7 @@ export function canPlaceTile(
   if (isQuestion(trimmed)) return no(NOT_A_QUESTION);
 
   if (parentTileId === null) {
-    // A tile with no parent opens a new thread, and six is all a game gets.
+    // A tile with no parent opens a new thread, and the cap is all a game gets.
     const live = liveThreads(board).length;
     if (live >= MAX_THREADS) {
       return no(

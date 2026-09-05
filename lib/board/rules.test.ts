@@ -272,8 +272,10 @@ describe("canPlaceTile", () => {
 
   it("allows exactly TILE_MAX_CHARS and refuses one over", () => {
     const board = boardForPlacement();
-    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS), null)).toEqual({ ok: true });
-    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS + 1), null).ok).toBe(false);
+    // Under "root", not as a new thread: the fixture already holds the four
+    // threads a board gets, and this test is about length.
+    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS), "root")).toEqual({ ok: true });
+    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS + 1), "root").ok).toBe(false);
   });
 
   it("refuses an unknown parent", () => {
@@ -578,12 +580,12 @@ describe("the readings", () => {
 
     it("is bounded by the tile limit, not the reading limit", () => {
       const board = boardForPlacement();
-      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS))).toEqual({
+      expect(canProposeSteelmanTile(board, "root", "a".repeat(TILE_MAX_CHARS))).toEqual({
         ok: true,
       });
-      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(
-        false,
-      );
+      expect(
+        canProposeSteelmanTile(board, "root", "a".repeat(TILE_MAX_CHARS + 1)).ok,
+      ).toBe(false);
     });
   });
 
@@ -661,7 +663,7 @@ describe("isAbandoned", () => {
   });
 });
 
-describe("the six-thread ceiling", () => {
+describe("the thread ceiling", () => {
   /** An active board carrying `count` open threads, each with a root tile. */
   function boardWithThreads(count: number) {
     const l = opened();
@@ -671,12 +673,12 @@ describe("the six-thread ceiling", () => {
     return { l, board: projectBoard(l.events) };
   }
 
-  it("allows the sixth new thread", () => {
+  it("allows the last new thread under the cap", () => {
     const { board } = boardWithThreads(MAX_THREADS - 1);
     expect(canPlaceTile(board, "One more reason.", null)).toEqual({ ok: true });
   });
 
-  it("refuses the seventh, and says where to put it instead", () => {
+  it("refuses one past the cap, and says where to put it instead", () => {
     const { board } = boardWithThreads(MAX_THREADS);
     const verdict = canPlaceTile(board, "One more reason.", null);
     expect(verdict.ok).toBe(false);
