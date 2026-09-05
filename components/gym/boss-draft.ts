@@ -29,6 +29,14 @@ export type BossDraft = {
   side: Side;
   /** What has been typed so far. */
   text: string;
+  /**
+   * Skips straight to the finished line and plays the move, for a player who
+   * clicks the draft while Bob is still typing it (Steve, 2026-09-05 playtest:
+   * a slow line reads as a stall, not as thinking, once the player has seen
+   * it once). Set by the Director for as long as a move is in flight; absent
+   * once it has been played, so a stale click after the fact is a no-op.
+   */
+  finishNow?: () => void;
 };
 
 let current: BossDraft | null = null;

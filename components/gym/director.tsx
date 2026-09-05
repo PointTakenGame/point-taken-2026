@@ -348,10 +348,26 @@ function Director({
       planText !== null && planParent !== null && planCorner !== null
         ? { text: planText, parentId: planParent, corner: planCorner }
         : null;
+    // Checked and set inside `play`, not up here: React's dev-only Strict
+    // Mode runs this effect, tears it down, and runs it again before the
+    // first paint, and the stamp must not survive that phantom first pass.
+    // A guard set here would be written by the phantom run and make the
+    // real, lasting run see its own stamp as already spent, so it would
+    // return before ever publishing a draft or scheduling `play` at all
+    // (Steve, 2026-09-05 playtest: this is the actual cause of a boss turn
+    // that never starts, not merely one that starts slow).
     const stamp = `${beatId}@${board.lastSeq}`;
-    if (firedRef.current === stamp) return;
-    firedRef.current = stamp;
+    let played = false;
     const play = () => {
+      // A finished tick loop and a finishNow click can both reach here for
+      // the same move; only the first one goes out. The stamp guard is the
+      // same idea across effect invocations: only the first invocation
+      // whose `play` actually runs (the phantom Strict Mode pass never gets
+      // this far, because its own cleanup clears its timers first) gets to
+      // send the move.
+      if (played || firedRef.current === stamp) return;
+      played = true;
+      firedRef.current = stamp;
       // Drop the draft as the move goes out: the real tile lands in the same
       // cell on the next refresh, and two of them for a frame is a stutter.
       clearBossDraft();
@@ -368,22 +384,45 @@ function Director({
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const draft = { parentId: plan.parentId, corner: plan.corner, side: level.bossSide };
     if (reduced) {
-      publishBossDraft({ ...draft, text: plan.text });
+      publishBossDraft({ ...draft, text: plan.text, finishNow: play });
       const timer = window.setTimeout(play, BOSS_DELAY_MS);
       return () => {
         window.clearTimeout(timer);
         clearBossDraft();
       };
     }
-    let shown = 0;
+    // Time-based, not count-based: `shown` is worked out from how much real
+    // time has elapsed since typing started, not incremented by one on every
+    // tick. A tab that loses focus gets its timers clamped by the browser
+    // (observed: a background tab's setTimeout chain fires at roughly 1Hz
+    // instead of every ~30ms, which is exactly the 40-50s a 2026-09
+    // playtester saw for an 80-character line). With a fixed one-char-per-
+    // tick loop that clamp makes the whole line take as long as it has
+    // characters; here it only costs the one clamped tick, because that tick
+    // reveals however many characters should already be showing and catches
+    // straight up.
+    const avgMsPerChar = (BOSS_TYPE_MIN_MS + BOSS_TYPE_MAX_MS) / 2;
+    // Set when the typing phase itself starts (after the thinking pause
+    // below), not when the effect runs: `elapsed` below measures from there.
+    let startedAt = 0;
     let timer = 0;
+    const finishTyping = () => {
+      window.clearTimeout(timer);
+      publishBossDraft({ ...draft, text: plan.text, finishNow: play });
+      timer = window.setTimeout(play, BOSS_DELAY_MS / 2);
+    };
     const tick = () => {
-      shown += 1;
-      publishBossDraft({ ...draft, text: plan.text.slice(0, shown) });
+      const elapsed = performance.now() - startedAt;
+      const shown = Math.min(plan.text.length, Math.floor(elapsed / avgMsPerChar) + 1);
       if (shown >= plan.text.length) {
-        timer = window.setTimeout(play, BOSS_DELAY_MS / 2);
+        finishTyping();
         return;
       }
+      publishBossDraft({
+        ...draft,
+        text: plan.text.slice(0, shown),
+        finishNow: finishTyping,
+      });
       timer = window.setTimeout(
         tick,
         BOSS_TYPE_MIN_MS + Math.random() * (BOSS_TYPE_MAX_MS - BOSS_TYPE_MIN_MS),
@@ -391,8 +430,11 @@ function Director({
     };
     // An empty slot with a caret for a moment first, the way a person pauses
     // before the first key, then the line.
-    publishBossDraft({ ...draft, text: "" });
-    timer = window.setTimeout(tick, BOSS_DELAY_MS / 2);
+    publishBossDraft({ ...draft, text: "", finishNow: finishTyping });
+    timer = window.setTimeout(() => {
+      startedAt = performance.now();
+      tick();
+    }, BOSS_DELAY_MS / 2);
     return () => {
       window.clearTimeout(timer);
       clearBossDraft();
