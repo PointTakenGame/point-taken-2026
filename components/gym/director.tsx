@@ -791,8 +791,7 @@ function LineBubble({
         beat.expect.kind === "tile" &&
         beat.expect.suggestions.length > 0 ? (
           <span className="font-label text-ink-soft">
-            Click the spot I&rsquo;m pointing at to lay down a tile and I&rsquo;ll write
-            you a sample answer. Change any of it before you place it.
+            Click where I&rsquo;m pointing, then edit the sample before you place it.
           </span>
         ) : null}
 

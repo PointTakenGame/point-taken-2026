@@ -114,9 +114,9 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
   const bossLines = level.bossName.split(" ");
   const habitLine =
     level.bossHabit && level.bossTip
-      ? `You will earn a rule card and beat the boss. The rule card you will learn is still face down: you find it partway through the level. ${level.bossName} ${level.bossHabit}. The tip to beat them: ${level.bossTip}.`
+      ? `You will earn a rule card and beat the boss. The rule card you will learn is still face down: you find it partway through the level. ${level.bossName} ${level.bossHabit}.`
       : "You will earn a rule card and beat the boss. The rule card you will learn is still face down: you find it partway through the level.";
-  const readyLine = `ready? the topic is "${level.topic}" and you will be ${SIDE_WORD[level.playerSide]} peer`;
+  const readyLine = `Ready? The topic: "${level.topic}". You're playing ${SIDE_WORD[level.playerSide]}.`;
 
   return (
     <div className="flex w-full flex-col items-center gap-4">
@@ -252,11 +252,8 @@ function RuleCardIntroCard({
 
       <div className="sticker flex w-full flex-col items-center gap-4 p-8 pt-12 text-center">
         <h2 className="font-figure text-ink text-xl font-black tracking-wide uppercase">
-          {`Level ${level.number} Game Challenge`}
+          {`Level ${level.number}: sign and start`}
         </h2>
-        <p className="font-secondary text-ink-soft text-p-md">
-          {"Find the boss's mistake and correct it on the board."}
-        </p>
 
         <ol className="flex w-full flex-col gap-1">
           {SIGNING_LINES.map((line, index) => (

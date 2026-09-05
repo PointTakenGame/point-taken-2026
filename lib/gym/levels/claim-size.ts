@@ -169,7 +169,7 @@ export const CLAIM_SIZE: Level = {
       id: "p1-size-is-not-strength",
       title: "Size is not strength",
       bossSays: "Every restaurant that's tried going no-tip has gone back to it.",
-      body: "Watch that one. He said every. If that were my tile I'd have written that several well-known ones went back within two years, and here is the thing that is going to matter for the next twenty minutes: the smaller version is harder to argue with. You cannot knock it down by finding one exception. Keep that in your head.",
+      body: "Watch that one. He said every. If that were my tile I'd have written that several well-known ones went back within two years. The smaller version is harder to argue with. You can't knock it down by finding one exception. Keep that in your head.",
       button: "Got it",
       anchor: { tile: "B2" },
     },

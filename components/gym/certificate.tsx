@@ -72,11 +72,11 @@ export function Certificate({ level, board }: { level: Level; board: BoardState 
 
           <dl className="font-secondary text-ink grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
             <div className="flex flex-col">
-              <dt className="font-label text-ink-soft">Point taken</dt>
+              <dt className="font-label text-ink-soft">Agree to agree</dt>
               <dd className="font-figure text-3xl font-black">👍 {thumbs}</dd>
             </div>
             <div className="flex flex-col">
-              <dt className="font-label text-ink-soft">Now I see why</dt>
+              <dt className="font-label text-ink-soft">Agree to disagree</dt>
               <dd className="font-figure text-3xl font-black">👀 {eyes}</dd>
             </div>
             <div className="flex flex-col">

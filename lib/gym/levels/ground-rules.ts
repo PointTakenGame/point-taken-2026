@@ -339,8 +339,7 @@ export const GROUND_RULES: Level = {
     {
       kind: "player",
       id: "player-token-b",
-      coach:
-        "Your second thread. Rosa conceded the energy math was gone. Propose 👍 there.",
+      coach: "Your second thread, propose 👍 there.",
       nudge: "👍 on your second thread, the one about energy savings.",
       expect: { kind: "token", thread: "B", emoji: "👍" },
       anchor: { tile: "B" },
