@@ -96,12 +96,14 @@ Nothing else can be built on top until this is settled, because everything else 
   server-stamped time, and projections rebuildable from the log `[ruled]`. It exists here:
   `supabase/migrations/0001_event_log.sql`, `0002_event_type_catalogue.sql`, row shape `GameEventRow`
   at `lib/events/types.ts:327-338`, catalogue of 28 types at `:248-277` `[unratified]`.
-- **1.1a The four award events are missing and are a migration.** `card_granted`,
-  `certificate_granted`, `badge_granted`, `points_adjusted` `[ruled]` (`BIZ-T260824-08`). The
-  catalogue is a closed set of single-token `snake_case` types enforced by the database, which is why
-  `card.granted` was never expressible. `points_adjusted` is required, not optional: level 3 docks
-  and then refunds, and the scoring model is replay-derived. Awarding a card and awarding a
-  certificate are **two events, not one** `[ruled]` (`BIZ-T260819-16`).
+- **1.1a Built: the four award events landed as their own migration.** `level_cleared`,
+  `badge_granted`, `points_changed`, `certificate_granted` `[unratified: supabase/migrations/0014_awards.sql,
+  lib/events/types.ts:342-345,392-395]`, not the names this row originally called for
+  (`card_granted`, `points_adjusted` `[ruled]` (`BIZ-T260824-08`)). The catalogue is a closed set of
+  single-token `snake_case` types enforced by the database, which is why `card.granted` was never
+  expressible. `points_changed` carries the dock and the refund level 3 needs, since the scoring
+  model is replay-derived. Awarding a card and awarding a certificate are **two events, not one**
+  `[ruled]` (`BIZ-T260819-16`).
 - **1.2 Tile fields.** `revised` is live at `lib/board/project.ts:33`, set at `:562` `[unratified]`.
   GAP: does a tile still need a `ruleCard` field of its own in the new schema, or does the thrown card
   live only in the event payload? The retired backend carried both and its handler was never wired.
@@ -158,8 +160,13 @@ largest unbuilt system in the product.**
 - **4.4 Level progress persistence and resume.** Re-opening a finished game is deferred `[ruled]`
   (`BRAIN-T260816-14`).
 
-In this repo `app/gym/page.tsx` is a level-select page with levels 1 to 4 hardcoded, and every Start
-button is `disabled` at line 111 `[unratified]`. Nothing writes a scripted-opponent move.
+Built: all four scripted opponents write real moves. Each level is its own script under
+`lib/gym/levels/` (`onboarding.ts`, `ground-rules.ts`, `claim-size.ts`, `clarity.ts`), collected in
+`SCRIPTED_LEVELS` at `lib/gym/levels/index.ts:8` `[unratified]`, and all four were played end to end
+and cleared (`docs/handoffs/2026-09-04_overnight-result.md`, `BRAIN-T260904-20`). `app/gym/page.tsx`
+is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip
+(`components/account/progression/ladder-strip.tsx`) is the level select now `[ruled Steve
+2026-09-04]`.
 
 ### Phase 5. Card mechanics
 
@@ -181,8 +188,10 @@ the mechanic only if its track is scheduled; do not infer a level from a track.
 
 ### Phase 6. Surfaces
 
-- **6.1 Account display: badges and cards only.** Certificates on the profile are deferred `[ruled]`
-  (`BRAIN-T260816-15`).
+- **6.1 Built: account display now includes certificates, not just badges and cards.** A certificate
+  wall renders on the profile, one certificate per cleared level, reading real `certificate_granted`
+  events since `0014_awards.sql` landed `[unratified: components/account/progression/certificate-wall.tsx,
+  app/account/profile.tsx]`. This overturns the earlier deferral `[ruled] (BRAIN-T260816-15)`.
 - **6.2 Rule-card onboarding pop-up, one per rung.**
 - **6.3 The signing ritual in every level.**
 - **6.4 Compact display**, near-half only. It is a per-account visual preference, never synced, never
@@ -299,8 +308,12 @@ Also `[ruled Steve 2026-09-03]` (`BRAIN-T260903-11`): the profile also carries a
 with a global percentile, and a ladder rank with divisions, as tiles to iterate on. The data behind
 both is invented sample data until the progression layer lands.
 
-Six stats, one of which is Cards Landed. It renders only once the progression port lands, so it is
-downstream of 1.4, not parallel to it.
+The profile no longer plans around a six-stat block with Cards Landed in it. The progression port
+landed partially: the profile hero shows three figures, Games played, Cooperation score, and Points
+`[unratified: components/account/hero.tsx:195,201,208]`, and match history shows a per-game outcome
+label rather than an aggregate stat `[unratified: components/account/match-list.tsx:32-35]`. No
+Cards Landed stat exists under any name; see `rules.md` section 13 item 14, which is now the
+normative account of what the profile shows.
 
 **Why four levels and not eight** `[ruled]`: evidence, not scope trimming. Nobody pays to build level
 5 until somebody has played to level 4. This is a build order, not a ladder order, and level 4 is not
@@ -312,16 +325,16 @@ being renamed the last level.
 
 Verified against the clone. Do not assume any of this exists because a source says it does.
 
-- **No progression layer at all.** No award engine, no scoring table, no projection of cards, badges,
-  or points, no ledgers. It lives only in the retired backend, which is not in this repo. This is
-  phase 1.4 plus phase 2 and it is the largest hole.
-- **No scripted opponent.** Nothing generates a boss move. `app/gym/page.tsx` renders a level list
-  whose Start buttons are all disabled at line 111 `[unratified]`.
-- **No level unlock logic.** All four render open, and the page's comment says the unlock rules are
-  unconfirmed `[unratified]`.
-- **No `THROW_POINTS`, no `fastForward`, no per-level rules object.** The board wants a per-level rules
-  object, not a scatter of per-level flags `[ruled]`.
-- **No rungs.** `app/game/[gameId]/actions.ts:197` `[unratified]`.
+- **No `fastForward`.** No level script carries a working fast-forward field; the phrase appears only
+  in comments describing sample progression data and the certificate wall, not a built mechanism
+  `[unratified: lib/progression/sample.ts:518, components/account/progression/certificate-wall.tsx:10]`.
+- **No rungs.** `app/game/[gameId]/actions.ts:210` `[unratified]`, unchanged: every throw so far is a
+  card throw, not a rung.
+
+No longer true, moved to "already built" below: the progression layer, the scripted opponent, and
+level unlock logic. Level unlock logic specifically does not exist because there is no lock to build:
+all four scripted levels render open regardless of cleared state, by ruling, not by omission
+`[ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23]`.
 - **No turn timers anywhere, and none belong here.** Turn timers are out of scope for this edition
   by ruling (Steve 2026-09-03, `BRAIN-T260903-01`); they are a Heart-edition mechanic, not Brain's.
   The earlier entry here citing a 30-second speaker timer and a 45-second summarize timer as
@@ -338,6 +351,12 @@ Verified against the clone. Do not assume any of this exists because a source sa
 Already built, so do not file as missing: the event log and its type catalogue, the board projection,
 the four card ids, the three signing-line ids, the topic list, the rule-card display popup, the
 Steel Man reading, Steel Man tile, and definition action paths, and the client realtime transport.
+Also built since the entries above were written: the award engine and its four events (`level_cleared`,
+`badge_granted`, `points_changed`, `certificate_granted`, phase 1.1a and phase 2), the four scripted
+opponents (phase 4.1, one script per level under `lib/gym/levels/`), `THROW_POINTS` and a per-level
+rules object (the `Level` type collected in `SCRIPTED_LEVELS`, `lib/gym/levels/index.ts:8`), and the
+Gym's on-screen certificate (`components/gym/certificate.tsx`). Badge display names remain
+placeholders pending the badge taxonomy, and no certificate exports as an image `[BRAIN-T260904-11]`.
 That last one is live: `components/board/use-game-feed.ts:44-56` opens a Supabase Realtime channel
 on `postgres_changes` INSERT against `game_events`, filtered to the game, and is consumed by
 `components/board/live-board.tsx:58,1677` and `components/board/game-setup.tsx:18,122`. Writes still
@@ -365,11 +384,15 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
   GAP: the exact point value of the revise-topic win, and the tile affordance, which has never been
   written down anywhere.
 - **Communal points**, arriving at level 5 `[ruled]` (`BIZ-T260819-17`). Personal through level 4.
-- **Generosity tokens**, **certificates on the profile** (`BRAIN-T260816-15`), and **re-opening a
-  finished game** (`BRAIN-T260816-14`), all `[ruled]`.
+- **Generosity tokens** and **re-opening a finished game** (`BRAIN-T260816-14`), both `[ruled]`.
+  Certificates on the profile are no longer on this list: a certificate wall is built and reads real
+  award data (see section 2 Phase 6, item 6.1).
 - **Typed tiles** (definitions, claims, facts, values). Wishlist, with an unestimated blast radius
   reaching stored games, the action payloads, and the evaluator's input contract.
-- **Streaks**, which the account page displays but the data model does not support.
+- **Streaks.** No longer shown on the profile page as of the 2026-09-04 restyle, which replaced the
+  identity card's nine-counter grid and the streak counters with the hero's three figures
+  `[unratified: app/account/profile.tsx, doc comment]`. The `StreakCounters` component stays in the
+  tree for whichever tab still uses it, not yet checked.
 
 ---
 
@@ -396,12 +419,14 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
 ## 7. Contradictions, resolved
 
 The one that keeps getting re-opened: a registry row places 📏 No Exaggeration at level 4
-(`BRAIN-T260815-09`). **That row is wrong and the gym implementation guide wins, being newer and
-active: No Exaggeration is level 3 with Braggy Brenda, and level 4 is 💬 Help Me Understand with
-Sloppy Salma** `[ruled]`. Do not re-litigate it.
+(`BRAIN-T260815-09`). **That row is wrong: No Exaggeration is level 3 with Braggy Bogdan, and level 4
+is 💬 Help Me Understand with Sloppy Salma** `[ruled]`. Do not re-litigate it.
 
-The level 3 boss is **Braggy Brenda**, replacing Braggy Bogdan `[ruled]` (`BIZ-T260823-70`). Any
-source naming Bogdan at level 3 predates the ruling.
+The level 3 boss is **Braggy Bogdan**, confirmed live in code (`bossId: "braggy-bogdan"`, `bossName:
+"Braggy Bogdan"`, `lib/gym/levels/claim-size.ts:51-52`) `[unratified]`. This reverses the 2026-08-23
+rename to Braggy Brenda (`BIZ-T260823-70`): the level 3 script Nathan wrote and the build shipped
+from both name the boss Bogdan, confirmed done at `BRAIN-T260903-36` and in commits `cf262a9` and
+`050bad6`. Any source naming Brenda at level 3 postdates the original ruling but predates this one.
 
 ---
 

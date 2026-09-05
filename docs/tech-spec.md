@@ -30,9 +30,25 @@ sources:
   - point-taken-brain/web/point-taken-2026/app/game/[gameId]/page.tsx
   - point-taken-brain/web/point-taken-2026/app/game/[gameId]/actions.ts
   - point-taken-brain/web/point-taken-2026/components/board/use-game-feed.ts
-  - point-taken-brain/web/point-taken-2026/supabase/migrations/0001 through 0011
+  - point-taken-brain/web/point-taken-2026/supabase/migrations/0001 through 0015
   - point-taken-brain/docs/reference/materials/2026-08-22_platform-rebuild-handoff.md
   - point-taken-brain/docs/reference/materials/spec/release-hygiene.md
+  - point-taken-brain/web/point-taken-2026/lib/gym/script.ts
+  - point-taken-brain/web/point-taken-2026/lib/gym/awards.ts
+  - point-taken-brain/web/point-taken-2026/lib/gym/boss-account.ts
+  - point-taken-brain/web/point-taken-2026/lib/gym/levels/index.ts
+  - point-taken-brain/web/point-taken-2026/app/gym/actions.ts
+  - point-taken-brain/web/point-taken-2026/lib/db/awards.ts
+  - point-taken-brain/web/point-taken-2026/lib/progression/state.ts
+  - point-taken-brain/web/point-taken-2026/lib/progression/sample.ts
+  - point-taken-brain/web/point-taken-2026/lib/avatar.ts
+  - point-taken-brain/web/point-taken-2026/app/settings/actions.ts
+  - point-taken-brain/web/point-taken-2026/app/api/health/route.ts
+  - point-taken-brain/web/point-taken-2026/lib/db/leaderboard.ts
+  - point-taken-brain/web/point-taken-2026/components/account/account-shell.tsx
+  - point-taken-brain/web/point-taken-2026/components/board/live-board.tsx (mode-gym coach gate only)
+  - point-taken-brain/web/point-taken-2026/.vercel/project.json
+  - https://point-taken-2026.vercel.app/api/health?deep=1 (live, queried directly)
 ---
 
 # Brain tech spec
@@ -108,13 +124,43 @@ Everything lives under `point-taken-brain/web/point-taken-2026/`:
   nine-check rubric and card derivation), `cards.ts` (the four rule cards).
 - `lib/games/`: `membership.ts` (who may act on a game), `abandon.ts`
   (ending a game nobody is left to play), `streak.ts`, `joinCode.ts`.
+- `lib/gym/`: the Gym script engine. `script.ts` is the pure walk (a level as
+  an ordered list of beats, bound against the projected board); `levels/`
+  holds the four scripts (`onboarding.ts`, `ground-rules.ts`,
+  `claim-size.ts`, `clarity.ts`) exported in ladder order from `index.ts`;
+  `boss-account.ts` derives a stable auth user id per boss; `awards.ts`
+  writes the four award events once a Gym game ends on a cooperative win;
+  `root-suggestions.ts` feeds the coach's sample answers.
+- `lib/progression/`: `state.ts` reads real award data off the log
+  (`lib/db/awards.ts`) into the shapes the profile widgets draw; `sample.ts`
+  is the sample data those same widgets fall back to for anything not yet
+  real (rungs 5 and up, badge display names, the cooperation/rank tiles).
+- `lib/avatar.ts`: the nine fixed avatar emoji and the derived-initials
+  fallback.
 - `lib/dev/hotseat.ts`: dev-only identity override, inert outside
   `NODE_ENV !== "production"`.
-- `components/board/`: `live-board.tsx` (the active game UI),
-  `use-game-feed.ts` (the Supabase Realtime subscription), `game-setup.tsx`,
-  `finished-map.tsx`, `ending.tsx`.
+- `components/board/`: `live-board.tsx` (the active game UI, now over 3,600
+  lines), `use-game-feed.ts` (the Supabase Realtime subscription),
+  `game-setup.tsx`, `finished-map.tsx`, `ending.tsx`, `spatial-board.tsx`
+  (pan/zoom/fit canvas), `resolution-picker.tsx`, `ways-to-win-card.tsx`,
+  `rule-card-tray.tsx`, `same-side-notice.tsx`. See `docs/ui-components.md`
+  for behavior.
+- `components/gym/`: `director.tsx` (drives a level: reads the script, calls
+  `bossAct`, tells the board what to highlight), `level-intro.tsx`,
+  `gym-lobby.tsx`, `start-level-button.tsx`, `certificate.tsx`,
+  `sample-answers.ts`, `pointed-slot.ts`, `pointed-tile.ts`,
+  `boss-draft.ts`.
+- `components/account/`: `account-shell.tsx` (the four-tab chrome shared by
+  every out-of-game screen), `hero.tsx`, `avatar-picker.tsx`,
+  `calendar-strip.tsx`, `match-list.tsx`, `progression/` (ladder, badges,
+  certificates, boss briefing, sample-data tagging).
 - `components/dev/hotseat-bar.tsx`: the dev hot-seat UI bar.
-- `supabase/migrations/`: 11 numbered SQL files, `0001` through `0011`,
+- `app/gym/actions.ts`: `startLevel` (creates the cooked game, seats the
+  boss, signs for it) and `bossAct` (the boss's one scripted move),
+  server actions, core lane.
+- `app/leaderboard/`, `app/cards/`: the leaderboard and the Cards & Badges
+  tab.
+- `supabase/migrations/`: 15 numbered SQL files, `0001` through `0015`,
   applied in order, the database's own source of truth.
 - `proxy.ts`: Next 16's renamed `middleware.ts`. Refreshes session cookies
   on every request; also the dev autologin gate.
@@ -219,13 +265,39 @@ re-projecting a full board per row.
 `joined_at`, `left_at` (a stamp, not a delete; rejoin clears it on the same
 row).
 
-**`public.players`** (also `0004`, altered by `0007_coach_setting.sql` and
-`0009_claim_account.sql`): one row per authenticated human, created by a
+**`public.players`** (also `0004`, altered by `0007_coach_setting.sql`,
+`0009_claim_account.sql`, `0013_player_kind.sql`, and
+`0015_player_avatar.sql`): one row per authenticated human, created by a
 trigger on `auth.users` so the anonymous signup path cannot skip it.
 `PlayerRow`: `id`, `display_name` (null until assigned), `claimed_at` (null
 while anonymous), `created_at`, `coach_enabled` (boolean, added by `0007`,
-default off). No points, badges, or token totals live on this row; everything
-of that kind is derived live from the log.
+default off), `kind` (`human`/`boss`, added by `0013`, default `human`),
+`avatar_emoji` (added by `0015`, null until a player opts into one of nine
+fixed emoji, `PLAYER_EMOJIS` in `lib/avatar.ts`) `[unratified]`
+(`supabase/migrations/0015_player_avatar.sql`; `data/todos.csv` carries this
+build as `BRAIN-T260904-42`, status `review`, not yet a closed decision). No
+points, badges, or token
+totals live on this row; everything of that kind is derived live from the
+log, now including a real one (see the awards paragraph below).
+
+`0012_root_stage.sql` adds no table. It adds `root_target` to
+`game_started`'s payload (a live game and Gym levels 2-4 open with four
+thread roots down before any rebuttal is legal; Gym level 1 opens with two,
+the whole point of that level being to teach what a thread is,
+`[ruled]` per `BRAIN-T260903-21`/`BRAIN-T260903-22`). That is a shape change
+to an existing payload, so `game_started` versions to schema 2 rather than
+being edited in place; version-1 rows still project and read a missing
+`root_target` as the live default of four (`LIVE_ROOT_TARGET`,
+`lib/board/project.ts:199`).
+
+`0013_player_kind.sql` is what lets a Gym boss have a real seat (`player_joined`
+carries an actor id with a foreign key to `auth.users`, so a scripted
+opponent needs one) without being counted as a person anywhere a roster is
+shown: the leaderboard and every player-facing list filter `kind = 'human'`.
+Steve's 2026-09-03 ruling kept the boss's auth user rather than teaching the
+trigger to accept a seat with none, because that column is the identity
+spine of every RLS policy in `0004` and `0009`
+(`supabase/migrations/0013_player_kind.sql`).
 
 **`public.player_stats(uuid)`** is a Postgres function
 (`0005_player_stats.sql`, extended by `0010_card_stats.sql` and
@@ -234,9 +306,25 @@ function signature, no new tables introduced by either), granted to
 `service_role` only, explicitly revoked from `public`, `anon`, and
 `authenticated` because it takes a player id as an argument without checking
 who is calling. `lib/db/stats.ts` wraps it. Nothing is cached; every call
-re-derives from the event log. `[ruled]`, no tokens/ledger exists in Brain
-today: no migration in `0001`-`0011` creates a token table, consistent with
-the given fact that Brain has no token ledger for now.
+re-derives from the event log.
+
+**Correction: a lightweight points ledger now exists, event-sourced, not a
+table.** The claim in an earlier pass of this document that "no
+tokens/ledger exists in Brain" is now wrong. `0014_awards.sql` adds four
+event types written about a player rather than about the board:
+`level_cleared` (the rung and the card it grants), `badge_granted` (one
+badge, with an occurrence count so repeats are countable), `points_changed`
+(a signed delta and a stable reason word, negative only for a stake a player
+chose to put down in the level 3 dare, refunded by a second positive delta
+when the claim is repaired), and `certificate_granted` (the level and the
+date, written once so a reprint says the same thing). `[ruled]`: these are
+not a score against an opponent and never record a loss
+(`supabase/migrations/0014_awards.sql`). The writer, `lib/gym/awards.ts`, is
+idempotent by re-projecting and returning early if the game already carries
+`level_cleared`, and refuses to award anything for a live game, an abandoned
+or timed-out game, or the boss. `lib/db/awards.ts` reads a player's whole
+award history back with one indexed query over `game_events`, no join, since
+every award event carries the earning player's `actor_id`.
 
 `0006_realtime_game_events.sql` turns on Supabase Realtime for
 `game_events`, riding the read policy `0004` already wrote.
@@ -258,10 +346,11 @@ overwritten by a later email change. No application code stamps this column;
 
 ## 5. Event contract
 
-28 named event types, defined identically in `lib/events/types.ts`
+32 named event types, defined identically in `lib/events/types.ts`
 (TypeScript, compile-time) and `0002_event_type_catalogue.sql` (Postgres,
-runtime), with `lib/events/catalogue.test.ts` run in CI
-(`.github/workflows/gate.yml`) asserting the two lists never drift:
+runtime, extended by `0012_root_stage.sql` and `0014_awards.sql`), with
+`lib/events/catalogue.test.ts` run in CI (`.github/workflows/gate.yml`)
+asserting the two lists never drift by distinct type name:
 `game_created`, `player_joined`, `role_selected`, `agreement_signed`,
 `topic_set`, `game_started`, `player_left`, `game_ended`, `tile_placed`,
 `tile_edited`, `tile_revised`, `tile_relocated`, `tile_removed`,
@@ -269,7 +358,20 @@ runtime), with `lib/events/catalogue.test.ts` run in CI
 `proposal_made`, `proposal_accepted`, `proposal_rejected`, `topic_revised`,
 `card_thrown`, `card_throw_declined`, `generosity_token_given`,
 `ai_feedback_returned`, `ai_feedback_shown`, `coach_nudge_delivered`,
-`gym_run_recorded`, `content_redacted`.
+`gym_run_recorded`, `level_cleared`, `badge_granted`, `points_changed`,
+`certificate_granted`, `content_redacted`.
+
+`game_started` versions to schema 2 (`lib/events/types.ts:366-368`) rather
+than being edited in place, because `0012_root_stage.sql` adds a shape
+change to its payload (`root_target`, the thread-root count required before
+the first rebuttal, see section 4). A version-2 row is a distinct catalogue
+entry from version 1, which is why `/api/health?deep=1` in production
+reports `catalogue_types: 33` (a raw row count over the whole catalogue
+table, so `game_started`'s two schema-version rows both count) against
+`catalogue_types_in_code: 32` (a distinct-type-name count); `missing_in_db`
+and `missing_in_code` both come back empty because that comparison dedupes
+by type name first (`app/api/health/route.ts`), so the two numbers
+disagreeing is a definitional difference, not a drift bug.
 
 Each type carries its own `schemaVersion` (never a global one) and a
 `maxBytes` ceiling, from 256 bytes (the smallest, e.g. `role_selected`,
@@ -372,6 +474,17 @@ something" and "the coach put words in front of you" are different facts
 worth telling apart later). A verdict with zero cards is not logged at all:
 "silence is the normal answer," and logging every null result would bury the
 readings that matter.
+
+The coach is suppressed entirely, not merely defaulted off, whenever a board
+is in Gym mode: the render call in `components/board/live-board.tsx` is
+gated on `board.mode !== "gym"` `[unratified]`
+(`components/board/live-board.tsx:3183-3184`), with a comment explaining the
+reasoning at the same location. This is distinct from `players.coach_enabled`
+(which governs live games only) and is not itself tied to a registry
+decision found for this pass; a coding agent should not assume the Gym's own
+scripted director (`components/gym/director.tsx`, `lib/gym/script.ts`) is
+"the coach" under a different name, the two systems are unrelated code
+paths.
 
 ## 7. Identity and auth
 
@@ -487,19 +600,37 @@ cannot conclude the function is open.
   `🍷`) beyond the two that ship today (`👍`, `👀`). The tokens exist as
   `DEFERRED_RESOLUTION_TOKENS` in `lib/board/rules.ts` but are not accepted
   anywhere; nothing can place one.
-- **The Gym (scripted practice opponent, levels 1-4) is on the critical
-  path** `[ruled]` (Steve, 2026-08-28), so progression persistence is in
-  scope. This reverses a 2026-08-17 scope ruling that took the scripted
-  opponent off the critical path. Three places in this repository still
-  quote the superseded ruling and are stale, not authoritative: `CLAUDE.md`,
-  `README.md`, and a comment in `app/gym/page.tsx`. Read them as history.
-  Correcting them is tracked separately; this document is not the place it
-  gets fixed. `GameMode` does still include `"gym"` as a real database and
-  TypeScript value (`lib/db/types.ts`, `lib/board/rules.ts`'s
-  `topicAgreementEndsGame`), and `appendGameEvents` (the batch RPC) exists
-  specifically for validated gym runs, so gym mode is not entirely absent
-  from the code; what the repo's own docs say is unbuilt is the scripted
-  opponent and level content that would make it playable end to end.
+- **Correction: the Gym is no longer intended-but-unbuilt. It ships, playable
+  end to end, all four levels.** An earlier pass of this document listed it
+  here as scoped-in-but-not-yet-built. That is now wrong:
+  `SCRIPTED_LEVELS` (`lib/gym/levels/index.ts:8`) holds four playable levels
+  (onboarding/Bashful Bob, ground rules/Rambling Rosa, claim size/Braggy
+  Bogdan, clarity/Sloppy Salma), driven by a pure script-walk engine
+  (`lib/gym/script.ts`) and server actions (`startLevel`/`bossAct` in
+  `app/gym/actions.ts`). Progression persists for real, event-sourced, via
+  the four award events added in `0014_awards.sql` (`level_cleared`,
+  `badge_granted`, `points_changed`, `certificate_granted`; see section 4)
+  and an idempotent writer (`lib/gym/awards.ts`) that never awards for a live
+  game, an abandoned or timed-out game, or the boss. The former `app/gym/page.tsx`
+  level-select screen is gone; the route now only redirects to the ladder
+  strip on the Profile screen, which is the level-select surface
+  `[ruled]` (`BRAIN-T260904-22`). See section 9's next bullet for what
+  progression data on the profile is real versus still invented, and the
+  standing open question (`BRAIN-T260817-02`) on any level named or numbered
+  above 4.
+- **Progression display is a mix of real and still-invented data, deliberately
+  seamed apart in code.** `lib/progression/state.ts` computes what is real
+  from the event log: level clears, earned cards, badge counts, points, and
+  certificates. `lib/progression/sample.ts` is a separate file whose own
+  header comment states plainly that "every number, date and streak in this
+  file is invented" `[unratified]`; it backs whatever is not yet real,
+  including any rung past level 4, badge names and icons, and the
+  cooperation/percentile/rank/division tiles shown on the profile and
+  leaderboard. Wherever a screen mixes the two, `SampleTag` marks the
+  invented parts on screen (`components/cards/sample-tag.tsx`,
+  `components/account/progression/sample-tag.tsx`). A coding agent should not
+  assume a number on the profile is real just because it looks like one of
+  the real award types; check which of the two files supplied it.
 - **The three-way 👀 split (fact/priorities/taste)** — the deferred 🔍 ⚖️ 🍷
   tokens of `DEFERRED_RESOLUTION_TOKENS`, which take the five-token vocabulary
   to its full size — referenced in
@@ -511,6 +642,16 @@ cannot conclude the function is open.
 - **GAP: what hosting tier and region does the deployed app run on?**
   Discussed in `2026-08-22_platform-rebuild-handoff.md` as pending, not
   confirmed in code.
+- **The app is live on Vercel today, project id `prj_lHzLzr7QQw1FNagOceDJrsksGiqF`
+  (`.vercel/project.json`)**, verified directly against production:
+  `https://point-taken-2026.vercel.app/api/health?deep=1` returns `ok: true`
+  with `tables: {players: 295, games: 210, game_players: 408, game_events:
+  5407}` (row counts at the time of this pass) `[unratified]`. **Open, not
+  decided in this pass: whether the current feature branch gets merged to
+  `main` or production stays pinned to a branch commit.** `data/todos.csv`
+  records this specifically as an open question for Steve
+  (`BRAIN-T260905-01`, status `review`, not `done`); this document does not
+  choose an answer.
 - **Resolved: there is no 30-second speaker timer or 45-second summarize timer to
   enforce.** This entry previously listed as a GAP where those two numbers were
   enforced, on the premise that they were `[ruled]` facts for this edition. They
@@ -524,10 +665,13 @@ cannot conclude the function is open.
   contradicted by `app/game/[gameId]/actions.ts` (uses `after()` to run the
   coach post-response), by `lib/coach/run.ts`'s own comment, and by its
   silent-failure design ("the coach is an offer, not a gate").
-- **Gym critical path: settled, and three in-repo comments are stale.** The
-  Gym levels 1 to 4 are on the critical path `[ruled]` (Steve, 2026-08-28).
-  `CLAUDE.md`, `README.md`, and `app/gym/page.tsx` still quote the
-  superseded 2026-08-17 ruling. See section 9.
+- **Correction: the Gym is no longer just on the critical path, it is built.**
+  This entry previously listed `app/gym/page.tsx` as one of three places still
+  quoting a superseded 2026-08-17 scope ruling. That file has since been
+  rewritten entirely as a redirect to the ladder strip and no longer quotes
+  it `[unratified]` (`app/gym/page.tsx`); whether `CLAUDE.md` and `README.md`
+  still carry the stale quote was not rechecked in this pass. See section 9
+  for what is built and what is still sample data.
 - **Resolved: `MIN_THREADS_TO_END` no longer exists.** This entry previously flagged
   it as unratified, carried forward from a 2024 server rather than restated when the
   six-thread ceiling was ruled (`BRAIN-T260823-10`). Steve ruled it out on 2026-09-01
@@ -539,15 +683,22 @@ cannot conclude the function is open.
   touch this function, but a reader wanting the exact column set added by
   `0010_card_stats.sql` should open it directly.
 - **Three items `CLAUDE.md` itself lists as still moving, not settled**:
-  level/badge taxonomy naming, the coach's turn shape beyond what section 6
-  confirms, and whether the thread-count-to-end-a-game number (see above)
-  should be treated as ratified. A fourth, whether the agreement is three
-  lines or four, is settled at three (`rules.md` section 3, and
-  `SIGNING_LINES` in `lib/board/setup.ts:31-35` ships three).
-- **This document reflects one read of `0001`-`0011`.** `0001`, `0002`, and
+  level/badge taxonomy naming and any level above 4 (`BRAIN-T260817-02`), the
+  coach's turn shape beyond what section 6 confirms, and the thread ceiling.
+  On the thread ceiling specifically: `MAX_THREADS = 6` still ships in code
+  (`lib/board/rules.ts:65`, cited `[ruled]` above), but `CLAUDE.md` records a
+  2026-08-31 geometry ruling that caps the visible tile board at four threads
+  and defers a sixth to a compact mode not yet built, tracked unresolved as
+  `BRAIN-T260831-12`. This document does not take a side between "six is
+  ratified, the geometry ruling is a display detail" and "four is the real
+  ceiling now, six is stale." A fourth item once listed here, whether the
+  agreement is three lines or four, is settled at three (`rules.md` section 3,
+  and `SIGNING_LINES` in `lib/board/setup.ts:31-35` ships three).
+- **This document reflects one read of `0001`-`0015`.** `0001`, `0002`, and
   `0004` were previously confirmed via their own prose specs plus targeted
   code reads (`lib/events/types.ts`, `lib/db/types.ts`) rather than a full
   line-by-line reread of the SQL in this final pass; the TypeScript and the
   CI catalogue test (`lib/events/catalogue.test.ts`) are the higher-
   confidence source for the event vocabulary specifically, since that test
-  is what keeps the SQL and TypeScript from drifting.
+  is what keeps the SQL and TypeScript from drifting. `0012` through `0015`
+  were read in full for this pass.

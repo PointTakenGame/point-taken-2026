@@ -93,6 +93,9 @@ Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 - A resolved thread: "That thread is already resolved."
 - Board closed: "This game is over." or "This game has not started yet."
 - Editing someone else's tile: "Only the person who wrote it can change it."
+- A reply before its game's root stage is filled: "One more reason still has to hang off the topic before anything hangs off another reason." (or the plural count, if more than one root is still missing) [unratified: lib/board/rules.ts:237-244].
+
+**Root stage.** No reply may hang off another tile until every root slot for that game is filled: 4 in live play and in Gym levels 2 and up, 1 in Gym level 1 [unratified: lib/board/rules.ts:67-93, lib/gym/levels/onboarding.ts:61]. A fresh root hung straight off the topic is always allowed; anything hung off another tile waits for the stage to close.
 
 Thread ceiling is 6 [ruled Steve 2026-08-23, lib/board/rules.ts:74]. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 6 at level 5.
 
@@ -105,7 +108,7 @@ Two tokens are placeable [ruled Steve 2026-08-23, lib/board/rules.ts:45]:
 - 👍 The point was taken. The tile actually moved the other player.
 - 👀 Now both of you can see why you disagree. Placed on the tile that captures the source of the disagreement.
 
-The shipped on-screen labels are "Agree to agree" for 👍 and "Agree to disagree" for 👀 [unratified: components/board/token-glyph.tsx:29-40, inherited verbatim from the retired Nuxt client].
+The shipped on-screen labels are "Agree to agree" for 👍 and "Agree to disagree" for 👀 [unratified: components/board/token-glyph.tsx:29-40, inherited verbatim from the retired Nuxt client]. The labels are always on, printed as a caption under each token rather than shown only on hover [unratified: components/board/resolution-picker.tsx]. While a thread waits on the second token, the live board's badge reads "Your move" for the player who still has to place one and "Waiting on them" for the player who already has [unratified: components/board/live-board.tsx:2620].
 
 Three further tokens have art and labels in the repo and cannot be placed by anything: 🔍 disagree on a fact, ⚖️ disagree on priorities, 🍷 disagree on personal taste [unratified: lib/board/rules.ts:53]. They are deferred behind progression. Treat the game as a two-token game.
 
@@ -127,6 +130,8 @@ Some moves need both players. One sends the ask, the other accepts or declines, 
 ## 7. The four rule cards
 
 Every player holds the same four cards for the whole game. Throwing one says a reason broke that rule. **The consequence is always that the reason gets rewritten, never that anybody loses anything** [unratified: app/how-to-play/page.tsx]. Cards are named for the good move, never for the fallacy.
+
+Throwing a card is two clicks, always in this order: arm the card, then click the reason it answers. There is no drag [unratified: components/board/rule-card-tray.tsx:11].
 
 The first-release deck [unratified: lib/board/setup.ts:170, guarded against drift by `coachCardsMatchDeck()` in lib/coach/cards.ts]:
 
@@ -200,9 +205,9 @@ Two ways, and both are agreements [unratified: lib/board/rules.ts, app/how-to-pl
 
 The board stays readable afterwards, with every thread and the token it landed on.
 
-Designed, unbuilt: the Certificate of Agreeable Disagreement, filled in with the topic, the counts of each token, the common ground found, and what each player now appreciates about the other's view, meant to be photographed [unratified: GAME_MECHANICS.md]. Nothing in the rebuild produces one.
+The Certificate of Agreeable Disagreement is built for the Gym: `components/gym/certificate.tsx` renders one at the end of a level, reading the game's own award events for the topic, the token counts, the points, and the boss reformed [unratified: components/gym/certificate.tsx]. It renders on screen only; exporting one as an image so it can be photographed did not ship [BRAIN-T260904-11]. Whether live play outside the Gym ever produces one is undecided.
 
-Also designed, unbuilt: the entire progression layer. Points, badges, certificates, streaks, and profile stats exist only in the retired backend. `THROW_POINTS = 10` [ruled BIZ-T260823-65] and the four award events `card_granted`, `certificate_granted`, `badge_granted`, `points_adjusted` [ruled BIZ-T260824-08] are named and appear nowhere in the rebuild's code. Profile stats, when they exist, are personal and non-comparative only: games played, topics debated, threads resolved, cards landed (never the retired client's Harry Potter name for a card landing), tiles placed, current and longest streak [unratified: guide §8].
+The progression layer under the certificate is built, not designed-unbuilt. `THROW_POINTS = 10` [ruled BIZ-T260823-65] is live and moves real points in Gym levels 3 and 4 [unratified: lib/gym/levels/claim-size.ts, lib/gym/levels/ground-rules.ts]. The award events are `level_cleared`, `badge_granted`, `points_changed`, and `certificate_granted` [unratified: supabase/migrations/0014_awards.sql, lib/events/types.ts:342-345,392-395], not the earlier-named `card_granted` and `points_adjusted`. Badge display names remain placeholders pending the badge taxonomy (still open; see CLAUDE.md). Profile stats are covered in section 13 item 14, which reflects what the profile shows today rather than the retired backend's list.
 
 ## 10. The Gym, levels 1 to 4
 
@@ -216,10 +221,10 @@ The Gym is single-player practice against a scripted opponent whose lines are fi
 |---|---|---|---|---|---|---|
 | 1 Onboarding | 🙅 "You" is Taboo | 🧑🏻‍💼 Bashful Bob | Should a hot dog be called a sandwich? | 2 | `none` | disabled |
 | 2 Ground rules | 🎯 Stick to the Thread's Root | 🧑🏿‍🔧 Rambling Rosa | Should we stop changing the clocks twice a year? | 4 | `personal` | disabled |
-| 3 Claim size | 📏 No Exaggeration | 🧑🏼‍🔬 Braggy Brenda | Should tipping be replaced by higher base wages? | 4 | `personal` | enabled, grants card, no certificate |
+| 3 Claim size | 📏 No Exaggeration | 🧑🏼‍🔬 Braggy Bogdan | Should tipping be replaced by higher base wages? | 4 | `personal` | enabled, grants card, no certificate |
 | 4 Clarity | 💬 Help Me Understand | 🧑🏾‍🍳 Sloppy Salma | Should AI-generated content be clearly labeled? | 4 | `personal` | enabled |
 
-This table is the normative home for the four levels, including the points scope and fast-forward columns; `roadmap.md` references it rather than restating it. Every value in it is [ruled BIZ-T260822-07 guide §1, §1.1, §3 to §6, `status: active`; the level 3 boss is Braggy Brenda per BIZ-T260823-70, replacing an earlier Braggy Bogdan]. The four card ids are also live in this repo at `lib/coach/cards.ts:41, 49, 57, 64` [unratified], and the level select page hardcodes the same four boss slugs [unratified].
+This table is the normative home for the four levels, including the points scope and fast-forward columns; `roadmap.md` references it rather than restating it. Every value in it is [ruled BIZ-T260822-07 guide §1, §1.1, §3 to §6, `status: active`]; the level 3 boss is Braggy Bogdan, confirmed live in code (`bossId: "braggy-bogdan"`, `bossName: "Braggy Bogdan"`) [unratified: lib/gym/levels/claim-size.ts:51-52]. This reverses the 2026-08-23 rename to Braggy Brenda (`BIZ-T260823-70`): the level 3 script Nathan wrote and the build shipped from both name the boss Bogdan, confirmed done at `BRAIN-T260903-36` and in commits `cf262a9` and `050bad6`. Any source still naming Brenda at level 3 predates this. The four card ids are also live in this repo at `lib/coach/cards.ts:41, 49, 57, 64` [unratified], and each level script carries its own boss slug [unratified: lib/gym/levels/*.ts].
 
 **A boss commits exactly the violations its level teaches, and nothing else** [ruled guide §2.1]. Tiles are suggested rather than free: two suggestions plus write your own, and at level 3 the baited root suggestions are mandatory, because the level needs the player to overstate something before it can ask them to fix it [ruled guide §2.8]. Level 3's suggestion pairs ship in code: each thread root is offered both a baited wording and a safe one saying the same thing [unratified: lib/gym/root-suggestions.ts].
 
@@ -234,7 +239,7 @@ Level 3 is the only level that asks the player to fix themselves rather than cat
 
 Level-specific mechanics [ruled guide §3 to §6]:
 
-- **Level 1**: about 9 tiles, 8 to 10 minutes, no points at all. Bob commits exactly one violation, then apologises for assuming.
+- **Level 1**: about 9 tiles, 8 to 10 minutes, no points at all. Bob commits exactly one violation, then apologises for assuming. Root stage is 1, not 4, so the level opens on a single thread [unratified: lib/gym/levels/onboarding.ts:61]. The beat order: the player places the game's one root, Bob replies under it, the player replies to Bob, Bob then opens a second thread with his own reason (allowed once the one root slot is filled), the player answers it, Bob places 👍 on the first thread unprompted and the player matches it to close that thread, Bob commits his one violation in the second thread, the player throws 🙅 "You" is Taboo at it, Bob revises, and the player closes the second thread with 👀 to win [unratified: lib/gym/levels/onboarding.ts, full beat list].
 - **Level 2**: about 16 tiles, 15 minutes. Threads are health, energy, evenings, coordination. Introduces removing, withdrawing or adding, and relocating a tile by grab handle.
 - **Level 3**: about 18 tiles, 15 to 18 minutes. The self-check runs on the word list in section 7 with no model call [ruled BIZ-T260823-74]. This is the only place in the first release where points move backwards: 10 docked as "oversized claim" and
   10 refunded as "brought back to size", net zero, once per Gym run [ruled BIZ-T260824-09].
@@ -244,9 +249,11 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 `GAP: can a completed level be replayed, and if so does it award anything the second time? "No failure state" removes the need for a retry loop but does not rule on replay.`
 
-`GAP: does finishing a level unlock the next one? Nothing confirms an unlock rule, so app/gym/page.tsx renders all four levels open at once.`
+Finishing a level does not unlock the next one, because there is no lock: all four scripted levels are open regardless of cleared state [ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23].
 
-True today in the code: `app/gym/page.tsx` is the level-select screen and nothing more. Every "Start" button is inert on purpose. There is no scripted opponent, so none of section 10's mechanics run.
+True today in the code: all four Gym levels are fully scripted and playable end to end against their boss [unratified: lib/gym/levels/onboarding.ts and its three siblings; played and cleared in full by `docs/handoffs/2026-09-04_overnight-result.md`, tid BRAIN-T260904-20]. `app/gym/page.tsx` is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip (`components/account/progression/ladder-strip.tsx`) is the level select now [ruled Steve 2026-09-04, cited in app/gym/page.tsx's own doc comment].
+
+Opening a level is two cards, not one screen: a boss-intro card, then a rule-card-intro card that also carries the signing lines and the start button [ruled BRAIN-T260904-21, components/gym/level-intro.tsx]. A rule card the player has not yet earned shows as a question mark rather than its name or icon [unratified: components/gym/level-intro.tsx]. The button reads "Start the game" and, in one act, signs the agreement if it is not already signed and starts the game [unratified: components/gym/level-intro.tsx, `go()`].
 
 First-release totals as designed: 4 of 11 rule cards, 4 of 8 bosses, 15 of 26 badges, 4 certificates [unratified: guide §7]. Deferred to level 5 and later: importance ranking, the revise-topic win condition inside the Gym, the Steel Man card, communal points, and generosity tokens [unratified: guide §7].
 
@@ -260,11 +267,11 @@ Acknowledgment of imbalance, stated rather than hidden: the boss roster is US-ce
 
 ## 12. What is decided, what is built, what is neither
 
-True today in the code, and player-visible: seats and sides, the three-line signing ritual, the topic library, the 100-character tile, the 6-thread ceiling, the two resolution tokens, both-must-match resolution, the six proposal asks, the four rule cards, the coach as an opt-in post-placement offer, and both endgames.
+True today in the code, and player-visible: seats and sides, the three-line signing ritual, the topic library, the 100-character tile, the root stage, the 6-thread ceiling, the two resolution tokens, both-must-match resolution, the click-then-click card throw, the six proposal asks, the four rule cards, the coach as an opt-in post-placement offer, both endgames, all four scripted Gym bosses and levels, the level's award events and points, and the Gym's on-screen certificate.
 
-Decided and unbuilt: the scripted bosses and all Gym beats, the graded steps inside cards, points, badges, certificates, streaks, profile stats, and the coach's pre-post draft review. Turn timers are removed from this list: they are out of scope for this edition by ruling [ruled Steve 2026-09-03, BRAIN-T260903-01] and belong to the Heart edition, not Brain.
+Decided and unbuilt: the graded steps inside cards, streaks, badge display names (the taxonomy itself is still open), a certificate a player can export or that live play produces, and the coach's pre-post draft review. Turn timers are removed from this list: they are out of scope for this edition by ruling [ruled Steve 2026-09-03, BRAIN-T260903-01] and belong to the Heart edition, not Brain.
 
-Neither decided nor built, and therefore listed as a GAP above: turn order, the clarification move, level unlocks, level replay, the two opening tiles, and the emoji vocabulary above level 1.
+Neither decided nor built, and therefore listed as a GAP above: turn order, the clarification move, level replay, the two opening tiles, and the emoji vocabulary above level 1. Level unlocks are no longer on this list: there is no lock, ruled Steve 2026-09-03 (see section 10).
 
 ## 13. Contradictions a builder will hit
 
@@ -279,6 +286,6 @@ Neither decided nor built, and therefore listed as a GAP above: turn order, the 
 9. The guide implied an `overgeneralization` word list already shipped. It never did; `lib/board/language.ts` was written from scratch [ruled BRAIN-T260823-42].
 10. Registry row BRAIN-T260815-09 says No Exaggeration is level 4. It is level 3 and the row is wrong; the Gym guide is newer and wins.
 11. `2026-08-04_level-build-table.md` is superseded for levels 1 to 4, including its tile-count row and its mislabelling of Sloppy Salma as level 3 [ruled guide §9].
-12. The join code is 5 characters (`JOIN_CODE_LENGTH = 5`, `lib/games/joinCode.ts:17`, from a 32-character ambiguity-free alphabet), but `app/not-found.tsx` tells the player it is six, twice, at `:7` and `:41`. Shipped copy contradicts shipped behaviour: a player who counts the characters someone read aloud to them is told the wrong number. The code is correct and the copy is the bug [unratified].
-13. Three of the four level topics in section 10's table are not the topics the Gym asks. The table says "Should we stop changing the clocks twice a year?", "Should tipping be replaced by higher base wages?", and "Should AI-generated content be clearly labeled?"; `app/gym/page.tsx:53, 63, 73` ships "Should clock-change twice a year stop?", "Should tipping be replaced by higher wages?", and "Should AI-generated content be labeled?". Level 1's hot-dog topic matches exactly. The differences are small but not cosmetic: "higher wages" and "higher base wages" are different claims to argue about, and dropping "clearly" from the labelling topic removes the word the disagreement turns on. The table is [ruled BIZ-T260822-07] and the code is not, so the code is what needs changing, but `app/gym/page.tsx:14` claims its content is already ratified against the guide.
-14. "Cards landed" is listed in section 9 as a profile stat, and `roadmap.md` section 3 counts six stats with Cards Landed among them. `app/account/page.tsx:364-392` renders five `Counter`s and a `StreakCounters`: Games played, Games ended, Topics debated, Threads resolved, Tiles placed, current and longest streak. No card statistic appears under any name, and "Games ended" appears in no design source. The progression layer these stats belong to is unbuilt, so this is a design list and a shipped list drifting apart rather than a bug [unratified].
+12. Resolved: the join code is 5 characters (`JOIN_CODE_LENGTH = 5`, `lib/games/joinCode.ts:17`), and `app/not-found.tsx` now tells the player it is five as well [unratified: app/not-found.tsx:42]. Kept here as a tombstone since this section's numbering is a builder-facing index.
+13. Resolved: `app/gym/page.tsx` no longer ships any topic string; it is a redirect to `/#ladder` (see section 10). Each level's topic now lives in its own script and matches section 10's table exactly: "Should we stop changing the clocks twice a year?" (`lib/gym/levels/ground-rules.ts`), "Should tipping be replaced by higher base wages?" (`lib/gym/levels/claim-size.ts`), "Should AI-generated content be clearly labeled?" (`lib/gym/levels/clarity.ts`) [unratified].
+14. Section 9's profile-stats list and `roadmap.md` section 3 describe a stat block that no longer exists as such. The profile hero shows three figures: Games played, Cooperation score, and Points [unratified: components/account/hero.tsx:195,201,208]. A player's match history shows a per-game outcome label instead of aggregate stats: "Threads resolved", "Topic revised", "Unfinished", "Ran out of time" [unratified: components/account/match-list.tsx:32-35]. No "Cards landed" or "Games ended" stat appears anywhere in the current profile. Whether a fuller stats page still exists elsewhere was not checked.
