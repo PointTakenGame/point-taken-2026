@@ -421,7 +421,7 @@ skill-ladder and gym-levels design docs unless noted:
 
 | # | id | title | topic | teaches (`cardId`) | boss | `rootTarget` |
 |---|---|---|---|---|---|---|
-| 1 | `onboarding` | Onboarding | "Should a hot dog be called a sandwich?" | `you_is_taboo` | Bashful Bob 🧑🏻‍💼 | 1 |
+| 1 | `onboarding` | Onboarding | "Should a hot dog be called a sandwich?" | `you_is_taboo` | Bashful Bob 🧑🏻‍💼 | 2 |
 | 2 | `ground_rules` | Ground rules | "Should we stop changing the clocks twice a year?" | `stick_to_root` | Rambling Rosa 🧑🏿‍🔧 | 4 |
 | 3 | `claim_size` | Claim size | "Should tipping be replaced by higher base wages?" | `no_exaggeration` | Braggy Bogdan 🧑🏼‍🔬 | 4 |
 | 4 | `clarity` | Clarity | "Should AI-generated content be clearly labeled?" | `help_me_understand` | Sloppy Salma 🧑🏾‍🍳 | 4 |
@@ -431,23 +431,48 @@ Bogdan**, not "Braggy Brenda" (no boss of that name exists in the code); and the
 2 and 3 topic wordings above are exact, where the prior pass paraphrased them ("stop"
 placement in level 2, "base wages" and "clearly labeled" in levels 3 and 4).
 `rootTarget` is the number of thread-roots required before any reply may hang off one
-(`lib/board/rules.ts`'s root-stage gate); level 1's own header comment
-(`onboarding.ts:23-24`) explains why it alone is 1, not 4: "two here would refuse
-Bob's first reply."
+(`lib/board/rules.ts`'s root-stage gate); level 1 is 2 rather than the live-play 4,
+since the level opens with one root from each side, Bob's first, and nothing may
+reply to either root until both are down [ruled Steve 2026-09-05, BRAIN-T260905-32].
 
-**Level 1's beat order was reordered 2026-09-04, `[ruled]`** (`onboarding.ts:12-18`,
-Steve's playtest note: "the player opens, then answers Bob"). Current order: the
-player places the first tile (opening thread B), Bob replies to it, the player
-replies to Bob, then Bob opens his own thread (A), the player replies to that, Bob
-places a 👍 on thread B, the player matches it to close B, Bob commits one rule
-violation in thread A, the player throws the "You" is Taboo card, Bob revises, the
-player places 👀 on thread A, Bob asks whether the player actually agrees before
-matching it (the beat soul.md section 4 calls out: "you ask for agreement, you do not
-announce it"), and the level ends on that second closed thread. Bob's boss-tile text
-uses "But" as its literal reply lead (`onboarding.ts`'s hardcoded lines), which is
-separate from the live board's dynamic "Hmm" reply-stem system described in section 3
-below: the level files hardcode boss dialogue directly rather than routing it through
-`tileLead()`.
+**Level 1's beat order** [ruled Steve 2026-09-05, BRAIN-T260905-32, `lib/gym/levels/onboarding.ts`].
+Nothing is explained ahead of time: each token is explained when it is placed, the
+card when it is broken. In beat order, the coach and boss strings players actually
+see:
+
+1. A pause explains the board: "You're Minus: a hot dog is not a sandwich. Bob's
+   Plus, he thinks it is. He goes first."
+2. Bob places his own root first: "Yes, because a hot dog is a filling served inside
+   bread, and that's what a sandwich is."
+3. A pause explains what a reason tile is, then the player places their own root
+   next to Bob's, coached: "Start your first thread: why a hot dog isn't a sandwich.
+   I wrote you a sample, change any of it."
+4. A pause marks it as a second thread, then the player answers Bob's root, coached:
+   "Answer Bob's reason, at the top of his thread."
+5. A pause explains that tiles answer tiles, then Bob agrees outright rather than
+   arguing back: "You're right, I hadn't thought of that." A pause names the token
+   he places, 👍, Agree to agree, and the player mirrors it, coached: "Put your 👍
+   down and the thread closes." That thread closes at two tiles.
+6. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo: "But you
+   only think that because you grew up eating them at ballparks. That's nostalgia,
+   not a rule." A pause names the card there and the player throws it, coached:
+   "Throw it."
+7. Bob revises the thrown tile: "But the ballpark version of this argument is about
+   memory, not about what the food is." A pause explains what the card actually did,
+   then the player answers the revision, coached: "Answer Bob back, right under his
+   tile."
+8. Bob replies once more without conceding: "Maybe, but a name can outlast its own
+   history. I still think it's a sandwich." The player proposes 👀, Agree to
+   disagree, coached: "You're not going to agree on this one. 👀 Agree to disagree:
+   neither of you has to move, and it still closes the thread."
+9. Bob asks for the confirm before mirroring it: "...sorry. I don't like to assume."
+   Once the player asks, Bob places his 👀 and that thread, four tiles now, closes
+   the level: both tokens have been seen in play.
+
+Bob's boss-tile text uses "But" as its literal reply lead (`onboarding.ts`'s
+hardcoded lines), which is separate from the live board's dynamic "Hmm" reply-stem
+system described in section 3 below: the level files hardcode boss dialogue directly
+rather than routing it through `tileLead()`.
 
 **The moderator is a distinct third voice from the boss**, used in at least level 4
 to refuse an illegal move mid-script: `clarity.ts:161-162`'s exact line is "That's a
