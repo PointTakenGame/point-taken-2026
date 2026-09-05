@@ -341,11 +341,9 @@ export const TOPIC_CELL_ID = "topic";
  *
  * It also makes the four-thread cap geometric rather than a rule enforced
  * elsewhere: a centre tile has four diagonals, so a fifth thread has nowhere
- * to go and comes back in `unplaced`. Note that `MAX_THREADS` in
- * `lib/board/rules.ts` is currently 6, which this geometry cannot draw. Steve
- * ruled on 2026-08-31 that the board caps at four and that six is unreachable
- * until compact mode ships, so the mismatch is in the rules constant, not
- * here. That constant is in a core file and is not ours to change: a caller
+ * to go and comes back in `unplaced`. `MAX_THREADS` in `lib/board/rules.ts`
+ * is four as well (Steve, 2026-09-05); six belongs to compact mode, which
+ * this geometry cannot draw. A caller
  * that gets a non-empty `unplaced` should say so on screen rather than drop
  * the tiles.
  */

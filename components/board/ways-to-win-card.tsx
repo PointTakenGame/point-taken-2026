@@ -111,11 +111,9 @@ const SLOTS: ReadonlyArray<{ corner: "tr" | "br" | "bl" | "tl"; side: Side }> = 
   { corner: "bl", side: "minus" },
 ];
 
-// GAP: this layout only has four corners, one per starter thread. It does
-// not extend to a fifth or sixth thread, and `MAX_THREADS` (lib/board/rules.ts)
-// is 6. The retired client had the same limit; carried forward rather than
-// solved here, since redesigning the minimap's geometry is a bigger surface
-// change than this task's lane covers. Flagged in the build report.
+// Four corners, one per thread, which matches `MAX_THREADS` (lib/board/rules.ts)
+// on the tile board. Compact mode's six-thread ceiling will need a wider
+// layout here when it ships.
 export function WaysToWinCard({
   threads,
   resolvedCount,

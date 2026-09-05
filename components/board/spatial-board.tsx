@@ -1726,10 +1726,10 @@ export function SpatialBoard<T extends SpatialTile>({
       {unplaced.length > 0 ? (
         // Never silently drop a tile. Four is the tile board's capacity, not
         // a bug and not a win condition: a centre tile has four diagonals.
-        // MAX_THREADS in lib/board/rules.ts says 6 because that is compact
-        // mode's ceiling, three a side (Steve, 2026-09-01). The two numbers
-        // describe different views and are meant to differ. Winning is
-        // resolving *all* threads, however many a game happens to have.
+        // MAX_THREADS in lib/board/rules.ts is also 4 now (Steve,
+        // 2026-09-05); compact mode raises it to six, three a side, when it
+        // ships. Winning is resolving *all* threads, however many a game
+        // happens to have.
         //
         // The second sentence used to say "the board holds four threads" on
         // every one of these, which is only the reason when the tile that
