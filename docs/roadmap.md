@@ -405,9 +405,10 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
 - **The skill wording for levels 1 to 4**, whose source is a draft awaiting Steve.
 - **The emoji vocabulary above level 1.** Level 1 ships with 👍 and 👀 only; the wider vocabulary is
   an open question.
-- **The live-play thread bounds**: no minimum, six ceiling, every live thread must resolve
-  `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`). The four-minimum this entry used to carry is
-  gone; the ceiling opens at level 5, and Brain is asked to confirm it against the code.
+- **The live-play thread bounds**: no minimum, a ceiling of four on the tile board and six in
+  compact mode, every live thread must resolve `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`)
+  `[ruled Steve 2026-09-05]` (`BRAIN-T260905-33`). The four-minimum this entry used to carry is
+  gone; the ceiling opens at level 5.
 - **The event log's physical home**, an open engineering call: inline on the game record or its own
   table. This repo answers it with its own table `[unratified]`, which does not make the call ruled.
 - **Boss roster coverage.** Skin tones are deliberately uncorrelated with name origin `[ruled]`. No

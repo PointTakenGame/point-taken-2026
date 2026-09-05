@@ -89,7 +89,7 @@ Designed, unbuilt: each player writes 2 starting reason tiles before play, Plus 
 Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 
 - Empty text: "A reason needs some words in it."
-- A seventh thread: "A game holds at most 6 threads. Add this to one of them instead."
+- A fifth thread: "A game holds at most 4 threads. Add this to one of them instead."
 - A resolved thread: "That thread is already resolved."
 - Board closed: "This game is over." or "This game has not started yet."
 - Editing someone else's tile: "Only the person who wrote it can change it."
@@ -97,7 +97,7 @@ Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 
 **Root stage.** No reply may hang off another tile until every root slot for that game is filled: 4 in live play and in Gym levels 2 and up, 1 in Gym level 1 [unratified: lib/board/rules.ts:67-93, lib/gym/levels/onboarding.ts:61]. A fresh root hung straight off the topic is always allowed; anything hung off another tile waits for the stage to close.
 
-Thread ceiling is 6 [ruled Steve 2026-08-23, lib/board/rules.ts:74]. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 6 at level 5.
+Thread ceiling is 4 on the tile board, the four diagonals of the centre tile [ruled Steve 2026-09-05, BRAIN-T260905-33, lib/board/rules.ts:69]. Six belongs to compact mode, three a side, when it ships. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 4 at level 5.
 
 ## 5. Ending a thread
 
@@ -131,7 +131,7 @@ Some moves need both players. One sends the ask, the other accepts or declines, 
 
 Every player holds the same four cards for the whole game. Throwing one says a reason broke that rule. **The consequence is always that the reason gets rewritten, never that anybody loses anything** [unratified: app/how-to-play/page.tsx]. Cards are named for the good move, never for the fallacy.
 
-Throwing a card is two clicks, always in this order: arm the card, then click the reason it answers. There is no drag [unratified: components/board/rule-card-tray.tsx:11].
+Throwing a card is two clicks, always in this order: arm the card, then click the reason it answers. There is no drag, and none is wanted [ruled Steve 2026-09-05, BRAIN-T260905-35].
 
 The first-release deck [unratified: lib/board/setup.ts:170, guarded against drift by `coachCardsMatchDeck()` in lib/coach/cards.ts]:
 
@@ -280,7 +280,7 @@ Neither decided nor built, and therefore listed as a GAP above: turn order, the 
 3. `GAME_MECHANICS.md` has four agreement items; the guide and the code ship three. The four-item version is superseded.
 4. `app/how-to-play/page.tsx` tells the player the coach "can tell you a reason of yours looks like one of them before you place it". `lib/coach/run.ts` runs the coach only after the tile is in the log. The copy describes the unbuilt draft review.
 5. `components/info/paths-to-winning-card.tsx` renders five resolution tokens; only two are placeable.
-6. `components/board/ways-to-win-card.tsx` has four corners for four threads while `MAX_THREADS` is 6. Its own in-code comment flags this.
+6. Resolved: `MAX_THREADS` is 4, matching the four corners of `components/board/ways-to-win-card.tsx` [ruled Steve 2026-09-05, BRAIN-T260905-33]. Kept here as a tombstone since this section's numbering is a builder-facing index.
 7. The shipped label for 👍 is "Agree to agree", which is also the print game's name for the topic-revision endgame. Two different things share one phrase.
 8. `docs/reference/materials/spec/2026-08-22_ai-feedback-vocabularies.md` describes the retired `agents.py` pipeline, including its nine checks under different wire spellings. The rebuild does not inherit it; `lib/coach/checks.ts` is the live version and it moves `whataboutism_red_herring` into the player-visible set and `false_causation` out of it.
 9. The guide implied an `overgeneralization` word list already shipped. It never did; `lib/board/language.ts` was written from scratch [ruled BRAIN-T260823-42].

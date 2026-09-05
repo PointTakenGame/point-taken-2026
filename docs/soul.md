@@ -235,8 +235,11 @@ When nothing above covers a decision, decide in this order.
 
 ## 8. What Brain is not trying to be
 
-- **Not a debate scoreboard.** No winner, no ranked ladder of debaters, no currency and
-  no token economy: do not introduce one. [ruled Steve 2026-08-28]
+- **Not a debate scoreboard.** No single blended score, no head-to-head record, no currency
+  and no token economy: do not introduce one. [ruled Steve 2026-08-28] Ranking players by
+  cooperative measures (threads agreed, games finished, sustained play) is allowed, and the
+  leaderboard and the profile's cooperation score are built that way. [ruled Steve 2026-09-05,
+  BRAIN-T260905-34]
 - **Not a persuasion trainer.** Getting better at Brain is not getting better at
   changing minds.
 - **Not a fact-checking oracle.** The AI flags claims leaning on unstated evidence, it

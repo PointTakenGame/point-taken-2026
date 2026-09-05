@@ -131,7 +131,7 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 - `DEFINITION_TERM_MAX_CHARS = 60`
 - `DECLINE_REASON_MAX_CHARS = 200`
 - `MAX_PLAYERS = 2` (read pre-compaction, `lib/board/setup.ts`)
-- `MAX_THREADS = 6`
+- `MAX_THREADS = 4` [ruled Steve 2026-09-05, BRAIN-T260905-33]; compact mode raises it to 6 when it ships
 - No `MIN_THREADS_TO_END` any more. The constant is gone from the code; a game ends once every live
   thread resolves, whatever their number [ruled Steve 2026-09-01, BRAIN-T260901-06]. This entry
   used to quote the constant's own now-removed GAP comment about a carried-forward floor of 4; that

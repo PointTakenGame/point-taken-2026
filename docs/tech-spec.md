@@ -404,7 +404,7 @@ ends once every live thread resolves, whatever their number `[ruled Steve
 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]`, reconfirmed
 2026-09-03: "it is all threads, not four threads." This entry previously
 tracked a carried-forward floor of 4 as an open gap (`BRAIN-T260823-10`); that
-gap is resolved. `MAX_THREADS = 6` is `[ruled]`, 2026-08-23, same source.
+gap is resolved. `MAX_THREADS = 4` is `[ruled Steve 2026-09-05, BRAIN-T260905-33]`: four is the tile board's capacity, six belongs to compact mode when it ships.
 `RESOLUTION_TOKENS = ["👍", "👀"]`
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so
@@ -631,9 +631,9 @@ cannot conclude the function is open.
   `components/account/progression/sample-tag.tsx`). A coding agent should not
   assume a number on the profile is real just because it looks like one of
   the real award types; check which of the two files supplied it.
-- **The three-way 👀 split (fact/priorities/taste)** — the deferred 🔍 ⚖️ 🍷
+- **The three-way 👀 split (fact/priorities/taste)**, the deferred 🔍 ⚖️ 🍷
   tokens of `DEFERRED_RESOLUTION_TOKENS`, which take the five-token vocabulary
-  to its full size — referenced in
+  to its full size, referenced in
   `lib/board/rules.ts`'s comments as Steve's 2026-07-09 intent, gated behind
   the same not-yet-built progression system.
 
@@ -682,16 +682,12 @@ cannot conclude the function is open.
   is identical and explicitly re-stated across all three migrations that
   touch this function, but a reader wanting the exact column set added by
   `0010_card_stats.sql` should open it directly.
-- **Three items `CLAUDE.md` itself lists as still moving, not settled**:
-  level/badge taxonomy naming and any level above 4 (`BRAIN-T260817-02`), the
-  coach's turn shape beyond what section 6 confirms, and the thread ceiling.
-  On the thread ceiling specifically: `MAX_THREADS = 6` still ships in code
-  (`lib/board/rules.ts:65`, cited `[ruled]` above), but `CLAUDE.md` records a
-  2026-08-31 geometry ruling that caps the visible tile board at four threads
-  and defers a sixth to a compact mode not yet built, tracked unresolved as
-  `BRAIN-T260831-12`. This document does not take a side between "six is
-  ratified, the geometry ruling is a display detail" and "four is the real
-  ceiling now, six is stale." A fourth item once listed here, whether the
+- **Two items `CLAUDE.md` itself lists as still moving, not settled**:
+  level/badge taxonomy naming and any level above 4 (`BRAIN-T260817-02`), and
+  the coach's turn shape beyond what section 6 confirms. The thread ceiling,
+  once a third item here, is settled at four on the tile board and six in
+  compact mode `[ruled Steve 2026-09-05, BRAIN-T260905-33]`. A fourth item
+  once listed here, whether the
   agreement is three lines or four, is settled at three (`rules.md` section 3,
   and `SIGNING_LINES` in `lib/board/setup.ts:31-35` ships three).
 - **This document reflects one read of `0001`-`0015`.** `0001`, `0002`, and

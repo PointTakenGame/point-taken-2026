@@ -387,7 +387,7 @@ determined either way.
 A persistent, non-transient HUD card: no animation, no timeout, at most one instance. Header text is the
 static string "PATHS TO WINNING". Body is a `grid-cols-2` of all five tokens in
 `ALL_RESOLUTION_TOKENS` (`[...RESOLUTION_TOKENS, ...DEFERRED_RESOLUTION_TOKENS]`, so 👍 👀 🔍 ⚖️ 🍷,
-three of which are not placeable — this is contradiction 5 in `rules.md` section 13), a dynamic
+three of which are not placeable, which is contradiction 5 in `rules.md` section 13), a dynamic
 `{resolvedCount}/{threads.length}` count, and a diamond indicator reading either "Revised" or "Not yet"
 for the topic-revision state. One button, "Revise"; its behavior is owned by whichever parent mounts the
 card, not by the card itself. The card docks in normal document flow rather than floating fixed in a page
@@ -512,12 +512,11 @@ unshown. Emoji resolutions broken out by type (fact/priorities/taste) remains a 
 the app does not store this way. One conflict this list used to carry as unresolved is now settled: Figma's
 signing-ritual frame draws four lines; shipped code keeps three, folding "I'll control my emotions" into
 "Play fair" and cutting it as its own line `[ruled]` (`lib/board/setup.ts:22-35`). One conflict remains
-open: Rannie's live-board frame has no hand/throw mechanic for picking up and throwing a rule card at a
-tile, described in the brief as "the single largest new interaction in the whole roadmap." Shipped code
-instead uses a two-click flow (click a card in the tray, then click the tile to play it on), with a
-first-use hint saying exactly that `[unratified]` (`components/board/live-board.tsx:3253-3264`). Whether
-that two-click flow satisfies the brief's ask, or a drag/throw gesture is still wanted, has not been
-decided either way; see this document's conflicts list.
+settled: Rannie's live-board frame has no hand/throw mechanic for picking up and throwing a rule card at
+a tile, which the brief called "the single largest new interaction in the whole roadmap." Shipped code
+uses a two-click flow (click a card in the tray, then click the tile to play it on), with a first-use
+hint saying exactly that (`components/board/live-board.tsx:3253-3264`). The two-click flow is the
+gesture; a drag or throw is not wanted `[ruled Steve 2026-09-05, BRAIN-T260905-35]`.
 
 From direct code inspection, three gaps not called out in any design brief:
 - Three of the four alert variants (`error`, `info`, `warning`) render with hardcoded stock Tailwind
