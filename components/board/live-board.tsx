@@ -3067,6 +3067,11 @@ export function LiveBoard({
               <TileShape
                 side={tile.side}
                 size={OUTER_FRAME_REM}
+                // Steve, 2026-09-05: the topic tile and the root reason tiles
+                // are special, so they wear the thick border.
+                weight={
+                  tile.isOpeningReason || tile.parentId === null ? "root" : "normal"
+                }
                 // Every tile on the board says "reason", opening tiles
                 // included: that is what Rannie stamps on all four of them in
                 // `1064:214081`. A thread is a shape on the board, not a
