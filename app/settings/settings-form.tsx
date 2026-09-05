@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { claimAccount, renamePlayer, setCoach, type SettingsResult } from "./actions";
+import { claimAccount, rerollName, setCoach, type SettingsResult } from "./actions";
 import { CoachPersonaPicker } from "./coach-persona-picker";
 
 /**
@@ -69,45 +69,63 @@ function Section({
   );
 }
 
+/** The recycle glyph on the reroll button: two curved arrows chasing a loop. */
+function RerollIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width={14}
+      height={14}
+      aria-hidden
+      className="shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13.5 8a5.5 5.5 0 0 0-9.9-3.3M2.5 8a5.5 5.5 0 0 0 9.9 3.3" />
+      <path d="M3.2 2.6v2.6h2.6M12.8 13.4v-2.6h-2.6" />
+    </svg>
+  );
+}
+
+/**
+ * The name, read only, with one way to change it: draw a fresh one.
+ *
+ * Steve, 2026-09-05: nobody types their own name here any more, they just get
+ * a recycle button. The name is still the free display name a player is known
+ * by, it just no longer comes from a text field.
+ */
 function Rename({ current }: { current: string }) {
   const router = useRouter();
-  const [name, setName] = useState(current);
   const [result, setResult] = useState<SettingsResult | null>(null);
   const [pending, start] = useTransition();
 
   return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        start(async () => {
-          const outcome = await renamePlayer(name);
-          setResult(outcome);
-          if (outcome.ok) router.refresh();
-        });
-      }}
-    >
-      <div className="flex flex-wrap gap-2">
-        <label className="sr-only" htmlFor="display-name">
-          Display name
-        </label>
-        <input
-          id="display-name"
-          className={FIELD}
-          value={name}
-          maxLength={80}
-          onChange={(event) => setName(event.target.value)}
-        />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-secondary text-ink text-lg" aria-live="polite">
+          {current}
+        </span>
         <button
-          type="submit"
-          className={BUTTON}
-          disabled={pending || name.trim() === current}
+          type="button"
+          className={`${BUTTON} inline-flex items-center gap-2`}
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const outcome = await rerollName();
+              setResult(outcome);
+              if (outcome.ok) router.refresh();
+            })
+          }
         >
-          {pending ? "Saving..." : "Save name"}
+          <RerollIcon />
+          {pending ? "Rolling..." : "New name"}
         </button>
       </div>
       <Note result={result} />
-    </form>
+    </div>
   );
 }
 
@@ -148,7 +166,9 @@ function CoachToggle({ enabled }: { enabled: boolean }) {
             });
           }}
         />
-        <span className="font-secondary text-ink">Let the coach read my reasons</span>
+        <span className="font-secondary text-ink">
+          Let the coach give me feedback and help me as I play
+        </span>
       </label>
       <Note result={result} />
     </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { createRoom, joinRoom, type RoomResult } from "@/app/join/actions";
 import { AgreementTick, useAgreed } from "@/components/legal/agreement";
+import { ArrowGlyph } from "@/components/account/account-shell";
 import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
 
 /**
@@ -149,6 +150,68 @@ export function JoinByCode({ signedIn }: { signedIn: boolean }) {
         </button>
       </form>
 
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * "Join a game" as a solid button on the left with the room-number field on
+ * its right, rather than the plain-text link `JoinByCode` uses. Built for the
+ * profile's Live play card (`components/account/hero.tsx`), which now offers
+ * starting a new game and joining one at once, so the join control needed to
+ * read as a peer of the "Start a new game" button beside it rather than a
+ * quiet link underneath it.
+ */
+export function JoinRoomInline({
+  signedIn,
+  buttonClassName,
+}: {
+  signedIn: boolean;
+  buttonClassName: string;
+}) {
+  const { pending, error, enter } = useRoom();
+  const [code, setCode] = useState("");
+  const agreed = useAgreed();
+  const blocked = !signedIn && !agreed;
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <form
+        className="flex w-full items-center gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          enter(() => joinRoom(code));
+        }}
+      >
+        <button
+          type="submit"
+          className={`${buttonClassName} shrink-0`}
+          disabled={blocked || pending || code.trim().length !== JOIN_CODE_LENGTH}
+        >
+          {pending ? (
+            "Working..."
+          ) : (
+            <>
+              Join a game
+              <ArrowGlyph onDark />
+            </>
+          )}
+        </button>
+        <label className="sr-only" htmlFor="join-code-inline">
+          Room number
+        </label>
+        <input
+          id="join-code-inline"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          maxLength={JOIN_CODE_LENGTH}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Room #"
+          className="border-ink text-ink placeholder:text-ink-soft w-28 min-w-0 rounded-[10px] border bg-transparent px-3 py-2.5 text-center font-secondary text-sm tracking-widest uppercase"
+        />
+      </form>
       {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
     </div>
   );

@@ -8,8 +8,8 @@ import { ladderFor } from "@/lib/progression/state";
 import { AvatarPicker } from "@/components/account/avatar-picker";
 import { ArrowGlyph, BUTTON_PRIMARY } from "@/components/account/account-shell";
 import { LocalDay } from "@/components/local-day";
-import { ResumeOrStart } from "@/components/resume-or-start";
-import { JoinByCode } from "@/components/rooms/room-entry";
+import { JoinRoomInline } from "@/components/rooms/room-entry";
+import { StartNewGameButton } from "@/components/rooms/start-new-game";
 import { StartLevelButton } from "@/components/gym/start-level-button";
 
 /**
@@ -30,6 +30,20 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * The Gym is the recommended path for somebody new, and the colour says so
  * without copy. Live play keeps the room-code field because this is the home
  * page and that field is what the home page used to be for.
+ *
+ * **Live play reworked 2026-09-05 (BRAIN-T260905 profile play card rework).**
+ * The card now offers "Start a new game" full width on its own row, "Join a
+ * game" as a button with the room-number field beside it on the next, and
+ * "Back to your game" as a quiet link at the foot, shown only when this
+ * player has a game already running. Earlier this card only ever showed one
+ * of starting or resuming, never both (see the comment that used to live on
+ * `ResumeOrStart`'s compact mode); Steve asked for both to be visible at once.
+ * That leaves open what starting a new game should do to an unfinished one
+ * still in progress: right now, nothing, `createRoom` does not look for one.
+ * Whether both players can come back to an unfinished game and see the same
+ * state, and what "Back to your game" actually resumes, are both unchanged by
+ * this rework and are answered in the 2026-09-05 investigation note filed
+ * alongside it, not in this file.
  *
  * **Three stat tiles, not nine.** The old page had a four-tile Progress row
  * and a five-tile row in the identity card, with Games played in both. Hers
@@ -100,8 +114,6 @@ export function ProfileHero({
   gamesThisWeek,
   currentLevelId,
   resumeGameId,
-  resumeWaiting,
-  resumeTopic,
 }: {
   player: PlayerRow | null;
   playerId: string;
@@ -110,8 +122,6 @@ export function ProfileHero({
   gamesThisWeek: number;
   currentLevelId: string;
   resumeGameId: string | null;
-  resumeWaiting: boolean;
-  resumeTopic: string | null;
 }) {
   const current = ladderFor(awards).find((rung) => rung.status === "current") ?? null;
   const level = levelById(currentLevelId);
@@ -174,19 +184,21 @@ export function ProfileHero({
               Play with your peers
             </h2>
             <p className="text-ink-soft font-secondary text-p-sm">
-              Invite somebody you actually disagree with. One of you opens a room and
-              reads out the code; the other types it in here.
+              Invite somebody you actually disagree with: start a room and read out the
+              code, or type in one somebody already sent you.
             </p>
-            <JoinByCode signedIn />
-            <div className="pt-1">
-              <ResumeOrStart
-                gameId={resumeGameId}
-                waiting={resumeWaiting}
-                topic={resumeTopic}
-                compact
-                className={BUTTON_SECONDARY_INLINE}
-              />
-            </div>
+            <StartNewGameButton
+              className={`${BUTTON_SECONDARY_INLINE} w-full justify-center`}
+            />
+            <JoinRoomInline signedIn buttonClassName={BUTTON_SECONDARY_INLINE} />
+            {resumeGameId ? (
+              <Link
+                href={`/game/${resumeGameId}`}
+                className="font-label text-ink-soft hover:text-ink self-start text-[10px] font-bold tracking-widest uppercase transition-colors"
+              >
+                Back to your game
+              </Link>
+            ) : null}
           </section>
         </div>
 

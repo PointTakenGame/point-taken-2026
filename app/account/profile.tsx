@@ -101,7 +101,7 @@ function Signature({ stats }: { stats: PlayerStats }) {
 }
 
 export async function Profile({ playerId }: { playerId: Uuid }) {
-  const [{ player, stats, games, playedAt, topics }, awards] = await Promise.all([
+  const [{ player, stats, games, playedAt }, awards] = await Promise.all([
     loadAccount(playerId),
     readPlayerAwards(playerId),
   ]);
@@ -127,8 +127,6 @@ export async function Profile({ playerId }: { playerId: Uuid }) {
         gamesThisWeek={thisWeek}
         currentLevelId={currentLevelId(awards.clearedLevels)}
         resumeGameId={inFlight?.id ?? null}
-        resumeWaiting={inFlight?.status === "lobby"}
-        resumeTopic={inFlight ? (topics.get(inFlight.id)?.text ?? null) : null}
       />
 
       <LadderStrip awards={awards} />
