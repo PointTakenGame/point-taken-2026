@@ -239,15 +239,21 @@ export function CoachPanel({
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-primary text-neutral-black text-p-lg">AI Coach</h2>
         {/* A switch, not a checkbox. Still a real checkbox underneath, so it
-            keeps the label, the focus ring, and the keyboard. */}
-        <label className="relative inline-flex cursor-pointer items-center">
+            keeps the label, the focus ring, and the keyboard. Too small to
+            carry the full sentence, so the short form is its accessible
+            name and the full sentence is the hover tooltip, matching the
+            Settings tab's spelled-out wording of the same toggle. */}
+        <label
+          className="relative inline-flex cursor-pointer items-center"
+          title="Let the coach give me feedback and help me as I play"
+        >
           <input
             type="checkbox"
             checked={on}
             onChange={toggle}
             disabled={pending}
             className="peer sr-only"
-            aria-label="Let the coach read my reasons"
+            aria-label="Coach feedback"
           />
           <span className="bg-gray/30 peer-checked:bg-green peer-focus-visible:ring-gold/60 h-5 w-9 rounded-full transition-colors peer-focus-visible:ring-2 peer-disabled:opacity-50" />
           <span className="bg-offwhite pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full shadow transition-transform peer-checked:translate-x-4" />
@@ -255,7 +261,7 @@ export function CoachPanel({
       </div>
       <p className="text-gray mt-1 text-xs">
         {on
-          ? "It reads your reasons and offers a note. It never blocks a move."
+          ? "It gives you feedback as you play and can offer a note. It never blocks a move."
           : "Off. Nothing you write is sent anywhere while this is off."}
       </p>
 
