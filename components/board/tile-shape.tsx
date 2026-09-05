@@ -1,6 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { INNER_FRAME_RATIO, OCTAGON_CLIP } from "@/components/board/geometry";
+import {
+  INNER_FRAME_RATIO,
+  OCTAGON_CLIP,
+  TILE_CONTENT_INSET_PX,
+  type TileWeight,
+} from "@/components/board/geometry";
 
 /**
  * The tile: a regular octagon with a double border, built exactly the way the
@@ -26,38 +31,54 @@ import { INNER_FRAME_RATIO, OCTAGON_CLIP } from "@/components/board/geometry";
  */
 
 export type TileSide = "plus" | "minus" | "neutral";
+export type { TileWeight };
 
-const SIDE_BORDER: Record<TileSide, string> = {
-  plus: "border-green",
-  minus: "border-orange",
-  neutral: "border-neutral-black",
-};
-
-/** The outer ring is a tint, not a second full-strength line: measured at a
- * light wash of the side colour in Rannie's render, ~10px outside the main
- * border. `border: inherit` on the `::before` carries the alpha with it. */
-/** The wash inside the outer ring. The inner octagon paints itself offwhite
- *  on top, so only the band between the two frames keeps this, which is the
- *  soft coloured halo around every tile in Rannie's render. */
+/**
+ * A reason tile is three distinct tones per side, not one hue at two
+ * opacities (re-measured against Figma 60wr75TY7I95UnL6jkLz2J, section
+ * 1096:240649, 2026-09-05; the CSS custom properties are defined and
+ * explained in `app/globals.css`, "Tile chrome"):
+ *
+ *  - SIDE_WASH: the pale outer ring, and its border when the tile is not
+ *    selected.
+ *  - SIDE_BORDER: the inner octagon's own bold border, always; also the
+ *    outer ring's border once the tile is selected, so selecting a tile
+ *    reads as the ring stepping up to the tile's own colour rather than as
+ *    an unrelated highlight.
+ *  - STROKE_COLOR: the corner watermark's outline and the small glyph row,
+ *    a third, more saturated tone again, distinct from the tile's own
+ *    border. Confirmed by direct pixel sampling of her render: the
+ *    watermark stroke is visibly a different, more teal green than the
+ *    tile's mint border, not the same hue at higher opacity.
+ *
+ * The topic tile keeps a single charcoal border (no three-tone breakdown was
+ * measured for it) and its own wash stays the board's neutral-black at low
+ * opacity, since no distinct wash tone was measured for it either.
+ */
 const SIDE_WASH: Record<TileSide, string> = {
-  plus: "bg-green/10",
-  minus: "bg-orange/10",
+  plus: "bg-[color:var(--color-tile-plus-wash)]",
+  minus: "bg-[color:var(--color-tile-minus-wash)]",
   neutral: "bg-neutral-black/5",
 };
 
-const SIDE_BORDER_SOFT: Record<TileSide, string> = {
-  plus: "border-green/40",
-  minus: "border-orange/40",
+const SIDE_WASH_BORDER: Record<TileSide, string> = {
+  plus: "border-[color:var(--color-tile-plus-wash)]",
+  minus: "border-[color:var(--color-tile-minus-wash)]",
   neutral: "border-neutral-black/30",
 };
 
-/** The `-webkit-text-stroke` colour behind the corner watermark, as tokens
- *  rather than the retired client's literal #49CA81 / #FFB42F, so a palette
- *  change moves the outline with everything else. */
+const SIDE_BORDER: Record<TileSide, string> = {
+  plus: "border-[color:var(--color-tile-plus-border)]",
+  minus: "border-[color:var(--color-tile-minus-border)]",
+  neutral: "border-[color:var(--color-tile-topic-border)]",
+};
+
+/** The `-webkit-text-stroke` colour behind the corner watermark and the
+ *  small glyph row: the third, most saturated tone per side. */
 const STROKE_COLOR: Record<TileSide, string> = {
-  plus: "var(--color-green)",
-  minus: "var(--color-orange)",
-  neutral: "var(--color-neutral-black)",
+  plus: "var(--color-tile-plus-accent)",
+  minus: "var(--color-tile-minus-accent)",
+  neutral: "var(--color-tile-topic-border)",
 };
 
 /**
@@ -132,6 +153,7 @@ export function SideAvatar({
 export function TileShape({
   side,
   size = 13,
+  weight = "normal",
   watermark,
   dimmed = false,
   selected = false,
@@ -142,6 +164,11 @@ export function TileShape({
   side: TileSide;
   /** Declared box in rem, outer ring included. The retired client's board tile is 18.5 here; 13 fits this list layout without dominating it. */
   size?: number;
+  /** "root" is Steve's 2026-09-05 ruling: the topic tile and the reason that
+   *  opens each thread (`tile.parentId === null`) carry a border about 3x a
+   *  normal tile's, so both read as load-bearing at a glance. Not one of
+   *  Rannie's values; see `TILE_BORDER_PX` in geometry.ts. */
+  weight?: TileWeight;
   /** The stroked corner watermark word, e.g. "reason" or "topic". */
   watermark?: string;
   /** Resolution-thread dimming (retired `resolvingThreadRoot`): fades everything but the thread being resolved. No engine state drives this yet; wired for the day one exists. */
@@ -163,6 +190,24 @@ export function TileShape({
 
   const sideIcon = side === "plus" ? "/icons/plus.svg" : "/icons/minus.svg";
 
+  // The extra stroke on a "root" tile eats into the tile's own white padding
+  // rather than growing the octagon, so the content layer moves inward by
+  // the same amount to keep text and the plus/minus glyph clear of it.
+  const contentInsetPx = TILE_CONTENT_INSET_PX[weight];
+  const contentPadding = contentInsetPx
+    ? {
+        paddingLeft: `${24 + contentInsetPx}px`,
+        paddingRight: `${24 + contentInsetPx}px`,
+      }
+    : undefined;
+  const topOffset = contentInsetPx ? { top: `${12 + contentInsetPx}px` } : undefined;
+  const bottom3Offset = contentInsetPx
+    ? { bottom: `${12 + contentInsetPx}px` }
+    : undefined;
+  const bottom2Offset = contentInsetPx
+    ? { bottom: `${8 + contentInsetPx}px` }
+    : undefined;
+
   return (
     <div
       className={`group shrink-0 transition-[filter] duration-150 [filter:drop-shadow(0_1px_2px_rgb(0_0_0_/_0.10))] hover:[filter:drop-shadow(0_3px_6px_rgb(0_0_0_/_0.16))] ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
@@ -177,7 +222,7 @@ export function TileShape({
         <div
           className={`absolute inset-0 overflow-hidden rotate-45 border before:absolute before:[inset:-1px] before:rotate-45 before:[border:inherit] before:content-[''] ${
             SIDE_WASH[side]
-          } ${selected ? SIDE_BORDER[side] : SIDE_BORDER_SOFT[side]}`}
+          } ${selected ? SIDE_BORDER[side] : SIDE_WASH_BORDER[side]}`}
         />
       </div>
       <div
@@ -186,10 +231,17 @@ export function TileShape({
         aria-hidden="true"
       >
         <div
-          className={`absolute inset-0 overflow-hidden rotate-45 border-[3px] bg-offwhite before:absolute before:[inset:-3px] before:rotate-45 before:[border:inherit] before:content-[''] ${SIDE_BORDER[side]}`}
+          className={`absolute inset-0 overflow-hidden rotate-45 bg-offwhite before:absolute before:rotate-45 before:[border:inherit] before:content-[''] ${
+            weight === "root"
+              ? "border-[9px] before:[inset:-9px]"
+              : "border-[3px] before:[inset:-3px]"
+          } ${SIDE_BORDER[side]}`}
         />
       </div>
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-6 text-center">
+      <div
+        className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 px-6 text-center"
+        style={contentPadding}
+      >
         {side === "neutral" && (
           // The topic tile's own watermark, where a reason tile carries its
           // stance glyph. Rannie draws the speech-bubble mark behind the
@@ -234,6 +286,7 @@ export function TileShape({
             style={{
               WebkitTextStrokeWidth: "0.75px",
               WebkitTextStrokeColor: STROKE_COLOR[side],
+              ...topOffset,
             }}
           >
             {watermark}
@@ -255,6 +308,7 @@ export function TileShape({
             style={{
               WebkitTextStrokeWidth: "0.75px",
               WebkitTextStrokeColor: STROKE_COLOR.neutral,
+              ...bottom3Offset,
             }}
           >
             PointTaken
@@ -264,6 +318,7 @@ export function TileShape({
           <div
             className="pointer-events-none absolute bottom-2 z-10 flex gap-4"
             aria-hidden="true"
+            style={bottom2Offset}
           >
             {[0, 1, 2].map((i) => (
               // eslint-disable-next-line @next/next/no-img-element -- decorative row, no intrinsic size needed

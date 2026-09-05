@@ -92,3 +92,24 @@ export const TILE_BODY_RATIO = 0.074;
  *  its own box instead, so its text stays in proportion to what it drew. */
 export const TILE_LEAD_PX = Math.round(OUTER_FRAME_REM * 16 * TILE_LEAD_RATIO);
 export const TILE_BODY_PX = Math.round(OUTER_FRAME_REM * 16 * TILE_BODY_RATIO);
+
+/**
+ * The two things a thread is "about" read as load-bearing at a glance: the
+ * topic, and the reason that opens each thread off it (`tile.parentId ===
+ * null`). Steve's ruling, 2026-09-05: give both a border about three times a
+ * normal reason tile's, with the extra thickness eating into the tile's own
+ * white padding rather than growing the octagon, so text and the plus/minus
+ * glyph move inward to keep clear of it.
+ *
+ * Not a Figma measurement. Rannie's frames use one stroke weight everywhere;
+ * this is a decision layered on top of her palette, not a port of one of her
+ * values. `TileShape`'s border classes are written out literally at 3px and
+ * 9px (Tailwind's arbitrary-value scanner needs the literal class text, not
+ * a computed one), so these two numbers are the ones to change together if
+ * the ruling ever changes.
+ */
+export type TileWeight = "normal" | "root";
+export const TILE_BORDER_PX: Record<TileWeight, number> = { normal: 3, root: 9 };
+/** How far the content layer (text, watermark, glyph row) moves inward on
+ *  top of its normal padding, to stay clear of the thicker root border. */
+export const TILE_CONTENT_INSET_PX: Record<TileWeight, number> = { normal: 0, root: 6 };

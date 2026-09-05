@@ -17,7 +17,7 @@ export function TopicTile({
   onClick?: () => void;
 }) {
   const tile = (
-    <TileShape side="neutral" size={15} watermark="TOPIC">
+    <TileShape side="neutral" size={15} weight="root" watermark="TOPIC">
       {text ? (
         <p
           className={`font-tiles text-p-md px-2 text-center ${

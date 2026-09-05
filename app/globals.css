@@ -61,6 +61,27 @@
   --color-paper: #f5f2f0;
   --color-card: #fffdf9;
 
+  /* Tile chrome (Figma 60wr75TY7I95UnL6jkLz2J, "new play game view" section
+     1096:240649, re-pulled 2026-09-05). A reason tile is not one hue at two
+     opacities, it is three distinct tones: a pale wash for the outer ring, a
+     mid tone for the tile's own bold border, and a third, more saturated
+     accent for the watermark stroke and the small glyph row. Kept as their
+     own tokens rather than reusing --color-green/--color-orange, which are a
+     single value used elsewhere (buttons, the stance icons) and must not
+     shift with the board's palette. --color-tile-topic-border is the topic
+     tile's measured border, a warm charcoal distinct from the board's
+     --color-neutral-black; it duplicates --color-ink's hex on purpose rather
+     than reusing that token, since --color-ink is reserved for the account
+     flow and the two are not meant to move together. */
+  --color-tile-plus-wash: #9bef9b;
+  --color-tile-plus-border: #6ed59e;
+  --color-tile-plus-accent: #3abaaa;
+  --color-tile-minus-wash: #ffba6f;
+  --color-tile-minus-border: #eda065;
+  --color-tile-minus-accent: #f48625;
+  --color-tile-topic-border: #4d4c4a;
+  --color-tile-empty: #e5c4ad;
+
   /* The stat colours, used only for the small note under a number. Warm for a
      count going up, green for something settled, and nothing else. */
   --color-stat-warm: #e08e3c;
