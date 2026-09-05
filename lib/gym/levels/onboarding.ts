@@ -10,20 +10,24 @@ import type { Level } from "../script";
  * startLevel. Bob is Plus, the player is Minus. Two threads, both must
  * resolve; the win floor is per game and this one is two (BIZ-T260824-11).
  *
+ * Order, since the 2026-09-04 reorder (Steve's playtest: the player opens,
+ * then answers Bob): the player's root B, Bob's reply B1, the player's B2,
+ * then Bob's own root A, the player's A1, Bob's 👍 on B, the player's match,
+ * Bob's violation A3 under A1, the throw, his revision, 👀 on A. Nathan's
+ * beat sheet has Bob open and a second Bob reply in thread A; both went
+ * with the reorder, and nothing else of his moved.
+ *
  * Bob never volunteers a token and commits one violation, at A3. That is
  * the whole level: place a tile, close a thread, throw one card, finish.
  */
 
 /**
- * Two hoagie lines, not one constant.
- *
  * Nathan's Revision 2 of the level script (inbox/point-taken-levels-1-4.md)
- * writes this reason twice, and the second time it is one word shorter. The
- * earlier beat says "hinged exactly the same way", the later one says "hinged
- * the same way", and reconciling the two into one string would quietly rewrite
- * his script, so both are kept.
+ * writes the hoagie reason twice; since 2026-09-04 only the first use
+ * survives, the structural branch of Bob's answer in the player's thread.
+ * His second, shorter one lived in a Bob reply that the reorder removed.
  *
- * The longer one lost its tail on 2026-09-04. As he wrote it ("nobody has ever
+ * The line lost its tail on 2026-09-04. As he wrote it ("nobody has ever
  * doubted a hoagie is a sandwich") it came to 101 characters, one over
  * TILE_MAX_CHARS, and a boss tile that long only reaches the board because
  * bossAct never asks canPlaceTile. Shortened to "nobody doubts", which is the
@@ -32,10 +36,6 @@ import type { Level } from "../script";
  */
 const HOAGIE_EXACTLY =
   "But a hoagie roll is hinged exactly the same way, and nobody doubts a hoagie is a sandwich.";
-const HOAGIE =
-  "But a hoagie roll is hinged the same way, and nobody has ever doubted a hoagie is a sandwich.";
-const WRAP =
-  "But then a wrap wouldn't be a sandwich either, and most people would say it is.";
 const MENUS =
   "But menus list burgers apart from sandwiches too, and a burger is a sandwich. Menus aren't the test.";
 
@@ -54,9 +54,11 @@ export const ONBOARDING: Level = {
   bossName: "Bashful Bob",
   bossEmoji: "🧑🏻‍💼",
   cardId: "you_is_taboo",
-  // Two threads, so two roots before anything hangs off anything: Bob opens A,
-  // the player opens B, and the root stage is satisfied.
-  rootTarget: 2,
+  // One root before anything may hang off another (lib/board/rules.ts,
+  // canPlaceTile's root stage). The level still has two threads: the player's
+  // B gets a whole exchange before Bob opens A, and a second root is always
+  // allowed once the stage is over. Two here would refuse Bob's first reply.
+  rootTarget: 1,
   playerSide: "minus",
   bossSide: "plus",
   banner: "Two threads. Place a tile, close a thread, throw one card.",
@@ -73,36 +75,21 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p1-board",
       title: "The board",
-      body: "Topic sits in the middle, everything else hangs off it. You're the Minus side, you think a hot dog is not a sandwich. That's Bob over there. He thinks it is.",
+      body: "Topic sits in the middle, everything else hangs off it. You're the Minus side, you think a hot dog is not a sandwich. That's Bob over there. He thinks it is. You go first.",
       button: "Got it",
-    },
-    {
-      kind: "boss",
-      id: "bob-root-a",
-      act: {
-        kind: "tile",
-        key: "A",
-        parent: null,
-        text: "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
-      },
-    },
-    {
-      kind: "pause",
-      id: "p2-reason-tile",
-      title: "What a reason tile is",
-      body: "That's a reason tile. A short claim supporting one side, and it starts a thread. One idea per tile. If you've got two, that's two tiles.",
-      button: "My turn",
-      anchor: { tile: "A" },
     },
     {
       kind: "player",
       id: "player-root-b",
-      // Level 1 only has the two bottom spots under the topic tile, so the
-      // instruction is just "click here" (Steve, 2026-09-04 playtest), not a
-      // description of where the spot is.
+      // The player opens the board, not Bob (Steve, 2026-09-04 playtest: "have
+      // the player put their first tile down before Bashful Bob does"). Level
+      // 1 only has the two bottom spots under the topic tile, so the
+      // instruction is just "click here", not a description of where the
+      // spot is. The sample is typed into the box after the click, never
+      // drawn in the slot beforehand, so there is nothing to "pick" here.
       coach:
-        "Click here, under the topic, and start your own thread: why a hot dog is not a sandwich. Pick one, or write your own.",
-      nudge: "That one goes here, under the topic, not under Bob's tile.",
+        "Click here, under the topic, and start the first thread: why a hot dog is not a sandwich. I'll write you a sample. Change any of it.",
+      nudge: "That one goes here, under the topic.",
       expect: {
         kind: "tile",
         key: "B",
@@ -113,6 +100,14 @@ export const ONBOARDING: Level = {
         ],
       },
       anchor: { slot: { parent: "topic", corner: "sw" } },
+    },
+    {
+      kind: "pause",
+      id: "p2-reason-tile",
+      title: "What a reason tile is",
+      body: "That's a reason tile. A short claim supporting one side, and it starts a thread. One idea per tile. If you've got two, that's two tiles. Bob's turn.",
+      button: "Got it",
+      anchor: { tile: "B" },
     },
     {
       kind: "boss",
@@ -128,51 +123,17 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p3-tiles-answer-tiles",
       title: "Tiles answer tiles",
-      body: "A 'Hmm...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
-      button: "Got it",
+      body: "Bob answered you. A 'Hmm...' tile goes directly under the tile it argues with. That column is a thread. Everything in a thread has to be about the tile at the top of it. That's the one rule about threads, and it's most of the game.",
+      button: "My turn",
       anchor: { tile: "B1" },
     },
     {
       kind: "player",
-      id: "player-answers-a",
-      coach:
-        "Click here and answer Bob's reason. Your 'Hmm...' goes directly under his first tile.",
-      nudge: "Hang it here, under Bob's first tile, the one at the top of his thread.",
-      expect: {
-        kind: "tile",
-        key: "A1",
-        parent: "A",
-        suggestions: [
-          "But a bun is hinged, that's one piece of bread, not two.",
-          "But a sandwich has to still work when you lay it flat, and a hot dog doesn't.",
-        ],
-      },
-      // Bob's root A sits on the topic's SE corner (his side is plus); its NE
-      // diagonal does not point back at the topic (SE + NE != 0,0, unlike B
-      // at SW) and nothing else is there yet, so layout.ts's own NE-first
-      // order lands the reply at NE. Confirmed by walking legalPlacements
-      // against this level's actual placement order, not assumed.
-      anchor: { slot: { parent: "A", corner: "ne" } },
-    },
-    {
-      kind: "boss",
-      id: "bob-answers-a1",
-      act: {
-        kind: "tile",
-        key: "A2",
-        parent: "A1",
-        // Either wording counts as already said: Bob may have used the
-        // longer one at B1, and repeating the reason in shorter words would
-        // read as a stutter rather than as a second argument.
-        text: (ctx) =>
-          ctx.bossTexts.has(HOAGIE_EXACTLY) || ctx.bossTexts.has(HOAGIE) ? WRAP : HOAGIE,
-      },
-    },
-    {
-      kind: "player",
       id: "player-answers-b1",
+      // The player's second move answers Bob's reply, in their own thread
+      // (Steve, 2026-09-04: "then have them reply to Bob next").
       coach:
-        "Bob answered in your thread. Click here and answer him back, under his tile.",
+        "Click here and answer Bob back. Your 'Hmm...' goes directly under his tile, in your thread.",
       nudge: "Here, under Bob's tile in your thread, the one that starts with 'Hmm'.",
       expect: {
         kind: "tile",
@@ -186,9 +147,53 @@ export const ONBOARDING: Level = {
     },
     {
       kind: "boss",
+      id: "bob-root-a",
+      // Bob's own thread opens only now, once the player has a whole exchange
+      // behind them. It has to exist before thread B closes: the engine ends
+      // a game the moment every live thread is resolved (lib/board/rules.ts,
+      // threadsWinReached), so a one-thread board that resolved would be a
+      // finished level with half its script unplayed.
+      bossSays: "...I should put my own reason down too.",
+      act: {
+        kind: "tile",
+        key: "A",
+        parent: null,
+        text: "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+      },
+    },
+    {
+      kind: "pause",
+      id: "p2b-bobs-thread",
+      title: "Bob's thread",
+      body: "That's Bob's own reason, not a reply to yours, so it starts a second thread under the topic. Two threads on the board now, and both have to close before the game ends.",
+      button: "My turn",
+      anchor: { tile: "A" },
+    },
+    {
+      kind: "player",
+      id: "player-answers-a",
+      coach:
+        "Click here and answer Bob's reason. Your 'Hmm...' goes directly under his tile, at the top of his thread.",
+      nudge: "Hang it here, under Bob's tile, the one at the top of his thread.",
+      expect: {
+        kind: "tile",
+        key: "A1",
+        parent: "A",
+        suggestions: [
+          "But a bun is hinged, that's one piece of bread, not two.",
+          "But a sandwich has to still work when you lay it flat, and a hot dog doesn't.",
+        ],
+      },
+      // No hand-written anchor: the director points at whichever of A's
+      // diagonals the board's own layout offers next, which is the same cell
+      // the click will land in. A corner written here by hand went stale the
+      // first time the placement order changed.
+    },
+    {
+      kind: "boss",
       id: "bob-token-b",
       bossSays:
-        "...oh. That one actually got me. The specific name winning is better than what I had.",
+        "...oh. That one you put in your own thread actually got me. The specific name winning is better than what I had.",
       act: { kind: "token", thread: "B", emoji: "👍" },
     },
     {
@@ -199,7 +204,7 @@ export const ONBOARDING: Level = {
       // tile". A token in this codebase is proposed on a thread, never on a
       // tile (lib/board/rules.ts), so the thread is the thing both players are
       // putting a mark on. Nathan's script says the same; left as written.
-      body: "Two ways a thread can end. 👍 Point taken: the other person actually changed your mind. 👀 Now I see why we disagree: neither of you moved, but you found the reason underneath it. A thread closes when you both put the same token on the same thread. Bob's put the first 👍 down. Put yours next to it.",
+      body: "Two ways a thread can end. 👍 Point taken: the other person actually changed your mind. 👀 Now I see why we disagree: neither of you moved, but you found the reason underneath it. A thread closes when you both put the same token on the same thread. Bob's put the first 👍 down on your thread. Put yours next to it.",
       button: "Got it",
       anchor: { tile: "B" },
     },
@@ -207,8 +212,9 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-token-b",
       coach:
-        "Bob's 👍 is down on your thread. Put yours next to it and the thread closes.",
-      nudge: "Same token, same thread: 👍 on your thread, the one Bob conceded.",
+        "Bob's 👍 is down on your thread, waiting for yours. Put yours next to it and the thread closes.",
+      nudge:
+        "Not there yet. Bob's 👍 is sitting on YOUR thread, the left one, waiting for a match. Put a 👍 on that thread and it closes. Bob's own thread comes after.",
       badges: ["resolve-first-thread"],
       expect: { kind: "token", thread: "B", emoji: "👍" },
       anchor: { tile: "B" },

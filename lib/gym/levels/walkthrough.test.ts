@@ -315,7 +315,9 @@ describe.each(SCRIPTED_LEVELS.map((level) => [level.title, level] as const))(
             beat.expect.kind === "tile" &&
             beat.expect.parent === null),
       );
-      expect(roots).toHaveLength(level.rootTarget);
+      // At least as many roots as the stage needs; level 1 opens on one and
+      // grows a second thread later, so the count may exceed the target.
+      expect(roots.length).toBeGreaterThanOrEqual(level.rootTarget);
 
       const children = level.beats.filter(
         (beat) =>
@@ -326,7 +328,7 @@ describe.each(SCRIPTED_LEVELS.map((level) => [level.title, level] as const))(
             beat.expect.kind === "tile" &&
             beat.expect.parent !== null),
       );
-      const lastRoot = level.beats.indexOf(roots[roots.length - 1]);
+      const lastRoot = level.beats.indexOf(roots[level.rootTarget - 1]);
       const firstChild =
         children.length > 0 ? level.beats.indexOf(children[0]) : Infinity;
       expect(lastRoot).toBeLessThan(firstChild);

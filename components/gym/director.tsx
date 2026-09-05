@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { bossAct } from "@/app/gym/actions";
+import { clearBossDraft, publishBossDraft } from "@/components/gym/boss-draft";
 import {
   clearSampleAnswers,
   publishSampleAnswers,
@@ -36,6 +37,8 @@ import {
   currentBeat,
   levelPoints,
   levelProgress,
+  renderText,
+  scriptContext,
   type Beat,
   type BeatAnchor,
   type Level,
@@ -53,9 +56,11 @@ import {
  * server render, which the realtime feed already refreshes) and adds three
  * things on top: the coach's line for the current beat, a suggestion picker
  * when the beat wants a tile, and a speech bubble pointing at whatever the
- * script is talking about. When the beat is the boss's it waits a moment, so
- * the boss reads as thinking rather than instant, and asks the server to
- * play the boss's move.
+ * script is talking about. When the beat is the boss's tile it types the
+ * boss's line into the slot it will land in, a character at a time
+ * (`components/gym/boss-draft.ts`), and asks the server to play the move
+ * once the typing is done; a token or a revision waits a moment instead, so
+ * the boss reads as thinking rather than instant.
  *
  * The coach itself never leaves the top centre and never unmounts while a
  * beat is showing (Steve, 2026-09-04 playtest: "keep the coach on the top as
@@ -71,6 +76,16 @@ import {
  */
 
 const BOSS_DELAY_MS = 1200;
+
+/**
+ * The boss's typing speed, per character. The same band as the player's own
+ * sample being typed into the composer (`useTypedSample`, live-board.tsx),
+ * so the two sides of the table type alike. A 90-character reason takes
+ * under three seconds; a `prefers-reduced-motion` viewer gets the whole line
+ * at once after the ordinary thinking delay.
+ */
+const BOSS_TYPE_MIN_MS = 25;
+const BOSS_TYPE_MAX_MS = 35;
 
 function storageKey(gameId: string): string {
   return `pt-gym-pauses:${gameId}`;
@@ -224,6 +239,43 @@ function defaultTileAnchor(
 }
 
 /**
+ * The slot the boss's next tile will land in, and the words that will go in
+ * it, worked out on the client from the same script and layout the server
+ * will use. `bossAct` (app/gym/actions.ts) renders the same `act.text`
+ * against the same board, so what gets typed is what gets placed; the
+ * corner is the first legal cell the layout offers, which is where the
+ * server's cornerless `tile_placed` gets drawn anyway.
+ */
+function bossTilePlan(
+  level: Level,
+  board: BoardState,
+  progress: LevelProgress,
+  beat: Extract<Beat, { kind: "boss" }>,
+): { text: string; parentId: string; corner: TileCorner } | null {
+  if (beat.act.kind !== "tile") return null;
+  const text = renderText(beat.act.text, scriptContext(level, board, progress.keys));
+  const layout = topicRootedLayout(
+    board.tiles.map((tile) => ({
+      id: tile.id,
+      parentId: tile.parentId,
+      side: tile.side,
+      corner: tile.corner,
+    })),
+  );
+  const parentId =
+    beat.act.parent === null ? TOPIC_CELL_ID : progress.keys[beat.act.parent];
+  if (!parentId) return null;
+  const parentPos = layout.positions.get(parentId);
+  if (!parentPos) return null;
+  const side = beat.act.parent === null ? level.bossSide : null;
+  const open = legalPlacements(layout, parentId, side)[0];
+  if (!open) return null;
+  const corner = cornerFromOffset(parentPos, open);
+  if (!corner) return null;
+  return { text, parentId, corner };
+}
+
+/**
  * Takes the level by id rather than as an object: a level's boss lines can
  * be functions of what the player wrote, and a function cannot cross the
  * server-to-client prop boundary. The lookup is pure and runs on both sides.
@@ -276,20 +328,86 @@ function Director({
   const firedRef = useRef<string | null>(null);
   const beatId = beat?.id ?? null;
   const beatKind = beat?.kind ?? null;
+  // A tile beat is typed into its slot before it is played; anything else
+  // (a token, a revision) is played after the thinking delay. Memoised on
+  // the board, so a re-render with the same board does not restart typing.
+  const plan = useMemo(
+    () => (beat?.kind === "boss" ? bossTilePlan(level, board, progress, beat) : null),
+    [beat, level, board, progress],
+  );
+  // Primitives, not the plan object: a refreshed board with the same lastSeq
+  // (a realtime tick, another action's refresh) makes a new object with the
+  // same three values, and an effect keyed on the object would tear down the
+  // typing mid-line and, with the stamp already set, never restart it.
+  const planText = plan?.text ?? null;
+  const planParent = plan?.parentId ?? null;
+  const planCorner = plan?.corner ?? null;
   useEffect(() => {
     if (beatKind !== "boss" || !beatId) return;
+    const plan =
+      planText !== null && planParent !== null && planCorner !== null
+        ? { text: planText, parentId: planParent, corner: planCorner }
+        : null;
     const stamp = `${beatId}@${board.lastSeq}`;
     if (firedRef.current === stamp) return;
     firedRef.current = stamp;
-    const timer = window.setTimeout(() => {
+    const play = () => {
+      // Drop the draft as the move goes out: the real tile lands in the same
+      // cell on the next refresh, and two of them for a frame is a stutter.
+      clearBossDraft();
       startTransition(async () => {
         const result = await bossAct(gameId);
         if (!result.ok) setError(result.error);
         router.refresh();
       });
-    }, BOSS_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [beatId, beatKind, board.lastSeq, gameId, router]);
+    };
+    if (!plan) {
+      const timer = window.setTimeout(play, BOSS_DELAY_MS);
+      return () => window.clearTimeout(timer);
+    }
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const draft = { parentId: plan.parentId, corner: plan.corner, side: level.bossSide };
+    if (reduced) {
+      publishBossDraft({ ...draft, text: plan.text });
+      const timer = window.setTimeout(play, BOSS_DELAY_MS);
+      return () => {
+        window.clearTimeout(timer);
+        clearBossDraft();
+      };
+    }
+    let shown = 0;
+    let timer = 0;
+    const tick = () => {
+      shown += 1;
+      publishBossDraft({ ...draft, text: plan.text.slice(0, shown) });
+      if (shown >= plan.text.length) {
+        timer = window.setTimeout(play, BOSS_DELAY_MS / 2);
+        return;
+      }
+      timer = window.setTimeout(
+        tick,
+        BOSS_TYPE_MIN_MS + Math.random() * (BOSS_TYPE_MAX_MS - BOSS_TYPE_MIN_MS),
+      );
+    };
+    // An empty slot with a caret for a moment first, the way a person pauses
+    // before the first key, then the line.
+    publishBossDraft({ ...draft, text: "" });
+    timer = window.setTimeout(tick, BOSS_DELAY_MS / 2);
+    return () => {
+      window.clearTimeout(timer);
+      clearBossDraft();
+    };
+  }, [
+    beatId,
+    beatKind,
+    board.lastSeq,
+    gameId,
+    router,
+    planText,
+    planParent,
+    planCorner,
+    level.bossSide,
+  ]);
 
   // Hand the coach's sample answers to the board, which draws them in the
   // open slots. Republishing an unchanged list is a no-op, and unmounting
@@ -553,7 +671,10 @@ function LineBubble({
         ? beat.nudge
         : beat.coach
       : beat.kind === "boss"
-        ? (beat.coach ?? `${level.bossName} is thinking...`)
+        ? (beat.coach ??
+          (beat.act.kind === "tile"
+            ? `${level.bossName} is typing...`
+            : `${level.bossName} is thinking...`))
         : (beat.coach ?? "Every thread is closing. One moment.");
 
   return (

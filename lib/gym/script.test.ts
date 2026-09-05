@@ -88,67 +88,66 @@ const beatAt = (l: ReturnType<typeof log>, dismissed?: ReadonlySet<string>) =>
   currentBeat(ONBOARDING, levelProgress(ONBOARDING, l.board(), dismissed))?.id;
 
 describe("levelProgress on level 1", () => {
-  it("opens on the first pause, and the boss's beat once it is read", () => {
+  it("opens on the first pause, and the player's beat once it is read", () => {
     const l = opened();
     expect(beatAt(l)).toBe("p1-board");
-    expect(beatAt(l, new Set(["p1-board"]))).toBe("bob-root-a");
-    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("bob-root-a");
+    expect(beatAt(l, new Set(["p1-board"]))).toBe("player-root-b");
+    expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-root-b");
   });
 
-  it("binds the boss's root tile to key A and stops on the next pause", () => {
+  it("binds the player's root tile to key B and stops on the next pause", () => {
     const l = opened();
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
+    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
     const progress = levelProgress(ONBOARDING, l.board());
-    expect(progress.keys.A).toBe(a);
-    expect(progress.done).toEqual(["p1-board", "bob-root-a"]);
+    expect(progress.keys.B).toBe(b);
+    expect(progress.done).toEqual(["p1-board", "player-root-b"]);
     expect(currentBeat(ONBOARDING, progress)?.id).toBe("p2-reason-tile");
   });
 
-  it("treats a pause as read once the player has moved past it", () => {
+  it("treats a pause as read once the board has moved past it", () => {
     const l = opened();
-    l.tile(BOB, null, null, "A hot dog is meat in bread.");
     const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
-    // Nothing dismissed, yet p2 is done: the player's tile is the evidence.
+    const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
+    // Nothing dismissed, yet p2 is done: Bob's reply is the evidence.
     const progress = levelProgress(ONBOARDING, l.board());
-    expect(progress.keys.B).toBe(b);
+    expect(progress.keys.B1).toBe(b1);
     expect(progress.done).toContain("p2-reason-tile");
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("bob-answers-b");
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("p3-tiles-answer-tiles");
     expect(progress.cursor).toBe(l.events.length);
   });
 
   it("binds answers by parent and side, in order", () => {
     const l = opened();
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
     const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
     const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
-    const a2 = l.tile(BOB, a1, a, "A taco is a wrap.");
     const b2 = l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
+    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
+    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
     const progress = levelProgress(ONBOARDING, l.board(), ALL_PAUSES_DISMISSED);
-    expect(progress.keys).toEqual({ A: a, B: b, B1: b1, A1: a1, A2: a2, B2: b2 });
+    expect(progress.keys).toEqual({ B: b, B1: b1, B2: b2, A: a, A1: a1 });
     expect(currentBeat(ONBOARDING, progress)?.id).toBe("bob-token-b");
   });
 
   it("does not bind a tile the player hung in the wrong place", () => {
     const l = opened();
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
-    // The script wants a root tile from the player; this one answers A.
-    l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
+    const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
+    l.tile(BOB, b, b, "A hoagie roll is hinged too.");
+    // The script wants the player under Bob's reply; this one opens a second root.
+    l.tile(PLAYER, null, null, "Then a taco is a sandwich.");
     const progress = levelProgress(ONBOARDING, l.board(), ALL_PAUSES_DISMISSED);
-    expect(progress.keys.B).toBeUndefined();
-    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-root-b");
+    expect(progress.keys.B2).toBeUndefined();
+    expect(currentBeat(ONBOARDING, progress)?.id).toBe("player-answers-b1");
     // The board moved past the cursor, which is what the director reads as a nudge.
     expect(l.board().lastSeq).toBeGreaterThan(progress.cursor);
   });
 
   it("walks tokens, the throw, the revision and the ending to completion", () => {
     const l = opened();
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
     const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
     const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
-    l.tile(BOB, a1, a, "A taco is a wrap.");
     l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
+    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
+    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
 
     l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👍" }, BOB);
     expect(beatAt(l, ALL_PAUSES_DISMISSED)).toBe("player-token-b");
@@ -223,12 +222,11 @@ describe("a legal token that is not the scripted one still ends level 1", () => 
 
   it("resolves both threads and ends the game when the player answers 👍 where the script says 👀", () => {
     const l = opened();
-    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
     const b = l.tile(PLAYER, null, null, "A sandwich needs two separate slices.");
     const b1 = l.tile(BOB, b, b, "A hoagie roll is hinged too.");
-    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
-    l.tile(BOB, a1, a, "A taco is a wrap.");
     l.tile(PLAYER, b1, b, "Delis file hoagies under sandwiches.");
+    const a = l.tile(BOB, null, null, "A hot dog is meat in bread.");
+    const a1 = l.tile(PLAYER, a, a, "Then a taco is a sandwich.");
 
     // Thread B: the boss goes first with the scripted 👍 and the player
     // matches it exactly. No deviation on this side, the control for the
