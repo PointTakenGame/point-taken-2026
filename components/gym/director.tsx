@@ -28,6 +28,7 @@ import {
   publishPointedSlot,
   type PointedSlot,
 } from "@/components/gym/pointed-slot";
+import { clearPointedTile, publishPointedTile } from "@/components/gym/pointed-tile";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
 import { coachCard } from "@/lib/coach/cards";
@@ -479,6 +480,27 @@ function Director({
     if (!beat) return null;
     if (beat.kind === "pause") return beat.anchor ?? null;
     if (beat.kind === "player") {
+      if (beat.expect.kind === "relocate") {
+        // Two-phase pointer: point at the tile to pick up first, then, once
+        // the player has actually asked to move it (a pending proposal now
+        // exists), switch to pointing at the destination root, so the coach
+        // walks the player through both clicks instead of freezing on the
+        // first one for the rest of the beat.
+        const tileId = progress.keys[beat.expect.tile];
+        const asked = Boolean(
+          tileId &&
+          board.proposals.some(
+            (proposal) =>
+              proposal.kind === "tile_relocation" &&
+              proposal.status === "pending" &&
+              proposal.targetTileId === tileId &&
+              proposal.askedBy === level.playerSide,
+          ),
+        );
+        return asked
+          ? { tile: beat.expect.to }
+          : (beat.anchor ?? { tile: beat.expect.tile });
+      }
       if (beat.anchor) return beat.anchor;
       if (beat.expect.kind === "tile") {
         return defaultTileAnchor(level, board, progress.keys, beat.expect);
@@ -506,6 +528,21 @@ function Director({
     publishPointedSlot(pointedSlot);
     return () => clearPointedSlot();
   }, [pointedSlot]);
+
+  // A tile anchor (a beat pointing at something already on the board, the
+  // relocate lesson in level 2 being the first) is published the same way,
+  // so the board's "frame the coach's target" pan can bring it into view.
+  // Without this the arrow still finds the tile (AnchoredCard measures the
+  // DOM directly) but nothing brings the tile itself onto the screen, and a
+  // resumed game's leftover camera position can leave it well off the pane.
+  const pointedTileId: string | null = useMemo(() => {
+    if (!anchor || !("tile" in anchor)) return null;
+    return progress.keys[anchor.tile] ?? null;
+  }, [anchor, progress.keys]);
+  useEffect(() => {
+    publishPointedTile(pointedTileId);
+    return () => clearPointedTile();
+  }, [pointedTileId]);
 
   if (!beat) return null;
 

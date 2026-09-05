@@ -300,8 +300,9 @@ export const GROUND_RULES: Level = {
       kind: "player",
       id: "player-relocates",
       coach:
-        "Nothing wrong with that tile, it's just in the wrong thread. Move it under Rosa's root about evenings, the one it was actually arguing for.",
-      nudge: "Move it, don't answer it. Its home is Rosa's evenings thread.",
+        "Nothing wrong with that tile, it's just in the wrong thread. Click it, choose Move it, then click Rosa's root about evenings, the one it was actually arguing for.",
+      nudge:
+        "Click that tile, choose Move it, then click Rosa's evenings thread. Don't answer it where it sits.",
       expect: { kind: "relocate", tile: "B3", to: "C" },
       anchor: { tile: "B3" },
     },
