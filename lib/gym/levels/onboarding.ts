@@ -144,20 +144,6 @@ export const ONBOARDING: Level = {
       anchor: { tile: "A1" },
     },
     {
-      // Placed here, right after the player's first reply, rather than after
-      // Bob's second tile as Steve suggested when he asked for this hint: a
-      // player who has just placed one tile still has both hands free to
-      // explore the board, where placing it after bob-violation would land
-      // the same beat over the "you" attack, the level's actual tension
-      // point. Noted here as a deliberate placement choice, not a stray beat.
-      kind: "pause",
-      id: "p3b-move-the-board",
-      title: "Moving around",
-      body: "Grab anywhere on the board to move it. Or use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
-      button: "Got it",
-      anchor: { ui: "nav-controls" },
-    },
-    {
       kind: "boss",
       id: "bob-token-a",
       // Bob agrees outright rather than writing another tile. This is what
@@ -203,14 +189,25 @@ export const ONBOARDING: Level = {
       },
     },
     {
+      // Steve, 2026-09-05: the board hint goes after Bob's second tile, the
+      // "you" attack, not after the player's first reply. It waits for the
+      // tile to land and be read, then Hold up follows straight on.
+      kind: "pause",
+      id: "p3b-move-the-board",
+      title: "Moving around",
+      body: "Grab anywhere on the board to move it. Or use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
+      button: "Got it",
+      delayMs: 2500,
+      anchor: { ui: "nav-controls" },
+    },
+    {
       kind: "pause",
       id: "p5-hold-up",
       title: "Hold up",
       body: "Stop. Bob just made this about you, not about the hot dog. There's something you can do about it.",
       button: "Next",
-      // Held back so the coach visibly reads Bob's violation before
-      // speaking, rather than jumping on it the instant the tile lands.
-      delayMs: 2500,
+      // The board hint before this beat already held the coach back while
+      // Bob's tile was read, so Hold up follows it without a second pause.
       anchor: { tile: "B1" },
     },
     {
