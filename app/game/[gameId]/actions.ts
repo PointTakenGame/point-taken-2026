@@ -421,6 +421,58 @@ export async function proposeTopicRevision(
 }
 
 /**
+ * Move it: the reason hangs somewhere else, the moment somebody says where.
+ *
+ * Steve ruled the shape on 2026-09-05 (BRAIN-T260905-64) and the approval half
+ * on 2026-09-06: opening a reason offers Move it, the board goes into pick mode
+ * the way an armed rule card does, and the empty spot the player clicks is where
+ * the reason goes. Nobody is asked first. That settles the open half of
+ * BRAIN-T260816-12, which had left "who may approve" undecided while a move sat
+ * as a proposal the other side answered; in the Gym the coach line carries the
+ * boss's reaction, and in live play the move is simply visible, on a board both
+ * players are looking at, in a log that records who moved what.
+ *
+ * The legality rule is unchanged and still lives in `canProposeRelocation`: a
+ * reason cannot hang from itself, cannot drop underneath its own reply, and
+ * cannot claim a parent that is not on the board.
+ */
+export async function relocateTile(
+  gameId: string,
+  input: {
+    tileId: string;
+    newParentTileId: string | null;
+    newThreadRootId: string;
+    newSide: Side;
+  },
+): Promise<ActionResult> {
+  const loaded = await session(gameId);
+  if (isDenial(loaded)) return loaded;
+  const { membership, board } = loaded;
+
+  const verdict = rules.canProposeRelocation(
+    board,
+    input.tileId,
+    input.newParentTileId,
+    input.newThreadRootId,
+  );
+  if (!verdict.ok) return failed(verdict.error);
+
+  await appendGameEvent(gameId, {
+    type: "tile_relocated",
+    ...asPlayer(membership),
+    payload: {
+      tile_id: input.tileId,
+      new_parent_tile_id: input.newParentTileId,
+      new_thread_root_id: input.newThreadRootId,
+      new_side: input.newSide,
+    },
+  });
+
+  refresh(gameId);
+  return { ok: true };
+}
+
+/**
  * A tile only ever moves with its author's say-so (BRAIN-T260816-12), so a move
  * is asked for rather than done. The author asking still goes through a proposal
  * the other side answers; who may initiate is settled, who may approve is not.
