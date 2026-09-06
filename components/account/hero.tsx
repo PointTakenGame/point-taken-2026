@@ -36,8 +36,8 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * game" as a button with the room-number field beside it on the next, and
  * "Back to your game" as a quiet link at the foot, shown only when this
  * player has a game already running. Earlier this card only ever showed one
- * of starting or resuming, never both (see the comment that used to live on
- * `ResumeOrStart`'s compact mode); Steve asked for both to be visible at once.
+ * of starting or resuming, never both; Steve asked for both to be visible at
+ * once.
  * What starting a new game does to an unfinished one was answered 2026-09-05
  * (Steve's ruling, BRAIN-T260905-44): starting a new game ends the unfinished
  * one, the same way leaving it would. `createRoom` calls `endInFlightGame`

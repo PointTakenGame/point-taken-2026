@@ -30,7 +30,7 @@ async function signInAnonymously(): Promise<void> {
   }
 }
 
-function useRoom() {
+export function useRoom() {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
