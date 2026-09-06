@@ -83,22 +83,6 @@ export async function ensureDisplayName(playerId: Uuid): Promise<PlayerRow> {
   );
 }
 
-/** Set a chosen name. Uniqueness is enforced on lower(display_name). */
-export async function setDisplayName(
-  playerId: Uuid,
-  displayName: string,
-): Promise<PlayerRow> {
-  const { data, error } = await serviceClient()
-    .from("players")
-    .update({ display_name: displayName })
-    .eq("id", playerId)
-    .select()
-    .single();
-
-  if (error) throw new Error(`set display name failed: ${error.message}`);
-  return data as PlayerRow;
-}
-
 /**
  * Draw a fresh name and give it to a player who already has one. The
  * settings page no longer lets a player type a name, only reroll one, so
