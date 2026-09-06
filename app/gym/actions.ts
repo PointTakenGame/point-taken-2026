@@ -9,6 +9,7 @@ import { createGame } from "@/lib/db/games";
 import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
 import type { GameEventType, NewEvent, Side, Uuid } from "@/lib/events/types";
+import { endInFlightGame } from "@/lib/games/abandon";
 import { readSeat } from "@/lib/games/membership";
 import { grantLevelAwards } from "@/lib/gym/awards";
 import { bossPlayerId, ensureBossAccount } from "@/lib/gym/boss-account";
@@ -82,6 +83,11 @@ export async function startLevel(levelId: string): Promise<StartLevelResult> {
 
   const level = levelById(levelId);
   if (!level) return { ok: false, error: "That level has no script yet." };
+
+  // A Gym game is an ordinary game (see the file comment): starting one ends
+  // whatever unfinished game this player has, live or Gym, the same as
+  // starting a new live room does (Steve, 2026-09-05, BRAIN-T260905-44).
+  await endInFlightGame(playerId);
 
   const player = await ensureDisplayName(playerId);
   await ensureBossAccount(level.bossId, level.bossName);

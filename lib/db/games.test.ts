@@ -9,6 +9,7 @@ const {
   foldOpponents,
   foldResolutions,
   foldTopics,
+  inFlightGame,
   JOIN_CODE_ATTEMPTS,
 } = await import("./games");
 
@@ -267,5 +268,53 @@ describe("foldResolutions", () => {
 
   it("returns nothing for no rows", () => {
     expect(foldResolutions([]).size).toBe(0);
+  });
+});
+
+describe("inFlightGame", () => {
+  const row = (
+    id: string,
+    status: "lobby" | "active" | "ended",
+    mode: "gym" | "live" = "live",
+  ) => ({
+    id,
+    mode,
+    level_id: null,
+    boss_id: null,
+    join_code: null,
+    status,
+    created_by: null,
+    created_at: "2026-09-05T00:00:00Z",
+    started_at: null,
+    ended_at: null,
+    win_condition: null,
+  });
+
+  it("picks an active game over a lobby, even listed second", () => {
+    const games = [row("lobby-game", "lobby"), row("active-game", "active")];
+    expect(inFlightGame(games)?.id).toBe("active-game");
+  });
+
+  it("falls back to a lobby when nothing is active", () => {
+    const games = [row("ended-game", "ended"), row("lobby-game", "lobby")];
+    expect(inFlightGame(games)?.id).toBe("lobby-game");
+  });
+
+  it("is mode-blind: a Gym run in progress counts as much as a live game", () => {
+    const games = [row("gym-game", "active", "gym")];
+    expect(inFlightGame(games)?.id).toBe("gym-game");
+  });
+
+  it("returns null when every game is ended", () => {
+    expect(inFlightGame([row("a", "ended"), row("b", "ended")])).toBeNull();
+  });
+
+  it("returns null for no games", () => {
+    expect(inFlightGame([])).toBeNull();
+  });
+
+  it("takes the first active game when this player somehow has two", () => {
+    const games = [row("first", "active"), row("second", "active")];
+    expect(inFlightGame(games)?.id).toBe("first");
   });
 });
