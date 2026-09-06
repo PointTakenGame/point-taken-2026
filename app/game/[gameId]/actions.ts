@@ -473,52 +473,6 @@ export async function relocateTile(
 }
 
 /**
- * A tile only ever moves with its author's say-so (BRAIN-T260816-12), so a move
- * is asked for rather than done. The author asking still goes through a proposal
- * the other side answers; who may initiate is settled, who may approve is not.
- */
-export async function proposeRelocation(
-  gameId: string,
-  input: {
-    tileId: string;
-    newParentTileId: string | null;
-    newThreadRootId: string;
-    newSide: Side;
-  },
-): Promise<ActionResult> {
-  const loaded = await session(gameId);
-  if (isDenial(loaded)) return loaded;
-  const { membership, board } = loaded;
-
-  const verdict = rules.canProposeRelocation(
-    board,
-    input.tileId,
-    input.newParentTileId,
-    input.newThreadRootId,
-  );
-  if (!verdict.ok) return failed(verdict.error);
-
-  await appendGameEvent(gameId, {
-    type: "proposal_made",
-    ...asPlayer(membership),
-    payload: {
-      proposal_id: crypto.randomUUID(),
-      kind: "tile_relocation",
-      target_tile_id: input.tileId,
-      target_thread_root_id: input.newThreadRootId,
-      content: {
-        new_parent_tile_id: input.newParentTileId,
-        new_thread_root_id: input.newThreadRootId,
-        new_side: input.newSide,
-      },
-    },
-  });
-
-  refresh(gameId);
-  return { ok: true };
-}
-
-/**
  * Help Me Understand: their reason, in your words, handed back for them to
  * judge.
  *
