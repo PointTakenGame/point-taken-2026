@@ -26,7 +26,10 @@ export interface SigningLine {
    * because the two mean different things (a badge family vs. a line's own
    * heading) even though they read the same for all three lines so far. */
   title: string;
-  /** The full sentence the player is agreeing to. */
+  /** The full pledge the player is agreeing to. Newlines separate short
+   * paragraphs and a word wrapped in single asterisks is italic; render it
+   * through `PledgeText` (components/lobby/player-agreement.tsx), never as
+   * a bare string. */
   pledge: string;
 }
 
@@ -37,8 +40,9 @@ export interface SigningLine {
  * The ids are the shipped vocabulary from the event catalogue and stay fixed
  * regardless of wording changes, since `agreement_signed.items` records them
  * per game. Steve, 2026-09-05, from his level 1 playthrough: the earlier
- * placeholder slogans read as "trash" and are replaced here with the real
- * agreement text from the production game. Rannie's frame draws a fourth
+ * placeholder slogans read as "trash" and were replaced with the production
+ * game's text; later the same day he rewrote all three in his own words
+ * and renamed the third line Shared Evidence (the id stays shared_facts). Rannie's frame draws a fourth
  * line, folded into Mutual Respect; "I'll control my emotions" was cut; the
  * old game's same_team id is dead.
  */
@@ -49,7 +53,7 @@ export const SIGNING_LINES: readonly SigningLine[] = [
     title: "Mutual Respect",
     text: "Mutual Respect",
     pledge:
-      "I'm here to think, not to troll. I'll be kind and generous, I'll critique arguments and not people, and I might even revise my position (no promises).",
+      "I'm here to collaborate with my fellow player, not to troll them.\nI'll be kind, generous, and humble.\nThey *might* even change my mind a bit (hey, no promises).",
   },
   {
     id: "honest_thinking",
@@ -57,15 +61,14 @@ export const SIGNING_LINES: readonly SigningLine[] = [
     title: "Honest Thinking",
     text: "Honest Thinking",
     pledge:
-      "I'll think with clear reasons and humility, not with aggression and arrogance.",
+      "Staying in a bubble feels safe, but it makes thinking weak.\nStrong thinking needs a (kind) opponent to hone reasoning.\nI'll collaborate with mine, and hold each other accountable.",
   },
   {
     id: "shared_facts",
-    family: "Shared Facts",
-    title: "Shared Facts",
-    text: "Shared Facts",
-    pledge:
-      'Facts matter, so I\'ll track them down collaboratively and use them honestly, without bias for "my side."',
+    family: "Shared Evidence",
+    title: "Shared Evidence",
+    text: "Shared Evidence",
+    pledge: 'I\'ll track down facts collaboratively, and without bias for "my side."',
   },
 ];
 
