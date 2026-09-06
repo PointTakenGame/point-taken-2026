@@ -20,10 +20,11 @@ import {
   cardsInPlay,
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
+  inRootStage,
   isAbandoned,
   isResolved,
+  LIVE_ROOT_TARGET,
   MAX_THREADS,
-  MIN_THREADS_TO_END,
   proposalsAwaiting,
   proposalsFrom,
   READING_MAX_CHARS,
@@ -105,10 +106,18 @@ function pushResolvedThread(l: ReturnType<typeof log>, rootId: string) {
   l.push("thread_resolved", { thread_root_id: rootId, emoji: "👍", note: null }, ALICE);
 }
 
-/** Active board with an open root, a removed child, and a resolved thread. */
+/**
+ * Active board with an open root, a removed child, and a resolved thread.
+ *
+ * Four roots, because the root stage refuses a child until the board has its
+ * opening roots down and this fixture exists to test everything else about
+ * placement. The root stage itself has its own describe block below.
+ */
 function boardForPlacement() {
   const l = opened();
   l.push("tile_placed", tile("root", null, "root", "Root."), ALICE);
+  l.push("tile_placed", tile("spare1", null, "spare1", "Third root.", "minus"), BOB);
+  l.push("tile_placed", tile("spare2", null, "spare2", "Fourth root."), ALICE);
   l.push("tile_placed", tile("removed", "root", "root", "Gone.", "minus"), BOB);
   l.push("tile_removed", { tile_id: "removed" }, BOB);
   l.push(
@@ -189,32 +198,32 @@ describe("isResolved", () => {
 });
 
 describe("threadsWinReached", () => {
-  it("is false when fewer than the floor of real threads exist, even resolved", () => {
+  it("is false on a board nobody has argued on yet", () => {
+    expect(threadsWinReached(projectBoard(opened().events))).toBe(false);
+  });
+
+  it("is false when one thread of several is unresolved", () => {
     const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END - 1; i++) pushResolvedThread(l, `t${i}`);
+    for (let i = 1; i <= 3; i++) pushResolvedThread(l, `t${i}`);
+    l.push("tile_placed", tile("t4", null, "t4", "Unresolved root."), ALICE);
     expect(threadsWinReached(projectBoard(l.events))).toBe(false);
   });
 
-  it("is false when the floor is met but one thread is unresolved", () => {
+  it("is true when every thread on the board is resolved, however few", () => {
     const l = opened();
-    for (let i = 1; i < MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
-    l.push(
-      "tile_placed",
-      tile(`t${MIN_THREADS_TO_END}`, null, `t${MIN_THREADS_TO_END}`, "Unresolved root."),
-      ALICE,
-    );
-    expect(threadsWinReached(projectBoard(l.events))).toBe(false);
-  });
-
-  it("is true when the floor is met and every real thread is resolved", () => {
-    const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
+    pushResolvedThread(l, "t1");
     expect(threadsWinReached(projectBoard(l.events))).toBe(true);
   });
 
-  it("does not count a thread whose tiles were all removed toward the floor", () => {
+  it("is true when every thread on a wider board is resolved", () => {
     const l = opened();
-    for (let i = 1; i <= MIN_THREADS_TO_END; i++) pushResolvedThread(l, `t${i}`);
+    for (let i = 1; i <= 4; i++) pushResolvedThread(l, `t${i}`);
+    expect(threadsWinReached(projectBoard(l.events))).toBe(true);
+  });
+
+  it("does not count a thread whose tiles were all removed", () => {
+    const l = opened();
+    for (let i = 1; i <= 4; i++) pushResolvedThread(l, `t${i}`);
     l.push("tile_placed", tile("empty", null, "empty", "Removed root."), BOB);
     l.push("tile_removed", { tile_id: "empty" }, BOB);
     expect(threadsWinReached(projectBoard(l.events))).toBe(true);
@@ -263,8 +272,10 @@ describe("canPlaceTile", () => {
 
   it("allows exactly TILE_MAX_CHARS and refuses one over", () => {
     const board = boardForPlacement();
-    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS), null)).toEqual({ ok: true });
-    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS + 1), null).ok).toBe(false);
+    // Under "root", not as a new thread: the fixture already holds the four
+    // threads a board gets, and this test is about length.
+    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS), "root")).toEqual({ ok: true });
+    expect(canPlaceTile(board, "a".repeat(TILE_MAX_CHARS + 1), "root").ok).toBe(false);
   });
 
   it("refuses an unknown parent", () => {
@@ -285,6 +296,79 @@ describe("canPlaceTile", () => {
   it("allows a reason on an open thread", () => {
     const board = boardForPlacement();
     expect(canPlaceTile(board, "New reason.", "root")).toEqual({ ok: true });
+  });
+});
+
+/**
+ * The root stage: nothing hangs off another reason until the board has its
+ * opening roots down. The number comes off game_started, so these build the
+ * log directly rather than going through the shared fixtures.
+ */
+describe("the root stage", () => {
+  function boardWithRoots(count: number, rootTarget?: number) {
+    const l = log();
+    l.push("game_created", {
+      mode: "live",
+      level_id: null,
+      boss_id: null,
+      join_code: "PTKN22",
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "Quiet Amber Fjord" }, BOB);
+    l.push("role_selected", { role: "plus" }, ALICE);
+    l.push("role_selected", { role: "minus" }, BOB);
+    l.push("topic_set", {
+      text: "Cities should cap rents.",
+      origin: "library",
+      topic_id: "rent-cap",
+    });
+    l.push("game_started", {
+      card_set: { policy: "intersection", card_ids: [], raised_by: null },
+      coach: null,
+      ...(rootTarget === undefined ? {} : { root_target: rootTarget }),
+    });
+    for (let i = 0; i < count; i += 1) {
+      const id = `r${i}`;
+      l.push("tile_placed", tile(id, null, id, `Root ${i}.`, i % 2 ? "minus" : "plus"));
+    }
+    return projectBoard(l.events);
+  }
+
+  it("defaults to the live target when the payload predates the field", () => {
+    expect(boardWithRoots(0).settings?.rootTarget).toBe(LIVE_ROOT_TARGET);
+  });
+
+  it("refuses a child while roots are still missing", () => {
+    const verdict = canPlaceTile(boardWithRoots(2), "But no.", "r0");
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok ? "" : verdict.error).toMatch(/2 more reasons/);
+  });
+
+  it("says it in the singular when one root is missing", () => {
+    const verdict = canPlaceTile(boardWithRoots(3), "But no.", "r0");
+    expect(verdict.ok ? "" : verdict.error).toMatch(/^One more reason/);
+  });
+
+  it("never blocks a root, which is how the stage is left", () => {
+    expect(canPlaceTile(boardWithRoots(1), "Another reason.", null)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("allows a child once the roots are down", () => {
+    expect(canPlaceTile(boardWithRoots(4), "But no.", "r0")).toEqual({ ok: true });
+  });
+
+  it("takes the target off the game, so a two-root game opens after two", () => {
+    const board = boardWithRoots(2, 2);
+    expect(board.settings?.rootTarget).toBe(2);
+    expect(canPlaceTile(board, "But no.", "r0")).toEqual({ ok: true });
+  });
+
+  it("reports the stage the same way the composer asks it", () => {
+    expect(inRootStage(boardWithRoots(3))).toBe(true);
+    expect(inRootStage(boardWithRoots(4))).toBe(false);
+    expect(inRootStage(boardWithRoots(2, 2))).toBe(false);
   });
 });
 
@@ -496,12 +580,12 @@ describe("the readings", () => {
 
     it("is bounded by the tile limit, not the reading limit", () => {
       const board = boardForPlacement();
-      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS))).toEqual({
+      expect(canProposeSteelmanTile(board, "root", "a".repeat(TILE_MAX_CHARS))).toEqual({
         ok: true,
       });
-      expect(canProposeSteelmanTile(board, null, "a".repeat(TILE_MAX_CHARS + 1)).ok).toBe(
-        false,
-      );
+      expect(
+        canProposeSteelmanTile(board, "root", "a".repeat(TILE_MAX_CHARS + 1)).ok,
+      ).toBe(false);
     });
   });
 
@@ -579,7 +663,7 @@ describe("isAbandoned", () => {
   });
 });
 
-describe("the six-thread ceiling", () => {
+describe("the thread ceiling", () => {
   /** An active board carrying `count` open threads, each with a root tile. */
   function boardWithThreads(count: number) {
     const l = opened();
@@ -589,12 +673,12 @@ describe("the six-thread ceiling", () => {
     return { l, board: projectBoard(l.events) };
   }
 
-  it("allows the sixth new thread", () => {
+  it("allows the last new thread under the cap", () => {
     const { board } = boardWithThreads(MAX_THREADS - 1);
     expect(canPlaceTile(board, "One more reason.", null)).toEqual({ ok: true });
   });
 
-  it("refuses the seventh, and says where to put it instead", () => {
+  it("refuses one past the cap, and says where to put it instead", () => {
     const { board } = boardWithThreads(MAX_THREADS);
     const verdict = canPlaceTile(board, "One more reason.", null);
     expect(verdict.ok).toBe(false);

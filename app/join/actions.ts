@@ -7,6 +7,7 @@ import { canJoin } from "@/lib/board/setup";
 import { createGame, findOpenGameByJoinCode, getGamePlayers } from "@/lib/db/games";
 import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, readGameEvents } from "@/lib/events/append";
+import { endInFlightGame } from "@/lib/games/abandon";
 import { normalizeJoinCode } from "@/lib/games/joinCode";
 import { currentPlayerId } from "@/lib/supabase/session";
 
@@ -43,6 +44,10 @@ async function seat(gameId: string, playerId: string): Promise<void> {
 export async function createRoom(): Promise<RoomResult> {
   const playerId = await currentPlayerId();
   if (!playerId) return NEEDS_NAME;
+
+  // Starting a new game ends whatever one this player left unfinished
+  // (Steve, 2026-09-05, BRAIN-T260905-44): see endInFlightGame for why.
+  await endInFlightGame(playerId);
 
   const game = await createGame({ mode: "live", createdBy: playerId });
   await seat(game.id, playerId);

@@ -7,7 +7,7 @@ import { TileShape } from "@/components/board/tile-shape";
 /**
  * A rule card: a reference a player reads, not a transient pop-up with a
  * decision in it. Ported from the retired client's `RuleCard.vue` (164
- * lines), which drew its own diamond tile pair and its own card chrome from
+ * lines), which drew its own tile pair and its own card chrome from
  * scratch. Here the card pair reuses `TileShape`, this codebase's existing
  * tile primitive, and the surrounding chrome is `TilePopover` configured
  * with `body: { kind: "none" }` and the card's own content passed through
@@ -78,7 +78,9 @@ const RULE_CARD_CONTENT: Record<RuleCardType, RuleCardContent> = {
     ],
   },
   "shared-facts": {
-    header: "Shared Facts",
+    // Steve, 2026-09-05: the family is now called Shared Evidence; the key
+    // and the card ids keep the old spelling.
+    header: "Shared Evidence",
     subheader: "Fact Check?",
     agreement:
       "I'm willing to collaboratively track facts down, without bias for 'my side'. A shared source is a good start (at least it has citations).",
@@ -106,8 +108,8 @@ function NotAllowedStrike() {
       className="pointer-events-none absolute inset-6 top-1/2 bottom-1/2"
       aria-hidden="true"
     >
-      <div className="absolute inset-0 rotate-45 border-t-2 border-red-600" />
-      <div className="absolute inset-0 -rotate-45 border-t-2 border-red-600" />
+      <div className="absolute inset-0 rotate-45 border-t-2 border-orange" />
+      <div className="absolute inset-0 -rotate-45 border-t-2 border-orange" />
     </div>
   );
 }
@@ -157,7 +159,7 @@ export function RuleCardPopup({
           <ul className="flex flex-col items-start gap-1 text-left">
             {content.notAllowed.map((example, index) => (
               <li key={index} className="flex items-center gap-2 text-p-sm">
-                <span aria-hidden="true" className="text-red-600">
+                <span aria-hidden="true" className="text-orange">
                   ⊘
                 </span>
                 <span>{example}</span>

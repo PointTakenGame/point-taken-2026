@@ -1,54 +1,73 @@
 "use client";
 
-import { useState } from "react";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 
-/**
- * The row of tokens a player picks from to say what kind of disagreement a
- * thread turned out to be. Ported from the retired client's `TileEmojis.vue`:
- * same hover lift/rotate, same swap from a default header to the hovered
- * token's own phrase.
- *
- * Only two tokens are live here (thumbs-up, eyes) because
- * `RESOLUTION_TOKENS` in `lib/board/rules.ts` only accepts two; the other
- * three drawings exist in `public/tokens/` and in `tokenLabel` but are
- * deferred behind progression that does not exist yet, exactly as the
- * retired client's own `SHOW_FLAVORED_DISAGREE = false` gate left them.
- */
+// Row of tokens for resolving a thread, ported from the retired client's
+// TileEmojis.vue. Placeable tokens come from RESOLUTION_TOKENS only.
 export function ResolutionPicker({
   tokens,
   disabledTokens = [],
+  theirs = null,
   onPick,
 }: {
   tokens: readonly string[];
   disabledTokens?: readonly string[];
+  /**
+   * The token the other side has already placed on this thread, if any.
+   * That button is highlighted (the same gold ring the pending badge on the
+   * board itself uses) and carries a caption telling the player to match it,
+   * because closing a thread is placing the SAME token the other side did,
+   * and nothing on the picker used to say so.
+   */
+  theirs?: string | null;
   onPick: (token: string) => void;
 }) {
-  const [hovered, setHovered] = useState<string | null>(null);
-
   return (
-    <div className="flex flex-col items-center gap-2">
-      <p className="text-p-sm font-secondary text-neutral-black">
-        {hovered ? tokenLabel(hovered) : "Resolve thread"}
-      </p>
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col items-center gap-4">
+      {/* Wider than the buttons look, because each drawing overflows its own
+          56px box by six pixels a side. Four would leave the two tokens almost
+          touching. */}
+      <div className="flex flex-row items-start gap-6">
         {tokens.map((token) => {
           const isDisabled = disabledTokens.includes(token);
+          const isTheirs = theirs === token;
           return (
-            <button
-              key={token}
-              type="button"
-              disabled={isDisabled}
-              onClick={() => onPick(token)}
-              onMouseEnter={() => setHovered(token)}
-              onMouseLeave={() =>
-                setHovered((current) => (current === token ? null : current))
-              }
-              title={tokenLabel(token)}
-              className="ease-in-out flex flex-col items-center gap-1 rounded-full p-1.5 duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40"
-            >
-              <TokenGlyph token={token} size={32} hovered={hovered === token} />
-            </button>
+            <div key={token} className="flex w-20 flex-col items-center gap-1">
+              <button
+                type="button"
+                disabled={isDisabled}
+                onClick={() => onPick(token)}
+                // The glyph is decorative art, so the button has no text of its
+                // own and `title` alone is not a reliable accessible name.
+                aria-label={tokenLabel(token)}
+                title={tokenLabel(token)}
+                className={`ease-in-out flex size-14 items-center justify-center overflow-visible rounded-full duration-150 hover:-translate-y-2 hover:rotate-[-10deg] disabled:pointer-events-none disabled:opacity-40 ${
+                  isTheirs ? "border-gold bg-sand border-2" : ""
+                }`}
+              >
+                {/* Drawn at the source art's own size, not shrunk to fit the
+                    button. The retired client set these SVGs `w-auto h-auto
+                    overflow-visible` inside the same 56px box, so a 68-wide
+                    drawing spilled six pixels past each edge and the tokens
+                    read at arm's length. Ours were rendered at 40 and Steve
+                    called them "way too small" (2026-09-02); this is the old
+                    client's number, not a new guess. */}
+                <TokenGlyph token={token} size={68} />
+              </button>
+              {/* The word under the drawing, always on, not only on hover: a
+                  drawing of a pair of eyes does not say "agree to disagree"
+                  to anyone who has not been told, and a control that means
+                  nothing until the cursor finds it is one nobody can read
+                  cold. */}
+              <p className="text-p-sm font-secondary text-gray text-center">
+                {tokenLabel(token)}
+              </p>
+              {isTheirs ? (
+                <p className="text-p-sm font-secondary text-center font-semibold">
+                  They put this down. Match it to close the thread.
+                </p>
+              ) : null}
+            </div>
           );
         })}
       </div>

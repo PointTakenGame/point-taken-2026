@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { setCoachEnabled, setDisplayName } from "@/lib/db/players";
-import { validateDisplayName } from "@/lib/names/validate";
+import { isPlayerEmoji } from "@/lib/avatar";
+import { rerollDisplayName, setAvatarEmoji, setCoachEnabled } from "@/lib/db/players";
 import { currentPlayerId, sessionClient } from "@/lib/supabase/session";
 
 /**
  * The three things a player can change about themselves: their name, whether
- * the coach reads their reasons, and whether the account survives this browser.
+ * the coach gives them feedback, and whether the account survives this browser.
  *
  * Every one of these starts by asking who is signed in rather than taking a
  * player id from the caller. The hot seat can change the answer, but it cannot
@@ -18,34 +18,24 @@ import { currentPlayerId, sessionClient } from "@/lib/supabase/session";
 
 export type SettingsResult = { ok: true; message: string } | { ok: false; error: string };
 
-/** Postgres unique violation, which here means someone else has that name. */
-const UNIQUE_VIOLATION = "23505";
-
 const SIGNED_OUT: SettingsResult = {
   ok: false,
   error: "You are not signed in.",
 };
 
-export async function renamePlayer(raw: string): Promise<SettingsResult> {
+/**
+ * Draw a new generated name for the signed-in player. Steve, 2026-09-05:
+ * nobody types their own name here any more, they just reroll one, so this
+ * replaces the old free-text `renamePlayer` action outright.
+ */
+export async function rerollName(): Promise<SettingsResult> {
   const playerId = await currentPlayerId();
   if (!playerId) return SIGNED_OUT;
 
-  const verdict = validateDisplayName(raw);
-  if (!verdict.ok) return { ok: false, error: verdict.error };
-
-  try {
-    await setDisplayName(playerId, verdict.name);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes(UNIQUE_VIOLATION) || /duplicate key/i.test(message)) {
-      return { ok: false, error: "Someone already goes by that name." };
-    }
-    throw err;
-  }
-
+  const player = await rerollDisplayName(playerId);
   revalidatePath("/settings");
   revalidatePath("/account");
-  return { ok: true, message: `You are ${verdict.name}.` };
+  return { ok: true, message: `You are ${player.display_name}.` };
 }
 
 export async function setCoach(enabled: boolean): Promise<SettingsResult> {
@@ -57,7 +47,34 @@ export async function setCoach(enabled: boolean): Promise<SettingsResult> {
   revalidatePath("/settings");
   return {
     ok: true,
-    message: enabled ? "The coach will read your reasons." : "The coach will stay quiet.",
+    message: enabled
+      ? "The coach will give you feedback as you play."
+      : "The coach will stay quiet.",
+  };
+}
+
+/**
+ * Set the player's avatar emoji, or clear it back to the derived initials
+ * mark with `emoji: null`. The nine choices live in `lib/avatar.ts`'s
+ * `PLAYER_EMOJIS`; anything else is rejected here rather than trusted through
+ * to the database constraint, so a bad value reads back as a settings error
+ * instead of a failed update.
+ */
+export async function setAvatar(emoji: string | null): Promise<SettingsResult> {
+  const playerId = await currentPlayerId();
+  if (!playerId) return SIGNED_OUT;
+
+  if (emoji !== null && !isPlayerEmoji(emoji)) {
+    return { ok: false, error: "That is not one of the avatars on offer." };
+  }
+
+  await setAvatarEmoji(playerId, emoji);
+
+  revalidatePath("/settings");
+  revalidatePath("/account");
+  return {
+    ok: true,
+    message: emoji ? "Avatar updated." : "Back to your initials.",
   };
 }
 

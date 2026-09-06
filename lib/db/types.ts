@@ -20,7 +20,15 @@ export type GameStatus = "lobby" | "active" | "ended";
 export type WinCondition = "threads_resolved" | "topic_agreed" | "abandoned" | "timeout";
 
 /**
- * One row per authenticated human, created by a trigger on auth.users so the
+ * What is behind a player row. A Gym boss holds a real seat and there is
+ * nobody there: he is a script. Every player-facing roster filters on this,
+ * and `boss` rows are still named as your opponent in your own history,
+ * because that is who you played (0013_player_kind.sql).
+ */
+export type PlayerKind = "human" | "boss";
+
+/**
+ * One row per authenticated account, created by a trigger on auth.users so the
  * anonymous path cannot forget to. `display_name` is null until the rules
  * package assigns one; `claimed_at` is null while the account is still
  * anonymous. No points or badge totals live here: those derive from the log.
@@ -32,6 +40,12 @@ export interface PlayerRow {
   created_at: string;
   /** Player has asked the coach to read their reasons. Off by default. */
   coach_enabled: boolean;
+  kind: PlayerKind;
+  /**
+   * One of the nine fixed emoji in `lib/avatar.ts`'s `PLAYER_EMOJIS`, or null
+   * to keep the derived initials mark. Null until a player opens the picker.
+   */
+  avatar_emoji: string | null;
 }
 
 export interface GameRow {

@@ -115,6 +115,27 @@ export async function listGamesForPlayer(playerId: Uuid, limit = 50): Promise<Ga
     .filter(Boolean);
 }
 
+/**
+ * Which of a player's own games (as returned by `listGamesForPlayer`, newest
+ * first) counts as "the one still going": an active game beats a lobby still
+ * waiting for a second player, because the argument left in the middle is
+ * more urgent than the invitation nobody accepted, and either beats nothing.
+ *
+ * Mode-blind on purpose: a Gym run and a live room are both rows in `games`,
+ * both close the same way, and the profile's "Back to your game" link has
+ * never distinguished them either. The one lookup both that link
+ * (`app/account/profile.tsx`) and `endInFlightGame` (`lib/games/abandon.ts`)
+ * read from, so the two cannot disagree about what "unfinished" means
+ * (BRAIN-T260905-44).
+ */
+export function inFlightGame(games: readonly GameRow[]): GameRow | null {
+  return (
+    games.find((game) => game.status === "active") ??
+    games.find((game) => game.status === "lobby") ??
+    null
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Topics, for a list of games
 // ---------------------------------------------------------------------------

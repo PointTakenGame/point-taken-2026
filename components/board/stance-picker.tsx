@@ -1,18 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { SideGlyph } from "@/components/board/tile-shape";
 import { SIDE_LABEL } from "./side-label";
 import type { Side } from "@/lib/events/types";
 
 /**
- * "And choose your stance": the two-button pick between Plus and Minus.
- * Ported from the retired client's `RoleSelection.vue`: same heading, same
- * pair of buttons, same border/text colour swap on hover-or-selected, same
- * horizontal mirror on the Minus icon when it goes active. That component
- * used the literal words "Plus" and "Minus"; this one uses `SIDE_LABEL`
- * instead, because `side-label.ts` asks every post-setup screen to share
- * the same two phrases rather than each inventing its own.
+ * The two-button pick between Plus and Minus.
+ *
+ * Ported from the retired client's `RoleSelection.vue`: same pair of buttons,
+ * same border/text colour swap on hover-or-selected, same horizontal mirror
+ * on the Minus icon when it goes active. That component used the literal
+ * words "Plus" and "Minus"; this one uses `SIDE_LABEL` instead, because
+ * `side-label.ts` asks every post-setup screen to share the same two phrases
+ * rather than each inventing its own.
+ *
+ * Its heading came over as "And choose your stance", which followed on from
+ * a sentence in that client and does not follow on from anything here: it
+ * sits directly under the section's own "#2 Your stance" and restates it
+ * word for word. The line is spent instead on the one thing this screen
+ * never said out loud, which is that the pick stops being yours to change
+ * the moment somebody presses start.
  *
  * Presentation only, same split as `ResolutionPicker`: this component holds
  * no game rules and calls no server action. The caller decides what is
@@ -20,6 +27,13 @@ import type { Side } from "@/lib/events/types";
  */
 
 const SIDES: readonly Side[] = ["plus", "minus"];
+
+// This surface uses the "peer" art for the active state, not the plain
+// plus/minus glyphs the tiles use.
+const SIDE_ICON: Record<Side, { active: string; inactive: string }> = {
+  plus: { active: "/icons/plus-peer.svg", inactive: "/icons/plus-notselected.svg" },
+  minus: { active: "/icons/minus-peer.svg", inactive: "/icons/minus-notselected.svg" },
+};
 
 const SIDE_BORDER_ACTIVE: Record<Side, string> = {
   plus: "border-green",
@@ -51,11 +65,11 @@ export function StancePicker({
   const [hovered, setHovered] = useState<Side | null>(null);
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <h3 className="font-secondary text-p-sm text-neutral-black text-center font-semibold">
-        And choose your stance
-      </h3>
-      <div className="flex flex-row items-center gap-10">
+    <div className="flex flex-col items-center">
+      <p className="font-secondary text-p-sm text-gray mb-8 max-w-xs text-center">
+        Agree or disagree with the topic above. Once the game starts, your side is fixed.
+      </p>
+      <div className="flex flex-row items-center gap-24">
         {SIDES.map((side) => {
           const isDisabled = disabled || disabledSides.includes(side);
           const active = value === side || hovered === side;
@@ -71,11 +85,18 @@ export function StancePicker({
                 setHovered((current) => (current === side ? null : current))
               }
               onClick={() => onPick(side)}
-              className={`grid h-24 w-24 place-items-center gap-1 rounded-xl border-2 transition hover:shadow-md focus:outline-none disabled:pointer-events-none disabled:opacity-40 ${
+              className={`grid h-30 w-30 place-items-center gap-1 rounded-xl border-2 transition hover:shadow-md disabled:pointer-events-none disabled:opacity-40 ${
                 active ? SIDE_BORDER_ACTIVE[side] : "border-gray"
               }`}
             >
-              <SideGlyph side={side} active={active} className="size-12" />
+              <img
+                src={active ? SIDE_ICON[side].active : SIDE_ICON[side].inactive}
+                alt=""
+                aria-hidden="true"
+                className={`h-18 w-18 object-contain ${
+                  side === "minus" && active ? "scale-x-[-1]" : ""
+                }`}
+              />
               <span
                 className={`font-primary text-p-sm ${active ? SIDE_TEXT_ACTIVE[side] : "text-gray"}`}
               >

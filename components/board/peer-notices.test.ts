@@ -40,6 +40,13 @@ function makeBoard(overrides: Partial<BoardState> = {}): BoardState {
     skipped: [],
     settings: null,
     generosity,
+    awards: {
+      levelCleared: null,
+      badges: [],
+      points: 0,
+      pointEvents: [],
+      certificate: null,
+    },
     lastSeq: 0,
     ...overrides,
   };
@@ -60,6 +67,7 @@ function makeTile(id: string, text: string): BoardTile {
     removed: false,
     redacted: false,
     cardsThrown: 0,
+    corner: null,
     children: [],
   };
 }

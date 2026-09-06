@@ -14,24 +14,62 @@ import type { Side, Uuid } from "@/lib/events/types";
 
 export interface SigningLine {
   id: string;
-  /** The short line the player affirms. */
+  /**
+   * Kept for older consumers that only read `text`. Equal to `title` now:
+   * the placeholder slogans ("Play fair", "Stay on the thread", "Pin it
+   * down") are gone, replaced by the real agreement below.
+   */
   text: string;
   /** The badge family name it belongs to, shown beside it. */
   family: string;
+  /** The line's heading. Equal to `family` today, kept as its own field
+   * because the two mean different things (a badge family vs. a line's own
+   * heading) even though they read the same for all three lines so far. */
+  title: string;
+  /** The full pledge the player is agreeing to. Newlines separate short
+   * paragraphs and a word wrapped in single asterisks is italic; render it
+   * through `PledgeText` (components/lobby/player-agreement.tsx), never as
+   * a bare string. */
+  pledge: string;
 }
 
 /**
  * The three lines both players affirm before play, per the 2026-08-22 ruling
  * (BIZ-T260822-04). A ritual, not a consent form: no partial signing.
  *
- * The ids are the shipped vocabulary from the event catalogue. Rannie's frame
- * draws a fourth line, folded into Play fair; "I'll control my emotions" was
- * cut; the old game's same_team id is dead.
+ * The ids are the shipped vocabulary from the event catalogue and stay fixed
+ * regardless of wording changes, since `agreement_signed.items` records them
+ * per game. Steve, 2026-09-05, from his level 1 playthrough: the earlier
+ * placeholder slogans read as "trash" and were replaced with the production
+ * game's text; later the same day he rewrote all three in his own words
+ * and renamed the third line Shared Evidence (the id stays shared_facts). Rannie's frame draws a fourth
+ * line, folded into Mutual Respect; "I'll control my emotions" was cut; the
+ * old game's same_team id is dead.
  */
 export const SIGNING_LINES: readonly SigningLine[] = [
-  { id: "mutual_respect", text: "Play fair", family: "Mutual Respect" },
-  { id: "honest_thinking", text: "Stay on the thread", family: "Honest Thinking" },
-  { id: "shared_facts", text: "Pin it down", family: "Shared Facts" },
+  {
+    id: "mutual_respect",
+    family: "Mutual Respect",
+    title: "Mutual Respect",
+    text: "Mutual Respect",
+    pledge:
+      "I'm here to collaborate with my fellow player, not to troll them.\nI'll be kind, generous, and humble.\nThey *might* even change my mind a bit (hey, no promises).",
+  },
+  {
+    id: "honest_thinking",
+    family: "Honest Thinking",
+    title: "Honest Thinking",
+    text: "Honest Thinking",
+    pledge:
+      "Staying in a bubble feels safe, but it makes thinking weak.\nStrong thinking needs a (kind) opponent to hone reasoning.\nI'll collaborate with mine, and hold each other accountable.",
+  },
+  {
+    id: "shared_facts",
+    family: "Shared Evidence",
+    title: "Shared Evidence",
+    text: "Shared Evidence",
+    pledge: 'I\'ll track down facts collaboratively, and without bias for "my side."',
+  },
 ];
 
 export const SIGNING_LINE_IDS: readonly string[] = SIGNING_LINES.map((line) => line.id);
@@ -289,18 +327,44 @@ export function canStartGame(board: BoardState): Verdict {
 }
 
 /**
- * The card set a live game starts with. Today every player owns the same four
- * cards, so the intersection is all of them and nobody has raised anything;
- * who may raise it above the intersection is still open (BRAIN-T260817-09).
+ * The card set a game starts with: the cards every player at the table owns.
+ *
+ * A plain AND gate, ruled by Steve on 2026-09-03. Nobody can be held to a rule
+ * they have never been taught, so a card is in play only if both sides earned
+ * it, and a player who has cleared no levels holds nothing in live play. That
+ * is a real empty hand, not a bug: the Gym is where a hand comes from.
+ *
+ * `owned` is one list per player, each being that player's earned card ids
+ * (lib/db/awards.ts). `alsoInclude` is for the Gym, where the level being
+ * played puts its own card on the table so it can be taught: level 1 opens with
+ * "You" is Taboo in the hand of a player who owns nothing yet.
+ *
+ * Ordered by FIRST_RELEASE_CARD_IDS rather than by whatever order the awards
+ * came back in, so the tray is in the same order for everyone, and unknown ids
+ * are dropped rather than rendered as a blank card.
+ *
+ * Who may raise the set above the intersection is still open
+ * (BRAIN-T260817-09), so `policy` stays "intersection" and nobody has raised.
  */
-export function startingCardSet(): {
+export function startingCardSet(
+  owned: readonly (readonly string[])[],
+  alsoInclude: readonly string[] = [],
+): {
   policy: "intersection";
   card_ids: string[];
   raised_by: null;
 } {
+  const shared = new Set(alsoInclude);
+  if (owned.length > 0) {
+    const sets = owned.map((list) => new Set(list));
+    for (const cardId of sets[0]) {
+      if (sets.every((set) => set.has(cardId))) shared.add(cardId);
+    }
+  }
+
   return {
     policy: "intersection",
-    card_ids: [...FIRST_RELEASE_CARD_IDS],
+    card_ids: FIRST_RELEASE_CARD_IDS.filter((cardId) => shared.has(cardId)),
     raised_by: null,
   };
 }

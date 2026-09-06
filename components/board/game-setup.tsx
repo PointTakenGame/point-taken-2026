@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import type { BoardPlayer, BoardState } from "@/lib/board/project";
+import type { BoardState } from "@/lib/board/project";
 import {
   MAX_PLAYERS,
   SIGNING_LINES,
@@ -16,8 +16,10 @@ import {
 } from "@/lib/board/setup";
 import { Glyph } from "@/components/brand/art";
 import { useGameFeed } from "./use-game-feed";
-import { SIDE_LABEL } from "./side-label";
-import { StancePicker } from "./stance-picker";
+import { RoomCodeDisplay } from "@/components/lobby/room-code-display";
+import { StancePicker } from "@/components/board/stance-picker";
+import { TileShape } from "@/components/board/tile-shape";
+import { PlayerAgreement } from "@/components/lobby/player-agreement";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   chooseSide,
@@ -30,11 +32,23 @@ import {
 import type { Side } from "@/lib/events/types";
 
 /**
- * The room before the game: pick a side, settle the topic, sign, start.
+ * The room before the game: settle the topic, pick a side, sign, start.
  *
- * Ugly on purpose, same as the live board. Every button asks lib/board/setup
- * for its verdict, so a disabled control and a refused action give the same
- * reason in the same words.
+ * Styled toward Rannie's "the host" frame (Figma node 1096:251293) as of
+ * BRAIN-T260831-76: the numbered three-step flow, the room-code pill header
+ * with per-player status, and the gold reveal for the topic shelf all come
+ * from there. Every button still asks lib/board/setup for its verdict, so a
+ * disabled control and a refused action give the same reason in the same
+ * words; only the surface changed.
+ *
+ * Two deliberate departures from the frame, both decided rather than
+ * discovered here. Rannie's frame draws four agreement lines with individual
+ * checkboxes; the 2026-08-31 ruling (see this repo's CLAUDE.md, "Settled")
+ * fixed the signing ritual at three lines signed as one act, and calls her
+ * frame the stale one, so this screen keeps three. Her frame also orders
+ * topic before stance, which the code below now follows too: canSetTopic and
+ * canChooseSide in lib/board/setup.ts do not depend on each other, so nothing
+ * about the rules required the old stance-then-topic order.
  */
 
 const TIERS = ["Practice", "Serious Stuff", "Tough"] as const;
@@ -46,38 +60,45 @@ export interface GameSetupProps {
   me: { playerId: string; role: Side | null };
 }
 
-/** The code, and the link that carries it, for whoever the host is inviting. */
-function Invite({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  const path = `/join/${code}`;
-
-  async function copy() {
-    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
-    setCopied(true);
-  }
-
+/**
+ * One player's status in the room header: a name and whether they have
+ * signed. The frame draws a gold check for a signed player and a grey "?"
+ * for one who has not, using the same two octagon marks this codebase
+ * already ships as unused icon art (player-confirmed.svg / player-missing.svg),
+ * so this reaches for those rather than drawing new ones.
+ */
+function PlayerChip({
+  name,
+  signed,
+  joined,
+  mine,
+}: {
+  name: string;
+  signed: boolean;
+  /** False for the second seat before anybody has taken it. */
+  joined: boolean;
+  mine?: boolean;
+}) {
   return (
-    <p className="flex items-baseline gap-2 text-sm opacity-70">
-      <span>
-        Invite code <span className="font-mono font-semibold">{code}</span>
+    <span className="flex items-center gap-1.5">
+      {/* eslint-disable-next-line @next/next/no-img-element -- small decorative status mark, no intrinsic size worth optimizing for */}
+      <img
+        src={signed ? "/icons/player-confirmed.svg" : "/icons/player-missing.svg"}
+        alt=""
+        aria-hidden="true"
+        className={`h-6 w-6 object-contain ${joined ? "" : "opacity-50"}`}
+      />
+      <span className="flex flex-col leading-tight">
+        <span
+          className={`font-secondary text-p-sm font-semibold ${
+            joined ? "text-neutral-black" : "text-gray"
+          }`}
+        >
+          {name}
+        </span>
+        {mine ? <span className="font-secondary text-p-sm text-gray">(you)</span> : null}
       </span>
-      <button type="button" onClick={copy} className="underline">
-        {copied ? "link copied" : "copy link"}
-      </button>
-    </p>
-  );
-}
-
-function Who({ player, me }: { player: BoardPlayer; me: string }) {
-  const name = player.displayName ?? "someone";
-  const side = player.role ? SIDE_LABEL[player.role] : "no side yet";
-  return (
-    <li>
-      {name}
-      {player.id === me ? " (you)" : ""}: {side}
-      {player.signed ? ", signed" : ", has not signed"}
-      {player.left === "quit" ? ", left" : ""}
-    </li>
+    </span>
   );
 }
 
@@ -93,14 +114,14 @@ function Who({ player, me }: { player: BoardPlayer; me: string }) {
 function Waiting({ hasInvite }: { hasInvite: boolean }) {
   if (!hasInvite) {
     return (
-      <p className="text-sm opacity-70">
+      <p className="font-secondary text-p-sm text-gray text-center">
         Waiting for the other player. They come in through this room&apos;s invite link.
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1 text-sm opacity-70">
+    <div className="font-secondary text-p-sm text-gray mx-auto flex max-w-md flex-col gap-1 text-center">
       <p>
         Waiting for the other player. Copy the link above and send it to them: it opens
         this room in their browser and puts them in the seat across from you.
@@ -115,7 +136,7 @@ function Waiting({ hasInvite }: { hasInvite: boolean }) {
 
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="text-sm text-red-600">{error}</p>;
+  return <p className="font-secondary text-p-sm text-orange text-center">{error}</p>;
 }
 
 export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
@@ -123,10 +144,28 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const [custom, setCustom] = useState("");
+  /*
+    The octagon is the topic, so what it shows is the agreed topic, and
+    `draft` is only the edit in progress on top of it. Held as null-means-clean
+    rather than as a seeded string because the agreed topic arrives over the
+    feed: a player who did not type it, and any player who reloads, both get a
+    board with `currentTopicText` set and no local typing to show for it. With
+    a plain `useState("")` those cases drew the hero shape empty, placeholder
+    and all, and the topic they had actually agreed on was relegated to a note
+    card underneath it.
+  */
+  const [draft, setDraft] = useState<string | null>(null);
+  const custom = draft ?? board.currentTopicText ?? "";
   const [picked, setPicked] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Rannie's frame keeps the shelf behind a pill rather than always on screen,
+  // which is the specific complaint this pass is fixing: this app already tore
+  // out its other pick-from-a-list-of-links patterns, so the seventeen-topic
+  // shelf should not be the one place that habit survives.
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const mine = board.players.find((player) => player.id === me.playerId);
+  const peer = board.players.find((player) => player.id !== me.playerId);
   const here = board.players.filter((player) => player.left !== "quit");
   const plusVerdict = canChooseSide(board, me.playerId, "plus");
   const minusVerdict = canChooseSide(board, me.playerId, "minus");
@@ -146,6 +185,15 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   };
 
   const customVerdict = canSetTopic(board, custom);
+  // Pressing the button with the agreed wording still in the box would append
+  // an event that changes nothing and clears both signatures for the trouble.
+  const topicUnchanged = custom.trim() === (board.currentTopicText ?? "").trim();
+
+  async function copyInvite() {
+    if (!joinCode) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/join/${joinCode}`);
+    setCopied(true);
+  }
 
   // Leaving does not navigate anywhere, so this is the screen the leaver is
   // looking at. Showing them the room's controls with "left" beside their own
@@ -154,8 +202,10 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   if (hasLeft(board, me.playerId)) {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-        <h1 className="text-xl font-semibold">You left this room</h1>
-        <p className="text-sm opacity-70">
+        <h1 className="font-primary text-neutral-black text-3xl tracking-wide">
+          You left this room
+        </h1>
+        <p className="font-secondary text-p-sm text-gray">
           Your seat is still here and nobody else can take it. Walk back in whenever you
           want.
         </p>
@@ -163,13 +213,16 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="w-fit border border-current/30 px-2 py-1 disabled:opacity-30"
+            className="border-neutral-black font-secondary text-p-sm w-fit rounded-full border-2 px-3 py-1 disabled:opacity-30"
             disabled={pending}
             onClick={() => run(() => rejoinLobby(gameId))}
           >
             {pending ? "..." : "Rejoin"}
           </button>
-          <a className="text-sm underline opacity-60" href="/account">
+          <a
+            className="font-secondary text-p-sm text-gold underline underline-offset-2"
+            href="/account"
+          >
             Back to your account
           </a>
         </div>
@@ -178,29 +231,169 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
   }
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Before you start</h1>
-        {joinCode ? <Invite code={joinCode} /> : null}
-        <p className="text-xs opacity-50">
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
+      {/*
+        Rannie's frame has no page title, only the room pill: it is enough
+        context on its own once you are looking at a room you just made or
+        just joined. An h1 still belongs in the document for anyone using a
+        screen reader to orient on the page, so it stays, just not drawn.
+      */}
+      <h1 className="sr-only">Before you start</h1>
+
+      <header className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-full border-2 border-neutral-black bg-neutral-white px-6 py-3 shadow-sm">
+          <div className="flex flex-none items-center" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative brand mark, sized by className not intrinsic dimensions */}
+            <img src="/icons/minus.svg" alt="" className="h-5 w-5 object-contain" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative brand mark, sized by className not intrinsic dimensions */}
+            <img
+              src="/icons/plus.svg"
+              alt=""
+              className="-ml-1.5 h-5 w-5 object-contain"
+            />
+          </div>
+          {joinCode ? (
+            <RoomCodeDisplay code={joinCode} copied={copied} onCopy={copyInvite} />
+          ) : (
+            <p className="font-secondary text-p-sm text-gray">
+              This room has no invite link.
+            </p>
+          )}
+          <div className="flex flex-none items-center gap-4">
+            <PlayerChip
+              name={mine?.displayName ?? "You"}
+              signed={Boolean(mine?.signed)}
+              joined
+              mine
+            />
+            {/*
+              A peer who quit is still in board.players, so Boolean(peer) alone
+              would draw them as present while the count and the Waiting text
+              below both say the room is short a person. Quit reads as not
+              joined here, which leaves their name visible but dimmed and
+              unsigned rather than silently dropping them off the header.
+            */}
+            <PlayerChip
+              name={peer?.displayName ?? "Player 2"}
+              signed={Boolean(peer?.signed)}
+              joined={Boolean(peer) && peer?.left !== "quit"}
+            />
+          </div>
+        </div>
+        <p className="font-secondary text-p-sm text-gray text-center">
           {connected ? "live" : "not listening"} &middot; {here.length}/{MAX_PLAYERS} here
         </p>
+        <ErrorLine error={error} />
+        {here.length < MAX_PLAYERS ? <Waiting hasInvite={Boolean(joinCode)} /> : null}
       </header>
 
-      <ErrorLine error={error} />
+      <section className="flex flex-col items-center gap-4 text-center">
+        <h2 className="font-primary text-p-lg tracking-wide text-neutral-black">
+          #1 The topic
+        </h2>
+        <p className="font-secondary text-p-sm text-gray italic">
+          Pro tip: the Practice topics below are a good warmup before the Tough ones.
+        </p>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">In the room</h2>
-        <ul className="text-sm">
-          {board.players.map((player) => (
-            <Who key={player.id} player={player} me={me.playerId} />
-          ))}
-        </ul>
-        {here.length < MAX_PLAYERS ? <Waiting hasInvite={Boolean(joinCode)} /> : null}
+        {/*
+          The same octagon the board draws (TopicTile, via TileShape), right
+          down to the "TOPIC" watermark, so a player meets the shape once here
+          and recognises it the moment the game starts.
+
+          This comment used to say the tile was "a diamond, not the octagon
+          Rannie draws" and argued that reusing the wrong shape mattered more
+          than matching her silhouette. The mismatch was real and the argument
+          was wrong: the octagon is what production has shipped for a year.
+          Left as a marker, because a comment that rationalises a discrepancy
+          is how this one stayed off the delta tables for as long as it did.
+        */}
+        <TileShape side="neutral" size={16} watermark="TOPIC">
+          <textarea
+            className="font-tiles text-p-md text-neutral-black placeholder:text-gray h-28 w-36 resize-none border-none bg-transparent text-center focus:outline-none"
+            value={custom}
+            maxLength={TOPIC_MAX_CHARS}
+            placeholder="Should…"
+            disabled={pending}
+            aria-label="Write your own topic"
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </TileShape>
+        <button
+          type="button"
+          className="border-neutral-black font-secondary text-p-sm rounded-full border-2 px-5 py-1.5 font-bold disabled:opacity-40"
+          disabled={pending || !customVerdict.ok || topicUnchanged}
+          title={
+            topicUnchanged
+              ? "This is already the topic."
+              : customVerdict.ok
+                ? undefined
+                : customVerdict.error
+          }
+          onClick={() => {
+            setPicked(null);
+            run(() => setTopic(gameId, { text: custom, topicId: null }));
+            // Back to following the board, so the agreed wording is what the
+            // octagon shows the moment the event lands.
+            setDraft(null);
+          }}
+        >
+          {board.currentTopicText ? "Change the topic" : "Use this"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowLibrary((visible) => !visible)}
+          aria-expanded={showLibrary}
+          className="bg-gold text-neutral-white font-primary rounded-full px-6 py-2 tracking-wide shadow-md"
+        >
+          {showLibrary ? "Hide suggested topics" : "Check our suggested topics"}
+        </button>
+
+        {showLibrary ? (
+          <div className="flex w-full max-w-xl flex-col gap-4 text-left">
+            {TIERS.map((tier) => {
+              const topics = TOPIC_LIBRARY.filter((topic) => topic.tier === tier);
+              if (topics.length === 0) return null;
+              return (
+                <div key={tier} className="flex flex-col gap-2">
+                  <h3 className="font-secondary text-p-sm text-gray font-bold uppercase tracking-wide">
+                    {tier}
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {topics.map((topic) => (
+                      <button
+                        key={topic.id}
+                        type="button"
+                        disabled={pending}
+                        aria-pressed={picked === topic.id}
+                        onClick={() => {
+                          setPicked(topic.id);
+                          run(() =>
+                            setTopic(gameId, { text: topic.text, topicId: topic.id }),
+                          );
+                          setDraft(null);
+                        }}
+                        className={`font-secondary text-p-sm rounded-xl border-2 px-4 py-3 text-left shadow-sm transition-colors disabled:opacity-40 ${
+                          picked === topic.id
+                            ? "border-gold bg-sand"
+                            : "border-neutral-black/15 bg-neutral-white hover:border-neutral-black hover:bg-sand/30"
+                        }`}
+                      >
+                        {topic.text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Your side</h2>
+      <section className="flex flex-col items-center gap-2">
+        <h2 className="font-primary text-p-lg tracking-wide text-neutral-black">
+          #2 Your stance
+        </h2>
         <StancePicker
           value={mine?.role ?? null}
           disabled={pending}
@@ -216,101 +409,36 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-semibold">The topic</h2>
-        {board.currentTopicText ? (
-          <p className="border-l-2 border-current/40 pl-2 text-sm">
-            {board.currentTopicText}
-          </p>
-        ) : null}
-
-        {TIERS.map((tier) => {
-          const topics = TOPIC_LIBRARY.filter((topic) => topic.tier === tier);
-          if (topics.length === 0) return null;
-          return (
-            <div key={tier} className="flex flex-col gap-1">
-              <h3 className="text-xs uppercase tracking-wide opacity-60">{tier}</h3>
-              <ul className="flex flex-col gap-1">
-                {topics.map((topic) => (
-                  <li key={topic.id}>
-                    <button
-                      type="button"
-                      className="text-left text-sm underline disabled:no-underline disabled:opacity-40"
-                      disabled={pending}
-                      aria-pressed={picked === topic.id}
-                      onClick={() => {
-                        setPicked(topic.id);
-                        run(() =>
-                          setTopic(gameId, { text: topic.text, topicId: topic.id }),
-                        );
-                      }}
-                    >
-                      {topic.text}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-
-        <div className="flex flex-col gap-1">
-          <h3 className="text-xs uppercase tracking-wide opacity-60">Your own</h3>
-          <textarea
-            className="w-full border border-current/30 p-1 text-sm"
-            value={custom}
-            maxLength={TOPIC_MAX_CHARS}
-            placeholder="Write the statement you disagree about."
-            disabled={pending}
-            onChange={(event) => setCustom(event.target.value)}
-          />
-          <button
-            type="button"
-            className="self-start border border-current/40 px-3 py-1 text-sm disabled:opacity-40"
-            disabled={pending || !customVerdict.ok}
-            title={customVerdict.ok ? undefined : customVerdict.error}
-            onClick={() => {
-              setPicked(null);
-              run(() => setTopic(gameId, { text: custom, topicId: null }));
-            }}
-          >
-            Use this
-          </button>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        {/* The old client marked this same moment with this same drawing. */}
-        <h2 className="flex items-center gap-2 font-semibold">
+      {/*
+        The white card here is this screen's version of the frame's white
+        band: her layout can bleed the agreement step edge to edge because it
+        is not built inside a centred max-width column, this one is, so a
+        bordered card reads as the same "separate surface" cue without
+        restructuring the page around one section.
+      */}
+      <section className="border-neutral-black bg-neutral-white flex flex-col gap-3 rounded-3xl border-2 p-6 shadow-sm sm:p-8">
+        <h2 className="font-primary text-p-lg text-neutral-black flex items-center justify-center gap-2 text-center tracking-wide">
           <Glyph name="book" size={22} />
-          The agreement
+          #3 The agreement
         </h2>
-        <ul className="flex flex-col gap-1 text-sm">
-          {SIGNING_LINES.map((line) => (
-            <li key={line.id}>
-              <span className="opacity-60">{line.family}:</span> {line.text}
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm opacity-60">
+        <PlayerAgreement
+          lines={SIGNING_LINES}
+          signed={Boolean(mine?.signed)}
+          peerSigned={Boolean(peer?.signed)}
+          disabled={pending || !signVerdict.ok}
+          reason={signVerdict.ok ? undefined : signVerdict.error}
+          onSign={() => run(() => signAgreement(gameId))}
+        />
+        <p className="font-secondary text-p-sm text-gray text-center">
           Changing the topic clears both signatures, because this is what you are signing
           about.
         </p>
-        <button
-          type="button"
-          className="self-start border border-current/40 px-3 py-1 text-sm disabled:opacity-40"
-          disabled={pending || !signVerdict.ok}
-          title={signVerdict.ok ? undefined : signVerdict.error}
-          onClick={() => run(() => signAgreement(gameId))}
-        >
-          {mine?.signed ? "Signed" : "I stand behind all three"}
-        </button>
       </section>
 
-      <section className="flex items-center gap-3">
+      <section className="flex flex-col items-center gap-2">
         <button
           type="button"
-          className="border border-current/60 px-4 py-2 font-semibold disabled:opacity-40"
+          className="bg-gold text-neutral-white font-primary rounded-full px-8 py-3 tracking-wide shadow-md disabled:opacity-40"
           disabled={pending || !startVerdict.ok}
           title={startVerdict.ok ? undefined : startVerdict.error}
           onClick={() => run(() => startGame(gameId))}
@@ -318,14 +446,14 @@ export function GameSetup({ gameId, board, joinCode, me }: GameSetupProps) {
           Start the game
         </button>
         {startVerdict.ok ? null : (
-          <span className="text-sm opacity-70">{startVerdict.error}</span>
+          <span className="font-secondary text-p-sm text-gray">{startVerdict.error}</span>
         )}
       </section>
 
-      <footer>
+      <footer className="text-center">
         <button
           type="button"
-          className="text-sm underline opacity-60 disabled:opacity-30"
+          className="font-secondary text-p-sm text-gray underline disabled:opacity-30"
           disabled={pending}
           onClick={() => run(() => leaveLobby(gameId))}
         >

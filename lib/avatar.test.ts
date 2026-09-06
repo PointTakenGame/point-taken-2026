@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { avatarMark, initialsOf } from "./avatar";
+import { avatarMark, initialsOf, isPlayerEmoji, PLAYER_EMOJIS } from "./avatar";
 
 describe("initialsOf", () => {
   it("takes one letter per word", () => {
@@ -45,5 +45,26 @@ describe("avatarMark", () => {
         background: expect.stringContaining("55% 38%"),
       });
     }
+  });
+});
+
+describe("PLAYER_EMOJIS", () => {
+  it("offers exactly the nine emoji Point Taken Heart offers, in that order", () => {
+    expect(PLAYER_EMOJIS).toEqual(["👨🏻", "👩🏻", "👱🏻‍♂️", "👩🏻‍🦰", "👩🏽", "👨🏽", "🧑🏼", "👨🏾‍🦲", "👩🏾‍🦱"]);
+  });
+});
+
+describe("isPlayerEmoji", () => {
+  it("accepts every emoji on offer", () => {
+    for (const emoji of PLAYER_EMOJIS) {
+      expect(isPlayerEmoji(emoji)).toBe(true);
+    }
+  });
+
+  it("rejects anything not on the list, including a close lookalike", () => {
+    expect(isPlayerEmoji("🙂")).toBe(false);
+    expect(isPlayerEmoji("👨")).toBe(false);
+    expect(isPlayerEmoji("")).toBe(false);
+    expect(isPlayerEmoji("not an emoji")).toBe(false);
   });
 });

@@ -1,26 +1,53 @@
 import { TileShape } from "@/components/board/tile-shape";
 
 /**
- * The topic, shown the way the retired client's `TopicTile.vue` showed it: a
- * neutral (non-side) diamond with a stroked "TOPIC" watermark, centered above
- * the thread list, echoing that component's topic-at-center structure.
+ * Neutral topic octagon, ported from the retired `TopicTile.vue`: same
+ * `font-tiles` typeface, and an optional `onClick` for a revision affordance.
  *
- * Display only in this pass. The retired component's click-to-propose-a-
- * revision affordance opens a tile-anchored pop-up, and building that pop-up
- * is explicitly the parallel "Build tile pop-up primitive" agent's job
- * (`components/ui/tile-popover*`), not this one's. `TopicRevisionForm`
- * further down the board still carries that behavior as a plain inline form;
- * wiring a click-to-open affordance here is deferred until that primitive
- * lands and can be reviewed rather than duplicated.
+ * Standalone only. On the board the topic is a cell like any other and is
+ * drawn at the same size as a reason tile, which is what Rannie's render
+ * shows: her topic and her reasons both measure 234px square.
  */
-export function TopicTile({ text }: { text: string | null }) {
+export function TopicTile({
+  text,
+  onClick,
+}: {
+  text: string | null;
+  /** Renders the tile as a hover/click affordance. Omit for a plain tile. */
+  onClick?: () => void;
+}) {
+  const tile = (
+    <TileShape side="neutral" size={15} weight="root" watermark="TOPIC">
+      {text ? (
+        <p
+          className={`font-tiles text-p-md px-2 text-center ${
+            onClick ? "group-hover:text-gold" : ""
+          }`}
+        >
+          {text}
+        </p>
+      ) : (
+        <p className="font-secondary text-p-sm text-gray text-center italic">
+          No topic was set.
+        </p>
+      )}
+    </TileShape>
+  );
+
   return (
     <div className="flex justify-center py-4">
-      <TileShape side="neutral" size={15} watermark="topic">
-        <p className="font-secondary text-p-md px-2 text-center">
-          {text ?? "No topic was set."}
-        </p>
-      </TileShape>
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          title="Click to propose a revised topic"
+          className="group cursor-pointer rounded-none border-none bg-transparent p-0"
+        >
+          {tile}
+        </button>
+      ) : (
+        tile
+      )}
     </div>
   );
 }

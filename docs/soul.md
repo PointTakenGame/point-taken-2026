@@ -102,15 +102,15 @@ held in anyone's head. The shape of it:
 2. They pick a topic phrased as a question starting with "Should", one they actually
    disagree about. [ruled]
 3. Plus argues yes, Minus argues no. Each writes short reasons, one idea each, hanging
-   every new one off an existing claim.
-4. Where writing stalls, a bounded speaking window opens: **30 seconds for the speaker,
-   45 seconds to summarize what was said back.** [ruled Steve 2026-08-28] Note for the implementing
-   agent: no turn timer exists in the current code, nothing in `lib/` or `components/`
-   models a clock. This is a ruling awaiting a build.
-5. A thread closes when both players place the **same** resolution mark on the same
+   every new one off an existing claim. There is no turn timer where writing stalls: turn
+   timers are out of scope for this edition and belong to the Heart edition instead
+   [ruled Steve 2026-09-03, BRAIN-T260903-01]. An earlier version of this item described a
+   30-second speaker and 45-second summarize window as a ruling awaiting a build; that was
+   a mistake and is superseded.
+4. A thread closes when both players place the **same** resolution mark on the same
    claim: 👍 "point taken, you actually moved me", or 👀 "now I see why we disagree".
    Both must agree which. [ruled, Steve 2026-08-23, `lib/board/rules.ts:45`]
-6. The session ends cooperatively, one of two ways: every thread resolved, or both
+5. The session ends cooperatively, one of two ways: every thread resolved, or both
    players endorse a rewritten version of the topic. [ruled]
 
 Felt qualities Steve reports from real sessions, which a build must not destroy:
@@ -235,8 +235,11 @@ When nothing above covers a decision, decide in this order.
 
 ## 8. What Brain is not trying to be
 
-- **Not a debate scoreboard.** No winner, no ranked ladder of debaters, no currency and
-  no token economy: do not introduce one. [ruled Steve 2026-08-28]
+- **Not a debate scoreboard.** No single blended score, no head-to-head record, no currency
+  and no token economy: do not introduce one. [ruled Steve 2026-08-28] Ranking players by
+  cooperative measures (threads agreed, games finished, sustained play) is allowed, and the
+  leaderboard and the profile's cooperation score are built that way. [ruled Steve 2026-09-05,
+  BRAIN-T260905-34]
 - **Not a persuasion trainer.** Getting better at Brain is not getting better at
   changing minds.
 - **Not a fact-checking oracle.** The AI flags claims leaning on unstated evidence, it
@@ -272,10 +275,10 @@ purpose.
 
 **Every player-observable constant lives in `rules.md`, each with its own status
 marker and code citation. This document does not restate them**, because two copies
-of a number is how the two copies come to disagree. Go there for the thread ceiling
-and the four-thread floor, the resolution tokens and the deferred 🔍 ⚖️ 🍷 split, the
-topic-agreement endgame, tile and restatement and topic lengths, seats per game, room
-code length, and the speaking window.
+of a number is how the two copies come to disagree. Go there for the thread ceiling,
+which has no matching floor, the resolution tokens and the deferred 🔍 ⚖️ 🍷 split, the
+topic-agreement endgame, tile and restatement and topic lengths, seats per game, and
+room code length. There is no speaking window: this edition has no turn timers.
 
 One number belongs here instead, because no player can observe it directly and no
 code enforces it:

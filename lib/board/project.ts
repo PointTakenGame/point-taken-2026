@@ -5,6 +5,7 @@ import type {
   ProposalContent,
   ProposalKind,
   Side,
+  TileCorner,
   Uuid,
 } from "@/lib/events/types";
 import type { GameMode, GameStatus, WinCondition } from "@/lib/db/types";
@@ -34,6 +35,8 @@ export interface BoardTile {
   removed: boolean;
   redacted: boolean;
   cardsThrown: number;
+  /** The diagonal the placer clicked, when the log recorded one. */
+  corner: TileCorner | null;
   children: BoardTile[];
 }
 
@@ -184,6 +187,17 @@ export interface BoardProposal {
   answeredAtSeq: number | null;
 }
 
+/**
+ * Thread roots a live game opens with, and what a game_started written before
+ * root_target existed reads as, which is the same number for the same reason:
+ * those games were played with four roots on the table.
+ *
+ * It lives here rather than beside MAX_THREADS in rules.ts because the
+ * projection needs it to fill in version 1 rows and rules.ts already reads from
+ * this file. rules.ts re-exports it.
+ */
+export const LIVE_ROOT_TARGET = 4;
+
 /** The rules this game was started under. Settled once, at game_started. */
 export interface BoardSettings {
   cardSet: {
@@ -192,6 +206,13 @@ export interface BoardSettings {
     raisedBy: Uuid | null;
   };
   coach: { coachId: string; temperament: string } | null;
+  /**
+   * How many thread roots this game opens with. No tile hangs off another
+   * until that many are down (`canPlaceTile` in rules.ts). Always a number
+   * here: a game_started written at version 1 predates the field and reads as
+   * `LIVE_ROOT_TARGET`, which is what those games were played under.
+   */
+  rootTarget: number;
 }
 
 /**
@@ -268,7 +289,9 @@ export const PROJECTED_VERSIONS: Record<GameEventType, number[] | null> = {
   role_selected: [1],
   agreement_signed: [1],
   topic_set: [1],
-  game_started: [1],
+  // 2 added root_target (0012_root_stage.sql). 1 is still folded: those games
+  // were played under the live target, and that is what a missing field reads as.
+  game_started: [1, 2],
   player_left: [1],
   game_ended: [1],
   tile_placed: [1],
@@ -293,10 +316,35 @@ export const PROJECTED_VERSIONS: Record<GameEventType, number[] | null> = {
   // It exists to be compared against the log by a validator, so folding it into
   // the board would make the board a party to its own audit.
   gym_run_recorded: null,
+  // The four awards (0014_awards.sql). Folded so the certificate at the end of
+  // a game can read what that game actually granted rather than recomputing it
+  // off the script. What an account has earned across every game is a different
+  // question and a different reader: lib/db/awards.ts.
+  level_cleared: [1],
+  badge_granted: [1],
+  points_changed: [1],
+  certificate_granted: [1],
   // Folded, but in the pre-pass: a redaction rewrites the event it points at,
   // so it has to be known before the fold starts rather than during it.
   content_redacted: [1],
 };
+
+/**
+ * What this one game granted. Per game, and per player only in the sense that
+ * every award event carries the actor it belongs to: a gym game has one human
+ * in it, so `awards` is that human's. A live game grants nothing today, and
+ * this stays empty there rather than being null.
+ */
+export interface BoardAwards {
+  /** The rung this game cleared, if it cleared one. */
+  levelCleared: { levelId: string; cardId: string | null; seq: number } | null;
+  badges: { badgeId: string; occurrence: number; seq: number }[];
+  /** Net points from this game. Signed deltas summed, so a refunded stake nets zero. */
+  points: number;
+  /** Every points_changed in order, so a screen can show what moved and why. */
+  pointEvents: { delta: number; reason: string; seq: number }[];
+  certificate: { levelId: string; issuedAt: string } | null;
+}
 
 export interface BoardState {
   mode: GameMode | null;
@@ -329,6 +377,8 @@ export interface BoardState {
   /** Null until game_started. The board is not playable before then. */
   settings: BoardSettings | null;
   generosity: Record<Side, number>;
+  /** What this game granted (0014_awards.sql). Empty until something is. */
+  awards: BoardAwards;
   lastSeq: number;
 }
 
@@ -378,6 +428,13 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
     skipped: [],
     settings: null,
     generosity: { plus: 0, minus: 0 },
+    awards: {
+      levelCleared: null,
+      badges: [],
+      points: 0,
+      pointEvents: [],
+      certificate: null,
+    },
     lastSeq: 0,
   };
 
@@ -513,6 +570,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
                 temperament: event.payload.coach.temperament,
               }
             : null,
+          rootTarget: event.payload.root_target ?? LIVE_ROOT_TARGET,
         };
         break;
       }
@@ -538,6 +596,7 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
           removed: false,
           redacted: isRedacted(event.seq),
           cardsThrown: 0,
+          corner: event.payload.corner ?? null,
           children: [],
         };
         tiles.set(tile.id, tile);
@@ -724,6 +783,42 @@ export function projectBoard(events: readonly AnyGameEvent[]): BoardState {
 
       case "generosity_token_given": {
         state.generosity[event.payload.to_role] += 1;
+        break;
+      }
+
+      case "level_cleared": {
+        state.awards.levelCleared = {
+          levelId: event.payload.level_id,
+          cardId: event.payload.card_id,
+          seq: event.seq,
+        };
+        break;
+      }
+
+      case "badge_granted": {
+        state.awards.badges.push({
+          badgeId: event.payload.badge_id,
+          occurrence: event.payload.occurrence,
+          seq: event.seq,
+        });
+        break;
+      }
+
+      case "points_changed": {
+        state.awards.points += event.payload.delta;
+        state.awards.pointEvents.push({
+          delta: event.payload.delta,
+          reason: event.payload.reason,
+          seq: event.seq,
+        });
+        break;
+      }
+
+      case "certificate_granted": {
+        state.awards.certificate = {
+          levelId: event.payload.level_id,
+          issuedAt: event.payload.issued_at,
+        };
         break;
       }
 

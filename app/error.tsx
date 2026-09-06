@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 
 /**
  * The last thing between a thrown render error and a blank page.
@@ -38,7 +39,7 @@ export default function ErrorBoundary({
     <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold">This screen did not draw</h1>
-        <p className="opacity-70">
+        <p className="text-gray">
           Something went wrong on our end, not yours. Nothing either of you wrote is lost:
           a game is stored as the run of moves that made it, and a page that failed to
           draw has not touched that.
@@ -53,13 +54,13 @@ export default function ErrorBoundary({
         >
           Try again
         </button>
-        <span className="text-sm opacity-60">
+        <span className="text-p-sm opacity-60">
           Usually enough. If it comes back twice, it is real.
         </span>
       </div>
 
       {error.digest ? (
-        <p className="text-sm opacity-70">
+        <p className="text-p-sm text-gray">
           Reporting it? Quote this:{" "}
           <span className="font-mono font-semibold">{error.digest}</span>, along with the
           build id in the corner below. Together they say exactly which code failed and
@@ -67,16 +68,14 @@ export default function ErrorBoundary({
         </p>
       ) : null}
 
-      <nav className="flex gap-4 text-sm">
+      <nav className="flex gap-4 text-p-sm">
         <Link href="/" className="underline">
           Start a room
         </Link>
         <Link href="/account" className="underline">
           Your games
         </Link>
-        <Link href="/how-to-play" className="underline">
-          How to play
-        </Link>
+        <OnboardingLauncher className="underline">How to play</OnboardingLauncher>
       </nav>
     </main>
   );

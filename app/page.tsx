@@ -1,21 +1,54 @@
 import Link from "next/link";
 
+import { Profile } from "@/app/account/profile";
+import { StartPlaying } from "@/app/account/start-playing";
 import { Wordmark } from "@/components/brand/art";
 import { RoomEntry } from "@/components/rooms/room-entry";
-import { SiteNav } from "@/components/site-nav";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
+import { HomeLinks } from "@/components/home/home-links";
+import { CalendarStrip } from "@/components/account/calendar-strip";
+import { LeaderboardBoard } from "@/components/account/leaderboard-board";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
+import { listDemoPlayers } from "@/lib/dev/demo-players";
 import { currentPlayerId } from "@/lib/supabase/session";
+import { readLeaderboard } from "@/lib/db/leaderboard";
 
 /**
- * The front door: start a room, or join one with its code.
+ * Home, which is two different screens depending on whether anybody is here.
  *
- * Plain type on purpose, with one exception. Rannie's frames for this surface
- * are aesthetics to apply later, and the roadmap governs what is on the screen
- * (BRAIN-T260823-09). The wordmark is not part of that: it is the mark the game
- * has always shipped under, copied out of the retired client rather than
- * designed here, and a front door that does not say whose it is fails at the one
- * job a front door has.
+ * **Signed in, it is the profile** (Steve, 2026-09-03): the same screen as
+ * /account, opening with the Gym play and Live play cards above the stats. A
+ * player with an account has somewhere to be, and the room code field they
+ * would have come here for is on the Live play card.
+ *
+ * **Signed out, it is the front door**, rebuilt 2026-09-02 from Rannie's
+ * landing frame (Figma `1096:244927`, spec BRAIN-T260902-21). Hers is almost
+ * nothing: the wordmark large and centred over the dot-grid ground, a
+ * room-number field with "Join a game" beside it, the word OR, and "Create a
+ * room" under that.
+ *
+ * One thing on it is not hers and is not optional. Every action here quietly
+ * mints an account, so the visitor ticks the Terms of Use and the Privacy
+ * Policy before any of them will fire, and `/api/auth/anonymous` refuses
+ * without it. There is one tick box for the whole screen, inside RoomEntry,
+ * and the guest-account button below reads the same answer rather than asking
+ * again.
+ *
+ * There is no site nav on the signed-out half. She does not draw one on any of
+ * the three 832-tall frames, and the four-tab account hub is how you get around
+ * once you are in (`components/account/account-shell.tsx`). The quiet links at
+ * the bottom are ours: a player who attached an email months ago and cleared
+ * their cookies has exactly one way back to their games, and it is /signin.
+ *
+ * Below that front door, since 2026-09-05 (`BRAIN-T260904-14`, Steve's ruling
+ * "Both. It goes in both places."), sits the same sample events calendar and
+ * the same leaderboard that already sit at the foot of the profile. Rannie's
+ * empty landing frame stays the first thing anyone sees; these are a second,
+ * lower section rather than a change to hers. Both components are already
+ * standalone, so this reuses them rather than redrawing them: `CalendarStrip`
+ * carries no player-specific data at all, and `LeaderboardBoard` takes whoever
+ * is looking (null here) and just renders no "you" badge, which is the public
+ * form the same board would show a signed-out visitor on /leaderboard.
  */
 
 export const dynamic = "force-dynamic";
@@ -26,46 +59,62 @@ export default async function Home() {
   // hot seat you cannot get out of is worse than no hot seat.
   const dev = hotseatAllowed();
   const me = await currentPlayerId();
+  // The seeded history belongs to invented players, so without this the front
+  // door is the one place you cannot reach it from. See lib/dev/demo-players.ts.
+  const demoPlayers = dev ? await listDemoPlayers() : [];
+  // Only the signed-out half shows these below the fold: the profile already
+  // has both at its own foot, and the sorted-by-wins rows are the same public
+  // data a visitor would see with nobody signed in, so this never asks for
+  // `me`'s own stats.
+  const leaderboard = me ? null : await readLeaderboard("wins");
 
   return (
     <>
-      <SiteNav here="home" />
-      <main className="mx-auto flex max-w-2xl flex-1 flex-col justify-center gap-6 p-8">
-        <header className="flex flex-col gap-2">
-          {/* The mark carries the name, so there is no heading text to repeat. */}
-          <h1>
-            <Wordmark width={220} />
-          </h1>
-          <p className="opacity-70">
-            A writing game for two people who disagree. You trade reasons, link them, and
-            find out exactly where you part ways.
-          </p>
-        </header>
-        <RoomEntry />
-        {/*
-          The rules link is here and not only in SiteNav, which renders nothing
-          for a signed-out visitor. That visitor is exactly the person who has
-          never played.
-        */}
-        <p className="text-sm opacity-60">
-          Never played?{" "}
-          <Link href="/how-to-play" className="underline">
-            How to play
-          </Link>{" "}
-          is the whole thing in one page.
-        </p>
-        {me ? null : (
-          <p className="text-sm opacity-60">
-            Played before and attached an email?{" "}
-            <Link href="/signin" className="underline">
-              Sign in
-            </Link>{" "}
-            to get back to those games. Otherwise just start a room: an account comes with
-            it.
-          </p>
-        )}
-      </main>
-      {dev ? <HotseatBar me={me} /> : null}
+      {me ? (
+        <Profile playerId={me} />
+      ) : (
+        <main className="dot-ground flex w-full flex-1 flex-col items-center gap-16 p-8 pb-16">
+          <div className="flex min-h-screen w-full flex-col items-center justify-center gap-14">
+            {/* The mark carries the name, so there is no heading text to repeat. */}
+            <h1>
+              <Wordmark width={420} />
+            </h1>
+
+            <RoomEntry signedIn={false} />
+
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-p-sm text-ink-soft">
+                Or take the guest account on its own and look around first.
+              </p>
+              <StartPlaying label="Set me up" withTick={false} />
+            </div>
+
+            <HomeLinks signedIn={false} />
+          </div>
+
+          <div className="flex w-full max-w-3xl flex-col gap-8">
+            <CalendarStrip />
+
+            <section className="border-ink bg-card w-full overflow-hidden rounded-2xl border-[1.5px]">
+              <header className="bg-stat-warm text-card flex flex-wrap items-center gap-3 px-6 py-4">
+                <h2 className="font-figure text-2xl font-black tracking-wide uppercase">
+                  Leaderboard
+                </h2>
+                <Link
+                  href="/leaderboard"
+                  className="font-label border-card text-card hover:bg-card hover:text-stat-warm ml-auto rounded-lg border-[1.5px] px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase transition-colors"
+                >
+                  Full board
+                </Link>
+              </header>
+              <div className="p-6">
+                <LeaderboardBoard metric="wins" playerId={me} rows={leaderboard ?? []} />
+              </div>
+            </section>
+          </div>
+        </main>
+      )}
+      {dev ? <HotseatBar me={me} players={demoPlayers} /> : null}
     </>
   );
 }

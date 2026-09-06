@@ -1,13 +1,21 @@
 import Link from "next/link";
+import { LeaveLinks } from "@/components/board/leave-links";
 import { notFound } from "next/navigation";
 
 import { Ending } from "@/components/board/ending";
 import { FinishedMap } from "@/components/board/finished-map";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { GameSetup } from "@/components/board/game-setup";
+import { BuildStamp } from "@/components/build-stamp";
 import { LiveBoard } from "@/components/board/live-board";
 import { WinOverlay } from "@/components/win/win-overlay";
+import { Certificate } from "@/components/gym/certificate";
+import { GymDirector } from "@/components/gym/director";
+import { GymLobby } from "@/components/gym/gym-lobby";
+import { levelById } from "@/lib/gym/levels";
+import { levelCleared } from "@/lib/gym/script";
 import { projectBoard } from "@/lib/board/project";
+import { readPlayerAwards } from "@/lib/db/awards";
 import { getPlayer } from "@/lib/db/players";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
 import { readGameEvents } from "@/lib/events/append";
@@ -45,6 +53,11 @@ export default async function GamePage({
   // A preference, not a move, so it lives on the player row rather than the log.
   const player = await getPlayer(seat.seat.playerId);
 
+  // A scripted Gym level is the same board with a script beside it: the
+  // lobby is the signing ritual alone, the ending is the certificate, and
+  // the live board gets the director on top. Same URL, same history row.
+  const level = board.mode === "gym" ? levelById(board.levelId) : undefined;
+
   // Local sandbox bypass, see docs/filed/SANDBOX.md. Inert outside local dev.
   const hotseat = hotseatAllowed() ? (
     <HotseatBar
@@ -58,6 +71,47 @@ export default async function GamePage({
     />
   ) : null;
 
+  if (board.status === "ended" && level) {
+    // A level only reads as cleared when it was actually cleared, not just
+    // because the game around it ended: "Leave game" partway through ends
+    // the game too, and must not show the certificate (BRAIN-T260905-46).
+    // See levelCleared's own comment for what "cleared" means.
+    if (levelCleared(level, board)) {
+      return (
+        <>
+          <Certificate level={level} board={board} />
+          <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+          {hotseat}
+        </>
+      );
+    }
+
+    // Left early: the same sentence and map a non-gym game shows for the same
+    // situation, plus a way back to the Gym instead of "Start another room",
+    // which makes no sense mid-level.
+    return (
+      <>
+        <Ending board={board} />
+        <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+        <nav className="mx-auto flex w-full max-w-3xl flex-wrap gap-3 px-8 pb-8 print:hidden">
+          <Link
+            href="/#ladder"
+            className="bg-gold text-neutral-white font-primary text-p-sm rounded-full px-4 py-1.5 tracking-wide shadow-md"
+          >
+            Back to the Gym
+          </Link>
+          <Link
+            href="/account"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
+            Your games
+          </Link>
+        </nav>
+        {hotseat}
+      </>
+    );
+  }
+
   if (board.status === "ended") {
     return (
       <>
@@ -70,14 +124,51 @@ export default async function GamePage({
           to a pill so the finished map underneath stays readable.
         */}
         <WinOverlay board={board} />
-        <nav className="mx-auto flex w-full max-w-3xl gap-4 px-8 pb-8 print:hidden">
-          <Link href="/account" className="underline">
-            Your games
-          </Link>
-          <Link href="/" className="underline">
+        {/* The three ways on from a finished game, in the board's own
+            furniture rather than three browser-default links: the one a
+            player most likely wants next is the gold pill, the other two
+            are the offwhite pill the board uses for a way out. */}
+        <nav className="mx-auto flex w-full max-w-3xl flex-wrap gap-3 px-8 pb-8 print:hidden">
+          <Link
+            href="/"
+            className="bg-gold text-neutral-white font-primary text-p-sm rounded-full px-4 py-1.5 tracking-wide shadow-md"
+          >
             Start another room
           </Link>
+          <Link
+            href="/account"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
+            Your games
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
+            Leaderboard
+          </Link>
         </nav>
+        {hotseat}
+      </>
+    );
+  }
+
+  if (board.status === "lobby" && level) {
+    // Only fetched on this branch: the awards read is a second query, and the
+    // one thing it decides is whether the level-intro's rule card panel
+    // (components/gym/level-intro.tsx) shows the real card or a question
+    // mark, which only matters before a level has started.
+    const awards = await readPlayerAwards(seat.seat.playerId);
+    const cardEarned = awards.cardIds.includes(level.cardId);
+    return (
+      <>
+        <GymLobby
+          gameId={gameId}
+          levelId={level.id}
+          board={board}
+          me={{ playerId: seat.seat.playerId }}
+          cardEarned={cardEarned}
+        />
         {hotseat}
       </>
     );
@@ -92,6 +183,7 @@ export default async function GamePage({
           joinCode={seat.seat.game.join_code}
           me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
         />
+        <LeaveLinks />
         {hotseat}
       </>
     );
@@ -108,6 +200,7 @@ export default async function GamePage({
           joinCode={seat.seat.game.join_code}
           me={{ playerId: seat.seat.playerId, role: null }}
         />
+        <LeaveLinks />
         {hotseat}
       </>
     );
@@ -115,12 +208,27 @@ export default async function GamePage({
 
   return (
     <>
+      {/*
+        No LeaveLinks and no page chrome around a live board: LiveBoard is a
+        full-screen surface now, ported from the retired client's board page,
+        and it carries its own way out in the bottom left. Anything rendered
+        beside it here would sit underneath it.
+      */}
       <LiveBoard
         gameId={gameId}
         board={board}
         me={{ playerId: seat.seat.playerId, role: seat.seat.role }}
         coachEnabled={player?.coach_enabled ?? false}
+        joinCode={seat.seat.game.join_code}
+        opponentEmoji={level?.bossEmoji}
+        // The root layout's footer is suppressed on this route (a fixed
+        // full-screen board collapses it into the top-left corner), so the
+        // build id is handed to the board and printed in its own bottom-left
+        // utility stack. Rendered here rather than inside the client
+        // component, because it reads server-only environment.
+        buildStamp={<BuildStamp />}
       />
+      {level ? <GymDirector gameId={gameId} levelId={level.id} board={board} /> : null}
       {hotseat}
     </>
   );

@@ -35,57 +35,120 @@
   --color-gray: #747474;
   --color-offwhite: #fffcf5;
 
+  /* The ground under the board, and only there. Everywhere else in the app a
+     card sits on offwhite and is offwhite itself, which is fine because a
+     border or a shadow separates them. The board is the one screen made
+     almost entirely of large offwhite octagons, and on an offwhite ground
+     they lose their bodies and read as outlines drawn on the page. Rannie
+     draws them as white cards on a warm grey (`1096:252192`, ground #f5f2f0
+     against a #ffffff tile), so the tiles have weight before any border is
+     considered. This is her ground colour; the tiles keep our cream. */
+  --color-board-ground: #f5f2f0;
+
   /* Warm accents, used by buttons on hover and by the tile chrome. */
   --color-sand: #ffd979;
   --color-gold: #efae45;
   --color-brown: #73674e;
 
+  /* Rannie's account-flow palette (Figma 60wr75TY7I95UnL6jkLz2J, pulled
+     2026-09-02, BRAIN-T260902-21). Her ink is a warm near-black that is
+     noticeably softer than the board's #1e1e1e, and every border, stroke and
+     sticker shadow on the account pages is that one colour. The board keeps
+     neutral-black; these are the account flow's, and the two are not
+     interchangeable. */
+  --color-ink: #4d4c4a;
+  --color-ink-soft: #747474;
+  --color-paper: #f5f2f0;
+  --color-card: #fffdf9;
+
+  /* Tile chrome (Figma 60wr75TY7I95UnL6jkLz2J, "new play game view" section
+     1096:240649, re-pulled 2026-09-05). A reason tile is not one hue at two
+     opacities, it is three distinct tones: a pale wash for the outer ring, a
+     mid tone for the tile's own bold border, and a third, more saturated
+     accent for the watermark stroke and the small glyph row. Kept as their
+     own tokens rather than reusing --color-green/--color-orange, which are a
+     single value used elsewhere (buttons, the stance icons) and must not
+     shift with the board's palette. --color-tile-topic-border is the topic
+     tile's measured border, a warm charcoal distinct from the board's
+     --color-neutral-black; it duplicates --color-ink's hex on purpose rather
+     than reusing that token, since --color-ink is reserved for the account
+     flow and the two are not meant to move together. */
+  --color-tile-plus-wash: #9bef9b;
+  --color-tile-plus-border: #6ed59e;
+  --color-tile-plus-accent: #3abaaa;
+  --color-tile-minus-wash: #ffba6f;
+  --color-tile-minus-border: #eda065;
+  --color-tile-minus-accent: #f48625;
+  --color-tile-topic-border: #4d4c4a;
+  --color-tile-empty: #e5c4ad;
+
+  /* The stat colours, used only for the small note under a number. Warm for a
+     count going up, green for something settled, and nothing else. */
+  --color-stat-warm: #e08e3c;
+  --color-stat-good: #3fa88e;
+
   /* Typefaces. font-tiles is the handwritten face the reason tiles are set in
-     and is the single most recognisable thing about the game's look. */
+     and is the single most recognisable thing about the game's look.
+     font-figure and font-label are the account flow's pairing: a big condensed
+     number over a small wide-tracked label. */
   --font-primary: var(--font-anton), sans-serif;
   --font-secondary: var(--font-noto-sans), sans-serif;
   --font-tiles: var(--font-coming-soon), cursive;
+  --font-figure: var(--font-barlow-condensed), sans-serif;
+  --font-label: var(--font-dm-sans), sans-serif;
 
   --text-p-lg: 20px;
   --text-p-md: 16px;
   --text-p-sm: 13px;
+
+  /* The sticker shadow. Every panel on Rannie's account frames carries a hard
+     offset block of ink with no blur at all, sat under a 1.5px border in the
+     same colour. It is the whole reason her pages read as printed cards rather
+     than as web panels, and it stops working the moment it is softened, so it
+     is a token instead of a guess at a blur radius. */
+  --shadow-sticker: 4px 5px 0 0 #4d4c4a;
+  --shadow-sticker-sm: 2px 3px 0 0 #4d4c4a;
 
   --shadow-lg: 0px 4px 8px rgba(0, 0, 0, 0.15);
   --shadow-md: 0px 4px 8px rgba(0, 0, 0, 0.1);
   --shadow-sm: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-body {
-  background-color: var(--color-offwhite);
-  color: var(--color-neutral-black);
-  font-family: var(--font-secondary);
-  font-size: var(--text-p-md);
-}
+/* Layered for the same reason the form chrome below is: unlayered CSS beats
+   layered CSS at any specificity, so a text-* on a heading did nothing. */
+@layer base {
+  body {
+    background-color: var(--color-offwhite);
+    color: var(--color-neutral-black);
+    font-family: var(--font-secondary);
+    font-size: var(--text-p-md);
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-primary);
-  font-weight: normal;
-}
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-primary);
+    font-weight: normal;
+  }
 
-h1 {
-  font-size: 56px;
-}
+  h1 {
+    font-size: 56px;
+  }
 
-h2 {
-  font-size: 48px;
-}
+  h2 {
+    font-size: 48px;
+  }
 
-h3 {
-  font-size: 24px;
-}
+  h3 {
+    font-size: 24px;
+  }
 
-h4,
-h5,
-h6,
-p {
-  font-family: var(--font-secondary);
+  h4,
+  h5,
+  h6,
+  p {
+    font-family: var(--font-secondary);
+  }
 }
 
 /*
@@ -94,61 +157,65 @@ p {
   .input-primary, which is why the hover and active rules are scoped to button
   and guarded on :not(:disabled).
 */
-.form-base {
-  padding: 12px;
-  border: 2px solid var(--color-gray);
-  border-radius: 6px;
-  background-color: var(--color-neutral-white);
-  color: var(--color-gray);
-  font-weight: 600;
-  font-size: 16px;
-  text-align: center;
-  transition:
-    background-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.1s ease;
-}
+/* Layered so a utility in a className beats these defaults, which is how
+   every rounded-full, px-*, bg-* and text-* written beside them was meant to read. */
+@layer components {
+  .form-base {
+    padding: 12px;
+    border: 2px solid var(--color-gray);
+    border-radius: 6px;
+    background-color: var(--color-neutral-white);
+    color: var(--color-gray);
+    font-weight: 600;
+    font-size: 16px;
+    text-align: center;
+    transition:
+      background-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.1s ease;
+  }
 
-button.form-base:not(:disabled):hover {
-  background-color: var(--color-sand);
-  border-color: var(--color-gold);
-}
+  button.form-base:not(:disabled):hover {
+    background-color: var(--color-sand);
+    border-color: var(--color-gold);
+  }
 
-button.form-base:not(:disabled):active {
-  transform: scale(0.97);
-}
+  button.form-base:not(:disabled):active {
+    transform: scale(0.97);
+  }
 
-.btn-primary {
-  box-shadow: var(--shadow-sm);
-}
+  .btn-primary {
+    box-shadow: var(--shadow-sm);
+  }
 
-.btn-primary:not(:disabled):hover {
-  box-shadow: var(--shadow-md);
-}
+  .btn-primary:not(:disabled):hover {
+    box-shadow: var(--shadow-md);
+  }
 
-.btn-primary:not(:disabled):active {
-  box-shadow: var(--shadow-sm);
-}
+  .btn-primary:not(:disabled):active {
+    box-shadow: var(--shadow-sm);
+  }
 
-.btn-icon {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  .btn-icon {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.btn-icon:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+  .btn-icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-.input-primary {
-  flex: 1;
-  text-align: left;
-}
+  .input-primary {
+    flex: 1;
+    text-align: left;
+  }
 
-.input-primary::placeholder {
-  color: var(--color-gray);
+  .input-primary::placeholder {
+    color: var(--color-gray);
+  }
 }
 
 /*
@@ -185,4 +252,164 @@ button.form-base:not(:disabled):active {
 
 .animate-alert-out {
   animation: alert-out 180ms ease-in forwards;
+}
+
+/*
+  The account flow's page ground: Rannie's warm grey, with the decorative dot
+  grid she draws behind the top of every account frame. Hers is a 5x5px dot of
+  #747474 every 52px, starting at (18, 9), and it stops 832px down the page
+  rather than tiling forever. Both of those are reproduced literally: a grid
+  that ran the whole height of a 2171px page would turn from texture into
+  wallpaper.
+
+  Written as a background rather than a component so nothing has to render a
+  few hundred absolutely positioned dots into the accessibility tree.
+*/
+.dot-ground {
+  position: relative;
+  /* The dot field is a ::before at z-index -1, and a negative layer paints
+     behind its parent's own background unless the parent is a stacking
+     context of its own. Without this the field is drawn and never seen. */
+  isolation: isolate;
+  background-color: var(--color-paper);
+}
+
+/*
+  The field itself, as a layer rather than as the element's own background,
+  which is what confines it to the top 832px on a page that is three times
+  that. `z-index: -1` puts it above the parent's background colour and below
+  every child, so nothing on the page needs a stacking rule of its own.
+*/
+.dot-ground::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: -1;
+  height: 832px;
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--color-ink-soft) 28%, transparent) 2.5px,
+    transparent 2.5px
+  );
+  background-position: 18px 9px;
+  background-size: 52px 52px;
+  pointer-events: none;
+}
+
+/*
+  One sticker panel. The border and the shadow are the same ink and have to
+  stay in step, so they are set together rather than as two utilities that
+  somebody later half-edits.
+*/
+.sticker {
+  border: 1.5px solid var(--color-ink);
+  border-radius: 14px;
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-sticker);
+}
+
+/*
+  The account sheet and its folder tabs (Rannie's Profile frame `1066:216757`,
+  adopted 2026-09-04, BRAIN-T260904-40). Her whole page is one bordered sheet
+  with the hard sticker shadow, and the four tabs are die-cut into its top
+  edge: the active one is the same colour as the sheet and its bottom edge is
+  open, so tab and page read as one piece of card. The inactive ones are the
+  ground colour with the same outline, sat on the sheet's top border.
+
+  A tab's shape is an inline SVG behind its label (see account-shell.tsx),
+  because a trapezoid with a stroke on three sides and none on the fourth is
+  not something a border can draw. The rules here are only the parts that have
+  to agree between the tab and the sheet: the overlap that hides the sheet's
+  border under the active tab, and the sheet's own edge.
+*/
+.account-sheet {
+  border: 1.5px solid var(--color-ink);
+  border-radius: 18px;
+  background-color: var(--color-card);
+  box-shadow: 6px 7px 0 0 var(--color-ink);
+}
+
+.folder-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* The slanted right edge takes the last 16px of the tab's width, so the
+     label pads more on that side than the left. */
+  padding: 12px 40px 12px 22px;
+  margin-bottom: -1.5px;
+  z-index: 1;
+}
+
+.folder-tab > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/*
+  Pale hexagon confetti in the corner of a card, her tile motif used as
+  texture. An SVG hexagon repeated as a background and faded out with a mask
+  so it never reaches the card's text. Two corners are enough: she uses it on
+  the two action cards (bottom-right) and on the ladder card (top-left and
+  bottom-right), never anywhere it would sit under words.
+*/
+.hex-confetti {
+  position: relative;
+  overflow: hidden;
+}
+
+.hex-confetti::after,
+.hex-confetti.hex-confetti-tl::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: 220px;
+  height: 160px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'%3E%3Cpath d='M14 2l10 6v12l-10 6-10-6V8z' fill='%23ffb42f' fill-opacity='0.28'/%3E%3C/svg%3E");
+  background-size: 28px 32px;
+}
+
+.hex-confetti::after {
+  right: -10px;
+  bottom: -10px;
+  mask-image: radial-gradient(ellipse at bottom right, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at bottom right, #000 30%, transparent 75%);
+}
+
+.hex-confetti.hex-confetti-tl::before {
+  left: -10px;
+  top: -10px;
+  mask-image: radial-gradient(ellipse at top left, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at top left, #000 30%, transparent 75%);
+}
+
+.hex-confetti > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+  The spiral-bound notebook edge on the ladder card: a row of ring holes
+  along the top, drawn as a repeating radial gradient rather than as a row of
+  elements, so a wider card simply gets more rings.
+*/
+.notebook-rings {
+  height: 22px;
+  margin: -6px 0 0;
+  background-image: radial-gradient(
+    circle at center,
+    var(--color-paper) 7px,
+    var(--color-ink) 7px,
+    var(--color-ink) 8.5px,
+    transparent 8.5px
+  );
+  background-size: 62px 22px;
+  background-position: 12px 0;
+  background-repeat: repeat-x;
 }

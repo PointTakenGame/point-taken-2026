@@ -53,11 +53,11 @@ export function Ending({ board }: { board: BoardState }) {
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-8 pt-8 print:hidden">
-      <h2 className="flex items-center gap-2 text-xl font-semibold">
+      <h2 className="font-primary text-neutral-black flex items-center gap-2 text-2xl">
         {won && <Glyph name="party" size={28} />}
         {ending.title}
       </h2>
-      <p className="opacity-70">{ending.body}</p>
+      <p className="font-secondary text-gray">{ending.body}</p>
     </section>
   );
 }

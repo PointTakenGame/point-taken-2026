@@ -1,0 +1,13 @@
+<svg
+  viewBox="0 0 119 98"
+  xmlns="http://www.w3.org/2000/svg"
+  preserveAspectRatio="xMidYMid meet"
+  role="img"
+  aria-label="minus"
+>
+  <g filter="url(#minus_shadow)">
+    <rect width="34.0122" height="18.1399" transform="matrix(-1 1.0642e-07 1.0642e-07 1 107.104 39.9448)" fill="#F48625"/>
+    <rect width="34.0122" height="18.1399" transform="matrix(-1 1.0642e-07 1.0642e-07 1 45.8809 39.9448)" fill="#F48625"/>
+    <rect x="69.2305" y="39.1628" width="19.4101" height="19.4101" transform="rotate(90 69.2305 39.1628)" fill="#F48625"/>
+  </g>
+</svg>

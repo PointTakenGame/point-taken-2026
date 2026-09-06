@@ -1,0 +1,23 @@
+/**
+ * A tiny chip marking a widget's figures as invented sample data.
+ *
+ * Steve, 2026-09-03: build the progression widgets now, on fake numbers, so
+ * the screens do not wait on Nathan's script (BRAIN-T260903-10,
+ * BRAIN-T260903-11). Every number behind these widgets lives in
+ * lib/progression/sample.ts. This chip is how a tester looking at the Profile
+ * tab is told the same thing without reading that file, so nobody files a bug
+ * against an invented figure. One component, one place to delete once the
+ * real engine lands and the tag comes off every widget at once.
+ *
+ * Since 0014_awards.sql some of those widgets read the log instead, and their
+ * tags have come off. The ones that keep it are the ones with nothing real
+ * behind them yet, and `label` is for the middle case: a widget whose figures
+ * are real but whose wording is still placeholder.
+ */
+export function SampleTag({ label = "Sample data" }: { label?: string }) {
+  return (
+    <span className="font-label border-ink/30 text-ink-soft shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase">
+      {label}
+    </span>
+  );
+}

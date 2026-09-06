@@ -39,10 +39,15 @@ by name:
 - `2026-08-22_skill-ladder-levels-1-4.md`, what each level teaches and why in that order
 - `2026-08-23_account-pages-entity-list.md`, the account screens and the entities behind them
 
-Where those documents describe the practice ladder (the Gym), they describe something this
-codebase does not build. Steve's 2026-08-17 scope ruling took the scripted practice opponent
-off the critical path, because the prototype is live play against a human. Treat them as what
-the account and the coach must stay compatible with, not as a description of what runs today.
+Where those documents describe the practice ladder (the Gym), they describe what this codebase
+is building next. **The Gym, levels 1 to 4, is on the critical path** (Steve, 2026-08-28,
+reversing an earlier 2026-08-17 ruling that had taken it off). `docs/roadmap.md` is the source
+of record for what levels 1 to 4 contain.
+
+`docs/` in this repository is the canonical, present-tense specification set (soul, roadmap,
+rules, script, tech spec, UI components). `docs/README.md` explains the status markers that
+say how much authority any given value carries. Anything under `docs/` reaches `main` through
+a pull request, never a direct push.
 
 ## The one architectural fact
 
@@ -251,13 +256,45 @@ Settled, and not up for redesign in a surface pull request:
 - the tile tree, and tokens as the way a thread ends
 - both win conditions being cooperative
 - permanent ids
+- the signing ritual is three lines, signed as one act, not four checkboxes. Ruled on the
+  2026-08-31 call; the Figma still draws four, and the Figma is the stale one here.
+- the level ladder for levels 1 to 4, which is
+  `spec/2026-08-22_gym-levels-1-4-implementation-guide.md` in the brain repo
+- one navigation out of game, and none in it. The four tabs (Profile, Cards & Badges, History,
+  Settings) are the only chrome on any account page; the Gym and the leaderboard are not tabs
+  but are reached from the Profile (the level progress ladder is the level select, the
+  cooperation tile opens the leaderboard); the board, the landing, and the host screen carry no
+  tab bar. Steve, 2026-09-04, `BRAIN-T260904-22`, matching Rannie's connector arrows.
+- a level opens on two cards over the empty board: the boss intro, then the agreement. The
+  agreement names the level, the boss, and the topic, then the three pledges from the
+  production game (Mutual Respect, Honest Thinking, Shared Facts, `SIGNING_LINES` in
+  `lib/board/setup.ts`), one button agrees to all three, and only then does START THE GAME
+  ungrey. No level shows a rule card before play; a card is met on the board the moment the
+  script teaches it. Steve, 2026-09-05, `BRAIN-T260905-39`, superseding the rule-card intro
+  card of `BRAIN-T260904-21`. The question-mark rule for an unearned card still applies
+  wherever a card is listed.
+- level 1 is cooked: the coach's suggested text is placed as written with one Place button
+  and no editing, only the slot the coach points at is offered, nothing is offered under the
+  player's own tiles, and no empty slot is drawn while a card throw is expected. Ways to Win
+  and the card tray stay hidden until the script reveals them. Levels 2 to 4 are not cooked
+  unless Steve says so. Steve, 2026-09-05, `BRAIN-T260905-40` and `BRAIN-T260905-43`.
+- the thread ceiling is four on the tile board, the centre tile's four diagonals, and six only
+  in compact mode when it ships; `MAX_THREADS` in `lib/board/rules.ts` says four. There is no
+  minimum: a game ends when every live thread resolves. Steve, 2026-09-05, `BRAIN-T260905-33`.
+- tokens are named Agree to agree (👍) and Agree to disagree (👀); the three-way split of 👀
+  waits for level 6 and above. Steve, 2026-09-05, `BRAIN-T260905-30`.
+- a rule card is thrown by two clicks, the card then the tile. No drag. Steve, 2026-09-05,
+  `BRAIN-T260905-35`.
+- ranking players by cooperative measures is allowed; a single blended competitive score and
+  head-to-head records are not. Steve, 2026-09-05, `BRAIN-T260905-34`.
+- level 1 opens on two roots, Bob's first; his thread closes Agree to agree at two tiles, the
+  player's teaches You is Taboo at Bob's first reply and closes Agree to disagree at four.
+  Steve, 2026-09-05, `BRAIN-T260905-32`; the script is `lib/gym/levels/onboarding.ts`.
 
 Still moving, and known to be inconsistent between the code and the design documents:
 
-- the number of agreement lines in the signing ritual, three in the brief and four in the Figma
-- the level and badge taxonomy, and the name of every level
+- the badge taxonomy, and the name of every level above 4. A second, undecided naming ladder
+  is drawn throughout the Figma; whether level 5 splits into 5A and 5B was deferred explicitly.
 - the shape of the coach's turn
-- how many threads a game must have before it can end (the code says four, carried forward from
-  the old server rather than ratified, and says so in a comment)
 
 **Do not resolve any of these by choosing one. Flag it.**

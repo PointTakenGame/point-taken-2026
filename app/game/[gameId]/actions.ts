@@ -5,7 +5,7 @@ import { after } from "next/server";
 
 import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as rules from "@/lib/board/rules";
-import type { GameEventType, NewEvent, Side, Uuid } from "@/lib/events/types";
+import type { GameEventType, NewEvent, Side, TileCorner, Uuid } from "@/lib/events/types";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
 import { runCoach } from "@/lib/coach/run";
 import { setCoachEnabled } from "@/lib/db/players";
@@ -15,6 +15,7 @@ import {
   readMembership,
   type Membership,
 } from "@/lib/games/membership";
+import { grantLevelAwards } from "@/lib/gym/awards";
 
 /**
  * Every write a player can make to a live board.
@@ -75,9 +76,15 @@ function rootText(board: BoardState, threadRootId: Uuid): string | null {
   return board.tiles.find((tile) => tile.id === threadRootId)?.text ?? null;
 }
 
+const TILE_CORNERS: readonly TileCorner[] = ["ne", "se", "sw", "nw"];
+
+function isTileCorner(value: string): value is TileCorner {
+  return (TILE_CORNERS as readonly string[]).includes(value);
+}
+
 export async function placeTile(
   gameId: string,
-  input: { text: string; parentTileId: string | null },
+  input: { text: string; parentTileId: string | null; corner?: string },
 ): Promise<ActionResult> {
   const loaded = await session(gameId);
   if (isDenial(loaded)) return loaded;
@@ -86,6 +93,11 @@ export async function placeTile(
   const parentTileId = input.parentTileId;
   const verdict = rules.canPlaceTile(board, input.text, parentTileId);
   if (!verdict.ok) return failed(verdict.error);
+
+  if (input.corner !== undefined && !isTileCorner(input.corner)) {
+    return failed("That is not a corner of the board.");
+  }
+  const corner = input.corner as TileCorner | undefined;
 
   const tileId = crypto.randomUUID();
   const parent = parentTileId
@@ -101,6 +113,7 @@ export async function placeTile(
       thread_root_id: parent ? parent.threadRootId : tileId,
       side: membership.role,
       text: input.text.trim(),
+      ...(corner !== undefined ? { corner } : {}),
     },
   });
 
@@ -373,6 +386,11 @@ async function settleIfAgreed(gameId: string, threadRootId: string): Promise<voi
     source: "system",
     payload: { win_condition: "threads_resolved" },
   });
+
+  // A gym level ends the same way a live game does, through this same function
+  // when it is the player's own token that closed the last thread. Writing down
+  // what was earned belongs with the ending, not with whoever happened to move.
+  await grantLevelAwards(gameId);
 }
 
 export async function proposeTopicRevision(
@@ -687,6 +705,9 @@ export async function acceptProposal(
   }
 
   await appendGameEvents(gameId, batch);
+  // The other ending: both sides standing behind one revised statement. Awards
+  // are a no-op unless that batch actually carried game_ended.
+  await grantLevelAwards(gameId);
   refresh(gameId);
   return { ok: true };
 }

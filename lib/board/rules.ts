@@ -1,5 +1,5 @@
 import type { BoardProposal, BoardState, BoardThread } from "./project";
-import { liveThreads } from "./project";
+import { LIVE_ROOT_TARGET, liveThreads } from "./project";
 import type { Side, Uuid } from "@/lib/events/types";
 
 /**
@@ -57,21 +57,44 @@ export function isResolutionToken(value: string): value is ResolutionToken {
 }
 
 /**
- * How many threads a game must have resolved before resolving them all ends it.
- * Without a floor, one thread resolved on the first exchange ends the game.
- * GAP: Steve ruled the ceiling on 2026-08-23 and did not restate this number,
- * so four is still carried forward from the deployed 2024 server rather than
- * ratified (BRAIN-T260823-10).
+ * The most threads a game may hold. Games end by resolving every thread, and
+ * the cap is what makes that ending reachable, since a board people can keep
+ * widening never runs out of threads to resolve. Four is the tile board's
+ * capacity: a centre tile has four diagonals (Steve, 2026-08-31 and
+ * 2026-09-05). Compact mode, when it ships, raises this to six, three a side;
+ * until then six is unreachable and the constant says what the board can
+ * draw. Enforced on placement: a tile that would open one thread too many is
+ * refused.
  */
-export const MIN_THREADS_TO_END = 4;
+export const MAX_THREADS = 4;
 
 /**
- * The most threads a game may hold. Steve, 2026-08-23: games end by resolving
- * every thread, up to six. The cap is what makes that ending reachable, since
- * a board people can keep widening never runs out of threads to resolve.
- * Enforced on placement: a tile that would open a seventh thread is refused.
+ * The root stage: how many thread roots a board opens with before any tile may
+ * hang off another one.
+ *
+ * A game starts by getting the main branches of the disagreement onto the
+ * table. Diving into the first reason before the others exist is how a board
+ * turns into one long argument about whatever got said first, which is the
+ * shape the game exists to avoid.
+ *
+ * Per game, off `game_started`, not per mode. Four in live play and in gym
+ * levels 2 and up; one in gym level 1, which teaches what a thread is by
+ * playing the player's own thread out before the boss opens a second. A game_started written before
+ * the field existed reads as the live four (LIVE_ROOT_TARGET, project.ts).
  */
-export const MAX_THREADS = 6;
+export { LIVE_ROOT_TARGET } from "./project";
+
+export function rootTarget(board: BoardState): number {
+  return board.settings?.rootTarget ?? LIVE_ROOT_TARGET;
+}
+
+/**
+ * True while the board is still filling its opening roots, which is what the
+ * composer and the hover ghosts ask before offering to hang a tile off another.
+ */
+export function inRootStage(board: BoardState): boolean {
+  return liveThreads(board).length < rootTarget(board);
+}
 
 /**
  * Whether agreeing on a rewritten topic ends this game.
@@ -102,10 +125,16 @@ export function isResolved(thread: BoardThread): boolean {
  * Whether resolving every thread should end this game now. Threads with no
  * live tiles left do not count: a thread whose tiles were all removed is not
  * an argument anybody resolved.
+ *
+ * There is no floor beyond having an argument at all. The deployed 2024 server
+ * carried one of four, which meant a board could show every thread resolved and
+ * refuse to end, with nothing on the screen able to explain why. Steve ruled it
+ * out on 2026-09-01: winning is resolving the threads the game actually has,
+ * however many that turns out to be (BRAIN-T260901-06).
  */
 export function threadsWinReached(board: BoardState): boolean {
   const real = liveThreads(board);
-  return real.length >= MIN_THREADS_TO_END && real.every((thread) => isResolved(thread));
+  return real.length > 0 && real.every((thread) => isResolved(thread));
 }
 
 /**
@@ -144,6 +173,33 @@ export type Verdict = Allowed | Refusal;
 const ALLOWED: Allowed = { ok: true };
 const no = (error: string): Refusal => ({ ok: false, error });
 
+/**
+ * The moderator's one interception: a reason may not be a question.
+ *
+ * Nathan's level 4 (Revision 2, L4.2) makes this a rule of the board rather
+ * than a card: "a question doesn't hand the other player anything to answer.
+ * There's no claim in it to agree or disagree with, so there's nothing for a
+ * tile to be." It applies to both players, in live play and in the Gym, and
+ * the refusal is worded in the moderator's voice because that is who a player
+ * hears it from.
+ *
+ * The test is the last character, deliberately. A reason may quote a question
+ * on its way to a claim ("They ask who checks the label, and nobody does"),
+ * and only the sentence a tile ENDS on says what the tile is offering. A
+ * trailing quote or bracket is stripped first so a quoted question still
+ * reads as one. This will let a rhetorical question phrased without a question
+ * mark through; that is the right side to fail on, because the alternative is
+ * a rule that argues with people about what they meant.
+ */
+const QUESTION_TAIL = /[?？]["'”’)\]\s]*$/u;
+
+export function isQuestion(text: string): boolean {
+  return QUESTION_TAIL.test(text.trim());
+}
+
+const NOT_A_QUESTION =
+  "That is a question, and the board is for statements. What is the claim behind it?";
+
 /** Nothing may be written to a board that is not in play. */
 export function boardIsOpen(board: BoardState): Verdict {
   if (board.status === "ended") return no("This game is over.");
@@ -164,9 +220,10 @@ export function canPlaceTile(
   if (trimmed.length > TILE_MAX_CHARS) {
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
   }
+  if (isQuestion(trimmed)) return no(NOT_A_QUESTION);
 
   if (parentTileId === null) {
-    // A tile with no parent opens a new thread, and six is all a game gets.
+    // A tile with no parent opens a new thread, and the cap is all a game gets.
     const live = liveThreads(board).length;
     if (live >= MAX_THREADS) {
       return no(
@@ -174,6 +231,22 @@ export function canPlaceTile(
       );
     }
   } else {
+    // The root stage. A game opens by putting the main branches of the
+    // disagreement on the table, and only then goes down one of them, so
+    // nothing hangs off anything until the opening roots are down. The number
+    // is per game (game_started's root_target), not per mode: four in live
+    // play and in gym levels 2 and up, one in gym level 1.
+    const target = rootTarget(board);
+    const roots = liveThreads(board).length;
+    if (roots < target) {
+      const short = target - roots;
+      return no(
+        short === 1
+          ? "One more reason still has to hang off the topic before anything hangs off another reason."
+          : `${short} more reasons still have to hang off the topic before anything hangs off another reason.`,
+      );
+    }
+
     const parent = board.tiles.find((tile) => tile.id === parentTileId);
     if (!parent) return no("That reason is not on this board.");
     if (parent.removed) return no("That reason was taken off the board.");
@@ -203,6 +276,9 @@ export function canEditTile(
   if (trimmed.length > TILE_MAX_CHARS) {
     return no(`A reason is at most ${TILE_MAX_CHARS} characters.`);
   }
+  // Same rule on the way in and on the way back out: a reason edited into a
+  // question is a question.
+  if (isQuestion(trimmed)) return no(NOT_A_QUESTION);
   return ALLOWED;
 }
 

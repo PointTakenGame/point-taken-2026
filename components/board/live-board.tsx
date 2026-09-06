@@ -1,7 +1,10 @@
 "use client";
 
 import {
+  useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type ReactElement,
@@ -17,23 +20,39 @@ import type {
 } from "@/lib/board/project";
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
-import { TileShape, SideGlyph } from "@/components/board/tile-shape";
+import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
 import { ResolutionPicker } from "@/components/board/resolution-picker";
-import { TopicTile } from "@/components/board/topic-tile";
-import { CollapsedThread } from "@/components/board/collapsed-thread";
-import { WaysToWinCard, type MiniThread } from "@/components/board/ways-to-win-card";
-import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
+import { SpatialBoard, cornerFromOffset } from "@/components/board/spatial-board";
+import { TOPIC_CELL_ID, topicRootedLayout } from "@/components/board/layout";
+import {
+  SameSideNotice,
+  markSameSideNoticeSeen,
+  sameSideNoticeSeen,
+} from "@/components/board/same-side-notice";
+import {
+  WaysToWinCard,
+  type MiniCorner,
+  type MiniThread,
+} from "@/components/board/ways-to-win-card";
+import {
+  OnboardingOverlay,
+  useOnboarding,
+} from "@/components/onboarding/onboarding-overlay";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
+import { AnchoredCard } from "@/components/ui/anchored-card";
+import { RuleCardTray } from "@/components/board/rule-card-tray";
+import { canStartLaterMove } from "@/components/board/later-moves";
 import {
   DECLINE_REASON_MAX_CHARS,
   DEFINITION_TERM_MAX_CHARS,
   MAX_THREADS,
-  MIN_THREADS_TO_END,
   OTHER_SIDE,
   READING_MAX_CHARS,
   RESOLUTION_TOKENS,
   TILE_MAX_CHARS,
   type Verdict,
+  canAnswerProposal,
   canDeclineThrow,
   canEditTile,
   canPlaceResolutionToken,
@@ -43,29 +62,32 @@ import {
   canProposeRelocation,
   canProposeSteelmanReading,
   canProposeSteelmanTile,
-  canProposeTopicRevision,
   canRemoveTile,
   canReviseTile,
   canThrowCard,
   cardsInPlay,
   isResolved,
-  proposalsAwaiting,
-  proposalsFrom,
+  rootTarget,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
+import {
+  INNER_FRAME_RATIO,
+  OUTER_FRAME_REM,
+  TILE_BODY_PX,
+  TILE_LEAD_PX,
+} from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
-import { CLAIM_SIZE_ROOT_SUGGESTIONS } from "@/lib/gym/root-suggestions";
 import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
-import { SIDE_LABEL, SIDE_MARK } from "./side-label";
+import { SIDE_LABEL, stripDuplicateLead, tileLead } from "./side-label";
+import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
   clearResolutionToken,
   declineThrow,
   editTile,
-  giveGenerosityToken,
   leaveGame,
   placeResolutionToken,
   placeTile,
@@ -74,13 +96,19 @@ import {
   proposeRelocation,
   proposeSteelmanReading,
   proposeSteelmanTile,
-  proposeTopicRevision,
   rejectProposal,
   removeTile,
   reviseTile,
   throwCard,
 } from "@/app/game/[gameId]/actions";
-import type { ProposalKind, Side, Uuid } from "@/lib/events/types";
+import type { Side, TileCorner, Uuid } from "@/lib/events/types";
+import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
+import { useBossDraft } from "@/components/gym/boss-draft";
+import { useCookedPlacement } from "@/components/gym/cooked-placement";
+import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
+import { usePointedSlot } from "@/components/gym/pointed-slot";
+import { usePointedTile } from "@/components/gym/pointed-tile";
+import { useSampleAnswers } from "@/components/gym/sample-answers";
 
 /**
  * The live board: everything a player can see and do while a game is in
@@ -99,6 +127,17 @@ export interface LiveBoardProps {
   me: { playerId: string; role: Side };
   /** Whether this player has the coach switched on. Off by default. */
   coachEnabled: boolean;
+  /** The build id line, rendered on the server and handed down. See the note
+   *  at the call site in `app/game/[gameId]/page.tsx`. */
+  buildStamp?: ReactNode;
+  /** Room code, small print during play. Display only: no link, no share
+   *  token, until Steve decides there should be (BRAIN-T260822-14). */
+  joinCode?: string | null;
+  /** The Gym boss's emoji, shown on the opponent badge. Only an emoji
+   *  crosses this boundary, never the Level object: its beats can carry
+   *  functions, which cannot be handed from the server to a client
+   *  component. Undefined outside the Gym. */
+  opponentEmoji?: string;
 }
 
 /** Every live tile that has no live parent and is not a thread root. */
@@ -114,9 +153,105 @@ function allTargets(board: BoardState): BoardTile[] {
   return fromThreads;
 }
 
+/** The board's geometric corners (`TileCorner`, ne/se/sw/nw) named the way
+ *  the "Ways to win" minimap names its own four quadrants (`MiniCorner`,
+ *  tr/br/bl/tl). Has to agree with `SLOTS` in ways-to-win-card.tsx. */
+const CORNER_TO_MINI: Record<TileCorner, MiniCorner> = {
+  ne: "tr",
+  se: "br",
+  sw: "bl",
+  nw: "tl",
+};
+
+/**
+ * Quote a tile id for use inside an attribute selector.
+ *
+ * Ids are uuids today, so nothing here needs escaping, and that is exactly why
+ * it is worth doing: the day an id carries a quote or a backslash, the selector
+ * should stop matching nothing rather than start matching something else.
+ */
+function cssEscape(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+/**
+ * The cards sitting on one reason, drawn on its bottom edge.
+ *
+ * Icon only, because at board scale there is no room for a name and the name
+ * is one click away in the tile's own card. The tooltip carries it for a
+ * mouse, and the screen-reader text carries it for everyone else.
+ *
+ * A standing card is somebody's move, and whose it is has to be visible from
+ * the board. Playing it without that: a card lands on your reason, the badge
+ * appears in the same grey it wears for a card you threw yourself, and the
+ * only words anywhere are "waiting for an answer", which does not say waiting
+ * on whom. The answer surface exists and is good, inside the tile's own card,
+ * but nothing gives you a reason to open the tile, so the game sits there
+ * looking finished while it is actually your turn. `TileProposalBadge` two
+ * hundred lines down already solved this for asks; this is the same rule in
+ * the same colours.
+ */
+function TileThrowBadges({
+  board,
+  tileId,
+  me,
+}: {
+  board: BoardState;
+  tileId: string;
+  me: { playerId: string; role: Side };
+}) {
+  const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
+  if (here.length === 0) return null;
+  return (
+    <div
+      style={{ bottom: EDGE_INSET }}
+      className="absolute left-1/2 z-20 flex -translate-x-1/2 gap-1"
+    >
+      {here.map((thrown) => {
+        const card = coachCard(thrown.cardId);
+        const standing = thrown.status === "standing";
+        // A card the other side played is yours to answer. A card the coach
+        // played is too, which is why this asks who it was not rather than
+        // who it was.
+        const yours = standing && thrown.thrownByRole !== me.role;
+        const name = card ? card.name : thrown.cardId;
+        return (
+          <span
+            key={thrown.seq}
+            title={
+              standing
+                ? yours
+                  ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
+                  : `${name}. You played this. Waiting for their rewrite.`
+                : `${name}. ${card ? card.plain : ""}`
+            }
+            className={`flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${
+              yours
+                ? "border-gold bg-sand"
+                : standing
+                  ? "border-neutral-black/30 bg-offwhite"
+                  : "border-neutral-black/30 bg-offwhite opacity-50"
+            }`}
+          >
+            <span aria-hidden="true">{card ? card.icon : "?"}</span>
+            <span className="sr-only">
+              {name}
+              {standing
+                ? yours
+                  ? ", waiting for your answer"
+                  : ", waiting for their answer"
+                : ", settled"}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ErrorLine({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="text-sm text-red-600">{error}</p>;
+  return <p className="text-p-sm text-orange">{error}</p>;
 }
 
 /**
@@ -134,9 +269,15 @@ function ErrorLine({ error }: { error: string | null }) {
  * Callers pass null when there is nothing worth saying yet, which is the normal
  * state of a form nobody has filled in.
  */
-function WhyNot({ verdict }: { verdict: Verdict | null }) {
+function WhyNot({
+  verdict,
+  className = "text-xs text-gray",
+}: {
+  verdict: Verdict | null;
+  className?: string;
+}) {
   if (!verdict || verdict.ok) return null;
-  return <p className="text-xs opacity-70">{verdict.error}</p>;
+  return <p className={className}>{verdict.error}</p>;
 }
 
 /**
@@ -149,7 +290,7 @@ function WhyNot({ verdict }: { verdict: Verdict | null }) {
  */
 function WhyNotAll({
   verdicts,
-  className = "text-xs opacity-70",
+  className = "text-xs text-gray",
 }: {
   verdicts: readonly (Verdict | null)[];
   className?: string;
@@ -172,7 +313,10 @@ function WhyNotAll({
 
 function TileText({ tile }: { tile: BoardTile }) {
   if (tile.redacted) return <span className="italic opacity-50">{REDACTED_TEXT}</span>;
-  return <span>{tile.text}</span>;
+  // Display-only: a player who typed the tile's own lead-in ("Yes, because
+  // ...") sees it once, not twice. `tile.text` itself is untouched, so the
+  // event log keeps their exact words. See stripDuplicateLead in side-label.ts.
+  return <span>{stripDuplicateLead(tile.text)}</span>;
 }
 
 /** The card's own name, or its id if a game was played with a card we no longer ship. */
@@ -189,20 +333,208 @@ function cardLabel(cardId: string): string {
  * A card you have already played greys out with the reason why, because a hand
  * that silently loses cards is a hand you cannot learn.
  */
+/**
+ * The two buttons every little dialog on this board ends with.
+ *
+ * `.form-base` and `.btn-primary` came across from the retired client, where
+ * `.btn-primary` adds a shadow and nothing else, so the verb and the way out
+ * were the same grey box with the same weight and the player had to read both
+ * to find the one that does the thing. Everywhere else in this app the primary
+ * verb is a gold pill, so it is a gold pill here too, and the way out is the
+ * offwhite pill the board's own furniture uses.
+ */
+const PRIMARY_BUTTON =
+  "bg-gold text-neutral-white font-primary text-p-sm cursor-pointer rounded-full px-4 py-1.5 tracking-wide shadow-md disabled:cursor-default disabled:opacity-40";
+
+const SECONDARY_BUTTON =
+  "border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 cursor-pointer rounded-full border px-4 py-1.5 tracking-wide disabled:cursor-default disabled:opacity-40";
+
+/**
+ * A move in the tile card's menu (play a card, ask for a reading, close a
+ * thread's other moves), styled to read as a real control.
+ *
+ * Steve, 2026-09-05, ruling on the tile card: "There's a bunch of
+ * options... edit, remove, close this thread, and they don't feel like
+ * buttons. They look like a list of unclickable text."
+ * `ActionItem` used to be a hover-highlight row (`hover:bg-sand/40
+ * rounded-lg`), the same treatment a disabled row and a live one shared. This
+ * borrows `.sticker`'s hard-edge card border and shadow, the same vocabulary
+ * `PILL_DARK` (components/gym/level-intro.tsx) and `.btn-icon` already use
+ * elsewhere on this board, so a menu row reads as a pressable card rather
+ * than a line in a list.
+ */
+const REPLY_STICKER_BUTTON =
+  "sticker block w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0";
+
+/**
+ * A small pill, for a row of choices rather than a decision.
+ *
+ * Same shape as the two buttons above so nothing on a card looks like it came
+ * from a different program, but sized for a list you scan: picking a rule card
+ * out of your hand, loading a suggested opening line. It was a square hairline
+ * box before, which is what an unstyled button looks like, and next to a
+ * rounded gold pill it reads as an unfinished part of the screen.
+ */
+const CHIP_BUTTON =
+  "border-gray/40 hover:bg-sand/40 cursor-pointer rounded-full border px-3 py-0.5 text-xs text-left disabled:cursor-default disabled:opacity-40";
+
+/**
+ * A box you type into, on a card beside a tile.
+ *
+ * The tile composer's own field (further down, the one with the lead-in words
+ * above it) is the full-dress version of this: rounded, white, and it darkens
+ * its border while you are in it. Every other field on the board was a square
+ * hairline rectangle, so the same act of writing a sentence looked like two
+ * different programs depending on which move you were making. This is that
+ * field at card size.
+ */
+const FIELD =
+  "border-gray/30 bg-neutral-white text-p-sm focus:border-neutral-black w-full rounded-xl border p-2 outline-none transition-colors";
+
+/**
+ * How far the drawn octagon sits inside the box a tile is positioned by.
+ *
+ * A tile's declared box is the outer ring; the octagon people see is the
+ * inner frame, centred in it. So `left-0` is not the tile's left edge, it is
+ * a frame's width outside it, and the cell around every tile is clipped to
+ * the octagon, so anything placed out there is not drawn dim or half: it is
+ * not drawn at all.
+ *
+ * Every badge below hangs off an edge, and every one of them was pinned to
+ * the bounding box and then translated half its own width further out, which
+ * put roughly three quarters of each badge outside the silhouette. The gold
+ * "they are waiting on you" mark on a reason was a five-pixel crescent. It
+ * measured correct in every way a test can measure a colour, because the
+ * element is there, the right size, and the right colour; the clip takes it
+ * after all of that.
+ *
+ * So badges sit fully inside the edge now, hugging it, instead of straddling
+ * it. `docs/` calls this the clip-path trap and this is the third time it has
+ * cost an afternoon.
+ */
+const EDGE_INSET = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
+
+/**
+ * The upper corners of a tile, where a badge can sit without covering words.
+ *
+ * Inside the edge is necessary but not sufficient: a badge on the middle of
+ * the left edge is fully drawn and sits on top of the first letter of the
+ * reason, because the text block runs the width of the octagon through its
+ * middle. The two upper diagonals are the only real estate a tile does not
+ * use. The watermark word runs across the top centre and the move glyphs
+ * across the bottom, so 24% in from each upper corner clears all three.
+ */
+const CORNER_INSET = "24%";
+
+/**
+ * The pencil that sits on a player's own tile, out on the board.
+ *
+ * Steve, 2026-09-05, ruling on the tile card: Edit should read as "a standard
+ * pencil icon on top of the tile" rather than a line in the card's menu. No
+ * icon package is installed in this project, so this is a small inline glyph
+ * rather than a new dependency or a new `public/icons/` asset for one shape.
+ */
+function PencilGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * One move on a reason, in a card that has room to say what it is.
+ *
+ * The tile card out on the board used to carry the same row of grey underlines
+ * the thread drawer uses: "move  say it back  write one for them", every one of
+ * them the same weight, the same colour, and none of them saying what it does.
+ * That row is right in a list where every tile has one and wrong in a dialog
+ * the player opened on purpose about a single reason, where the whole point is
+ * that there is room. So the moves keep their names and get a line each.
+ *
+ * A refused move says why on its own second line rather than in a `title`, for
+ * the reasons WhyNot gives, and it says it instead of the explanation rather
+ * than under it: once a move is closed to you, what it would have done is the
+ * less useful of the two sentences.
+ */
+function ActionItem({
+  label,
+  hint,
+  verdict = null,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  verdict?: Verdict | null;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const refusal = verdict && !verdict.ok ? verdict.error : null;
+  return (
+    <button
+      type="button"
+      disabled={disabled || refusal !== null}
+      onClick={onClick}
+      className={REPLY_STICKER_BUTTON}
+    >
+      <span className="font-primary text-p-sm text-neutral-black block tracking-wide">
+        {label}
+      </span>
+      <span className="font-secondary text-gray block text-xs leading-snug">
+        {refusal ?? hint}
+      </span>
+    </button>
+  );
+}
+
 function CardHand({
   gameId,
   tile,
   me,
   board,
+  onBoard = false,
+  onOpenChange,
 }: {
   gameId: string;
   tile: BoardTile;
   me: { playerId: string; role: Side };
   board: BoardState;
+  /** True beside the reason on the board, where the hand is one menu item. */
+  onBoard?: boolean;
+  /**
+   * Told when the hand opens and closes.
+   *
+   * The hand keeps its own open state, because the drawer has no use for it,
+   * but on the board the tile card needs to know: an open hand is a form like
+   * any other form, and the rest of the menu goes away while one is up.
+   */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const show = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
+
+  // Steve, 2026-09-04 (playtest): a Gym root tile answers the topic itself,
+  // not another reason, so "Play a card" (a rule card rewrites the reason it
+  // targets) has nothing to attach to there and confused playtesters. Live
+  // play is unaffected: a root tile there keeps its hand. A non-root tile,
+  // including level 1's scripted card-throw target A3 (parent "A1"), is
+  // unaffected either way. See the matching note on ThreadTokenBadge above,
+  // which is why a Gym root tile's bottom edge never has to share a thrown
+  // card with a resolution token.
+  if (board.mode === "gym" && tile.parentId === null) return null;
 
   const deck = cardsInPlay(board);
   if (deck.length === 0) return null;
@@ -215,17 +547,25 @@ function CardHand({
         cardId,
       });
       if (!result.ok) setError(result.error);
-      else setOpen(false);
+      else show(false);
     });
   };
 
   if (!open) {
-    return (
+    return onBoard ? (
+      <div className="-mx-2">
+        <ActionItem
+          label="Play a card"
+          hint="Challenge this reason with one of your rule cards. They rewrite it; nobody loses anything."
+          onClick={() => show(true)}
+        />
+      </div>
+    ) : (
       <div className="ml-6">
         <button
           type="button"
-          className="text-xs underline opacity-70"
-          onClick={() => setOpen(true)}
+          className="text-xs underline text-gray"
+          onClick={() => show(true)}
         >
           play a card
         </button>
@@ -241,6 +581,46 @@ function CardHand({
     canThrowCard(board, tile.id, cardId, me.role, me.playerId),
   );
 
+  // Out on the reason the hand gets the room the drawer cannot spare, so each
+  // card says in a line what throwing it asks for. Four names on their own are
+  // four things to guess at, and a card is the one move here whose whole point
+  // is the sentence underneath the name.
+  if (onBoard) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+          Play a card
+        </p>
+        <div className="flex flex-col gap-2">
+          {deck.map((cardId, index) => {
+            const card = coachCard(cardId);
+            return (
+              <ActionItem
+                key={cardId}
+                label={cardLabel(cardId)}
+                hint={card?.plain ?? "Challenge this reason."}
+                verdict={cardVerdicts[index]}
+                disabled={pending}
+                onClick={() => run(cardId)}
+              />
+            );
+          })}
+        </div>
+        <div>
+          <button
+            type="button"
+            className={SECONDARY_BUTTON}
+            disabled={pending}
+            onClick={() => show(false)}
+          >
+            Never mind
+          </button>
+        </div>
+        <ErrorLine error={error} />
+      </div>
+    );
+  }
+
   return (
     <div className="ml-6 flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -250,7 +630,7 @@ function CardHand({
             <button
               key={cardId}
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-30"
+              className={CHIP_BUTTON}
               disabled={pending || !verdict.ok}
               title={!verdict.ok ? verdict.error : undefined}
               onClick={() => run(cardId)}
@@ -261,9 +641,9 @@ function CardHand({
         })}
         <button
           type="button"
-          className="text-xs underline opacity-70"
+          className="text-xs underline text-gray"
           disabled={pending}
-          onClick={() => setOpen(false)}
+          onClick={() => show(false)}
         >
           never mind
         </button>
@@ -354,20 +734,27 @@ function StandingThrow({
   const card = coachCard(thrown.cardId);
 
   return (
-    <div className="ml-6 flex flex-col gap-1 border-l-2 border-amber-500/50 pl-3">
-      <p className="text-xs">
-        <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
-        <span className="ml-2 opacity-60">
-          {answerable ? "played on this reason" : "waiting on them"}
-        </span>
+    // A card on a reason is an ask like any other ask, so it is drawn as one:
+    // the same gold-edged card a proposal gets, rather than a rule down the
+    // left of some small grey text. It used to be the quietest thing on a
+    // board it is holding up.
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
+      <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+        {answerable ? "They played" : "You played"}
       </p>
-      {card && <p className="text-xs opacity-60">{card.plain}</p>}
+      <p className="text-p-sm">
+        <span className="font-semibold">{cardLabel(thrown.cardId)}</span>
+      </p>
+      {card && <p className="text-p-sm text-gray">{card.plain}</p>}
+      {!answerable && (
+        <p className="text-p-sm text-gray italic">Waiting for them to answer.</p>
+      )}
 
       {answerable && mode === "idle" && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="text-xs underline opacity-80"
+            className={PRIMARY_BUTTON}
             onClick={() => {
               setDraft(
                 board.tiles.find((tile) => tile.id === thrown.targetTileId)?.text ?? "",
@@ -375,14 +762,14 @@ function StandingThrow({
               setMode("revise");
             }}
           >
-            rewrite it
+            Rewrite it
           </button>
           <button
             type="button"
-            className="text-xs underline opacity-80"
+            className={SECONDARY_BUTTON}
             onClick={() => setMode("decline")}
           >
-            the card does not fit
+            It does not fit
           </button>
         </div>
       )}
@@ -390,7 +777,7 @@ function StandingThrow({
       {answerable && mode === "revise" && (
         <div className="flex flex-col gap-1">
           <textarea
-            className="w-full border border-current/30 p-1 text-sm"
+            className={FIELD}
             value={draft}
             maxLength={TILE_MAX_CHARS}
             disabled={pending}
@@ -403,7 +790,7 @@ function StandingThrow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending || !reviseVerdict.ok}
               title={!reviseVerdict.ok ? reviseVerdict.error : undefined}
               onClick={runRevise}
@@ -412,11 +799,11 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline opacity-70"
+              className={SECONDARY_BUTTON}
               disabled={pending}
               onClick={() => setMode("idle")}
             >
-              cancel
+              Cancel
             </button>
           </div>
         </div>
@@ -425,7 +812,7 @@ function StandingThrow({
       {answerable && mode === "decline" && (
         <div className="flex flex-col gap-1">
           <input
-            className="w-full border border-current/30 p-1 text-sm"
+            className={FIELD}
             placeholder="why it does not fit (optional)"
             value={reason}
             maxLength={DECLINE_REASON_MAX_CHARS}
@@ -436,7 +823,7 @@ function StandingThrow({
           <div className="flex gap-2">
             <button
               type="button"
-              className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+              className={PRIMARY_BUTTON}
               disabled={pending || !declineVerdict.ok}
               title={!declineVerdict.ok ? declineVerdict.error : undefined}
               onClick={runDecline}
@@ -445,11 +832,11 @@ function StandingThrow({
             </button>
             <button
               type="button"
-              className="text-xs underline opacity-70"
+              className={SECONDARY_BUTTON}
               disabled={pending}
               onClick={() => setMode("idle")}
             >
-              cancel
+              Cancel
             </button>
           </div>
         </div>
@@ -469,6 +856,32 @@ function SettledThrow({ thrown }: { thrown: BoardThrow }) {
       {thrown.status === "declined" && thrown.declineReason
         ? `: ${thrown.declineReason}`
         : ""}
+    </p>
+  );
+}
+
+/**
+ * An ask that has been answered, kept on the reason it was about.
+ *
+ * Settled throws already stay on the board, because the exchange is the record
+ * and not a step on the way to one, and an answered ask is the same kind of
+ * thing. It matters more here: a rejection is typed rather than clicked, and
+ * that sentence is the most interesting thing either player writes. It was
+ * being written into the log and then shown to nobody, the person who asked
+ * included, so the two of them said no to each other in private.
+ */
+function SettledProposal({
+  proposal,
+  board,
+}: {
+  proposal: BoardProposal;
+  board: BoardState;
+}) {
+  return (
+    <p className="ml-6 text-xs opacity-60">
+      {proposalSentence(proposal, board)}
+      {proposal.status === "accepted" ? " Yes." : " No."}
+      {proposal.status === "rejected" && proposal.reason ? ` "${proposal.reason}"` : ""}
     </p>
   );
 }
@@ -539,28 +952,28 @@ function MoveForm({
   };
 
   return (
-    <div className="ml-6 flex flex-col gap-1 border border-current/20 p-2">
-      <label className="flex flex-col gap-1 text-xs">
-        Move it under
-        <select
-          className="border border-current/30 p-1 text-sm"
-          value={target}
-          disabled={pending}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="">Nothing: start its own thread</option>
-          {destinations.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
-            </option>
-          ))}
-        </select>
-      </label>
+    // The same card the other asks are written in. This one was still the
+    // prototype's indented box with two hairline buttons, so the one move that
+    // asks a player to read four candidate reasons was the one that looked
+    // least like the game.
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
+      <TilePicker
+        legend="Move it under"
+        value={target}
+        disabled={pending}
+        noneLabel="Nothing: start its own thread"
+        onChange={setTarget}
+        choices={destinations.map((candidate) => ({
+          id: candidate.id,
+          side: candidate.side,
+          label: shortText(board, candidate.id),
+        }))}
+      />
       <WhyNot verdict={verdict} />
-      <span className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="border border-current/30 px-2 py-0.5 text-xs disabled:opacity-40"
+          className={PRIMARY_BUTTON}
           disabled={pending || !verdict.ok}
           title={!verdict.ok ? verdict.error : undefined}
           onClick={submit}
@@ -569,13 +982,13 @@ function MoveForm({
         </button>
         <button
           type="button"
-          className="border border-current/30 px-2 py-0.5 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={onDone}
         >
           Cancel
         </button>
-      </span>
+      </div>
       <ErrorLine error={error} />
     </div>
   );
@@ -586,14 +999,47 @@ function TileNode({
   gameId,
   me,
   board,
+  onBoard = false,
+  startEditing,
 }: {
   tile: BoardTile;
   gameId: string;
   me: { playerId: string; role: Side };
   board: BoardState;
+  /**
+   * True when this node is opened beside the reason it acts on, out on the
+   * board. The octagon and the replies are already drawn there, so drawing
+   * them again inside the card would be saying the same thing twice; the card
+   * carries only what you cannot do by looking.
+   */
+  onBoard?: boolean;
+  /**
+   * Opens this card already typing, seeded by the pencil icon on the tile
+   * itself out on the board (LiveBoard's `renderTile`). Read once, as a lazy
+   * initializer: the card is mounted fresh every time it opens (it lives
+   * inside `{selectedTile && <AnchoredCard>...}`, which fully unmounts on
+   * close), so there is exactly one edit entry point, `setEditing`, whether
+   * it is reached from the on-tile pencil or (were it still offered inline)
+   * a click inside the card.
+   */
+  startEditing?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => startEditing ?? false);
+  // Removing a reason takes two presses, the way leaving the game does.
+  // It sits one row under Edit in the same list, a misclick away, and there
+  // is nothing anywhere that puts a reason back. Every other move on this
+  // card either asks the other player first or can be typed over; this one
+  // just happens.
+  const [removeArmed, setRemoveArmed] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [handOpen, setHandOpen] = useState(false);
+  // The two cooperative moves that are about one particular reason. They open
+  // one at a time, because both of them are you writing something in the other
+  // player's voice and a card offering to do that twice at once is a card
+  // nobody reads.
+  const [proposing, setProposing] = useState<
+    "reading" | "steelman" | "definition" | null
+  >(null);
   const [draft, setDraft] = useState(tile.text);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -601,21 +1047,55 @@ function TileNode({
   const mine = tile.placedBy === me.playerId;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
+  // lib/board/rules.ts's canRemoveTile has no children check (core lane, not
+  // editable from here); gate the terminal-tile rule in the presentation
+  // layer instead. Steve, 2026-09-05: remove is offered only for a terminal
+  // tile, the last tile in its thread nobody has replied under. Core
+  // follow-up to move this into canRemoveTile itself is filed.
+  const isTerminal = tile.children.filter((child) => !child.removed).length === 0;
+  const removeBlocked: Verdict = !removeVerdict.ok
+    ? removeVerdict
+    : isTerminal
+      ? removeVerdict
+      : { ok: false, error: "Once someone has replied under it, it can't be removed." };
   const moveVerdict = canProposeRelocation(
     board,
     tile.id,
     tile.parentId,
     tile.threadRootId,
   );
+  // Saying a reason back only makes sense for a reason that is not yours to
+  // begin with; the rules say so too, and this keeps the card from offering a
+  // move it would then refuse.
+  const readingVerdict =
+    tile.side === me.role
+      ? null
+      : canProposeReadingHandback(board, tile.id, me.role, "a reading");
+  const steelmanVerdict = canProposeSteelmanTile(board, tile.id, "a reason");
+  const definitionVerdict = canProposeDefinition(board, "a word", "a meaning");
   // Once the box is open the draft is what gets judged. Before that there is no
   // draft, and "a reason needs some words in it" is not why the link is dead.
   const editBlocked =
     draft.trim().length > 0
       ? editVerdict
       : canEditTile(board, tile.id, me.playerId, "a reason");
+  const openProposals = board.proposals.filter(
+    (proposal) => proposal.status === "pending" && proposal.targetTileId === tile.id,
+  );
+  const settledProposals = board.proposals.filter(
+    (proposal) => proposal.status !== "pending" && proposal.targetTileId === tile.id,
+  );
   const throwsHere = board.throws.filter((thrown) => thrown.targetTileId === tile.id);
   const standing = throwsHere.filter((thrown) => thrown.status === "standing");
   const settled = throwsHere.filter((thrown) => thrown.status !== "standing");
+  // Something on this reason that is waiting on you is the only thing on the
+  // card worth reading, so it is the only thing on the card. Under the full
+  // menu it opened five rows down and past the fold, which is where a move
+  // goes to be missed. A rule card played on a reason of your own counts:
+  // it opened below Edit and Remove, which is further down still.
+  const awaitingMyAnswer =
+    openProposals.some((proposal) => proposal.askedBy !== me.role) ||
+    (mine && standing.length > 0);
 
   const runEdit = () => {
     setError(null);
@@ -630,6 +1110,10 @@ function TileNode({
   };
 
   const runRemove = () => {
+    if (!removeArmed) {
+      setRemoveArmed(true);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const result: ActionResult = await removeTile(gameId, { tileId: tile.id });
@@ -640,7 +1124,10 @@ function TileNode({
   return (
     <li className="flex flex-col gap-2">
       <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
+        {/* The octagon is redundant on the board, where the real one is a
+            few pixels away. It comes back while editing, because then it is
+            not a picture of the reason, it is the box you type in. */}
+        <div className={`relative shrink-0 ${onBoard && !editing ? "hidden" : ""}`}>
           <TileShape
             side={tile.side}
             size={11}
@@ -674,7 +1161,7 @@ function TileNode({
               <span className="flex gap-2">
                 <button
                   type="button"
-                  className="form-base btn-primary px-3 py-1 text-xs disabled:opacity-40"
+                  className={PRIMARY_BUTTON}
                   disabled={pending || !editVerdict.ok}
                   title={!editVerdict.ok ? editVerdict.error : undefined}
                   onClick={runEdit}
@@ -683,7 +1170,7 @@ function TileNode({
                 </button>
                 <button
                   type="button"
-                  className="form-base px-3 py-1 text-xs"
+                  className={SECONDARY_BUTTON}
                   disabled={pending}
                   onClick={() => {
                     setDraft(tile.text);
@@ -694,19 +1181,139 @@ function TileNode({
                 </button>
               </span>
             </>
+          ) : onBoard ? (
+            <>
+              <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
+                {tile.edited && <span>(edited)</span>}
+                {tile.revised && <span>(rewritten)</span>}
+              </span>
+              {/* The same moves the drawer offers, at the density a dialog
+                  can afford. The two kinds are still two kinds and are still
+                  ruled apart: everything above the line puts a question to
+                  the other player and waits for them, everything below it is
+                  housekeeping on a reason of your own that happens the moment
+                  you click.
+
+                  Picking one puts the menu away. The forms open below, and
+                  with the list still above them the card was a form under
+                  four dead rows of things you could have done instead. */}
+              <div
+                className={`flex flex-col gap-2 ${
+                  proposing !== null || moving || handOpen || awaitingMyAnswer
+                    ? "hidden"
+                    : ""
+                }`}
+              >
+                {/* BRAIN-T260903-06: the four moves below are gated by
+                    canStartLaterMove. Relocation stays available outside live
+                    play (it is load-bearing for Gym level 2); the other three
+                    are Gym level 5+ and hidden everywhere for now.
+
+                    Steve, 2026-09-04 (playtest): on top of that gate, a Gym
+                    root tile hides "Move it" / "Say it back" / "Write one for
+                    them" outright. A root tile answers the topic itself, not
+                    another reason, so these three (which are all about a
+                    reason's relationship to what it is under) read as
+                    non-sequiturs there and were confusing playtesters. Live
+                    play is untouched: it never reaches this branch, since
+                    canStartLaterMove is already false for board.mode ===
+                    "live". A non-root tile, including level 1's scripted
+                    card-throw target A3 (parent "A1"), is unaffected. */}
+                {(() => {
+                  const hideOnGymRoot = board.mode === "gym" && tile.parentId === null;
+                  return (
+                    <>
+                      {!hideOnGymRoot && canStartLaterMove(board, "tile_relocation") && (
+                        <ActionItem
+                          label="Move it"
+                          hint="Ask them to hang this reason under a different one."
+                          verdict={moveVerdict}
+                          disabled={pending || moving}
+                          onClick={() => setMoving(true)}
+                        />
+                      )}
+                      {!hideOnGymRoot &&
+                        readingVerdict &&
+                        canStartLaterMove(board, "reading_handback") && (
+                          <ActionItem
+                            label="Say it back"
+                            hint="Write what you think they meant. They tell you whether you have it."
+                            verdict={readingVerdict}
+                            disabled={pending || proposing !== null}
+                            onClick={() => setProposing("reading")}
+                          />
+                        )}
+                      {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile") && (
+                        <ActionItem
+                          label="Write one for them"
+                          hint="Put their point better than they did, and offer it as their reason."
+                          verdict={steelmanVerdict}
+                          disabled={pending || proposing !== null}
+                          onClick={() => setProposing("steelman")}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
+                {!(board.mode === "gym" && tile.parentId === null) &&
+                  canStartLaterMove(board, "definition") && (
+                    <ActionItem
+                      label="Pin down a word"
+                      hint="Ask what one word in here is doing, and agree on what it means."
+                      verdict={definitionVerdict}
+                      disabled={pending || proposing !== null}
+                      onClick={() => setProposing("definition")}
+                    />
+                  )}
+                {/* Steve, 2026-09-05, ruling on the tile card: Edit moved to
+                    the pencil that now sits on the tile itself (see
+                    LiveBoard's renderTile), so it no longer needs a row here.
+                    Remove stays in the card, but only for a terminal tile,
+                    the last tile in its thread nobody has replied under
+                    (isTerminal, above) -- once a reply is hanging off it,
+                    taking it back would take the reply with it, silently. */}
+                {mine && isTerminal && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="bg-neutral-black/15 mx-2 my-2 h-px"
+                    />
+                    <ActionItem
+                      label={removeArmed ? "Remove it" : "Remove"}
+                      hint={
+                        removeArmed
+                          ? "Click again and it comes off the board. There is no putting it back."
+                          : "Take your reason back off the board."
+                      }
+                      verdict={removeBlocked}
+                      disabled={pending}
+                      onClick={runRemove}
+                    />
+                  </>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <span className="text-p-sm text-gray flex flex-wrap items-center gap-2">
                 {tile.edited && <span>(edited)</span>}
                 {tile.revised && <span>(rewritten)</span>}
-                {mine && <span>(yours)</span>}
               </span>
-              <span className="flex flex-wrap gap-3">
+              {/* Two kinds of link sat in one undifferentiated row of grey
+                  underlines: housekeeping on a reason you wrote, and moves
+                  that put a question to the other player. "remove" reading
+                  the same as "pin down a word" is the bad half of that: one
+                  of them takes your own tile off the board and the other
+                  opens a dialog. The label and the rule say which is which,
+                  and the stray "(yours)" tag above is gone, because a row
+                  headed "yours" has already said it. */}
+              <span className="flex flex-wrap items-center gap-3">
                 {mine && (
                   <>
+                    <span className="text-p-sm text-gray">yours:</span>
                     <button
                       type="button"
-                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      className="text-p-sm underline text-gray disabled:opacity-30"
                       disabled={pending || !editBlocked.ok}
                       title={!editBlocked.ok ? editBlocked.error : undefined}
                       onClick={() => setEditing(true)}
@@ -715,25 +1322,72 @@ function TileNode({
                     </button>
                     <button
                       type="button"
-                      className="text-p-sm underline opacity-70 disabled:opacity-30"
+                      className="text-p-sm underline text-gray disabled:opacity-30"
                       disabled={pending || !removeVerdict.ok}
                       title={!removeVerdict.ok ? removeVerdict.error : undefined}
                       onClick={runRemove}
                     >
                       remove
                     </button>
+                    <span aria-hidden="true" className="bg-gray/30 h-3.5 w-px" />
                   </>
                 )}
-                {/* Anyone may ask to move any reason: the other side answers. */}
-                <button
-                  type="button"
-                  className="text-p-sm underline opacity-70 disabled:opacity-30"
-                  disabled={pending || moving || !moveVerdict.ok}
-                  title={!moveVerdict.ok ? moveVerdict.error : undefined}
-                  onClick={() => setMoving(true)}
-                >
-                  move
-                </button>
+                {/* Anyone may ask to move any reason: the other side answers.
+                    BRAIN-T260903-06: relocation is hidden in live play and
+                    stays available only outside it (Gym level 2 needs it). */}
+                {canStartLaterMove(board, "tile_relocation") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || moving || !moveVerdict.ok}
+                    title={!moveVerdict.ok ? moveVerdict.error : undefined}
+                    onClick={() => setMoving(true)}
+                  >
+                    move
+                  </button>
+                )}
+                {/* The two cooperative moves, on the reason they are about.
+                    Steve's call: none of these is writing in a tile, it is
+                    writing in a little dialog beside one.
+                    BRAIN-T260903-06: Gym level 5+, hidden for now. */}
+                {readingVerdict && canStartLaterMove(board, "reading_handback") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !readingVerdict.ok}
+                    title={!readingVerdict.ok ? readingVerdict.error : undefined}
+                    onClick={() => setProposing("reading")}
+                  >
+                    say it back
+                  </button>
+                )}
+                {canStartLaterMove(board, "steelman_tile") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !steelmanVerdict.ok}
+                    title={!steelmanVerdict.ok ? steelmanVerdict.error : undefined}
+                    onClick={() => setProposing("steelman")}
+                  >
+                    write one for them
+                  </button>
+                )}
+                {/* The fourth non-argument move. A word, not a reason: you are
+                    not answering this tile, you are asking what one of the
+                    words in it is doing. It opens here because a word is
+                    always a word in something, and this is the something.
+                    BRAIN-T260903-06: Gym level 5+, hidden for now. */}
+                {canStartLaterMove(board, "definition") && (
+                  <button
+                    type="button"
+                    className="text-p-sm underline text-gray disabled:opacity-30"
+                    disabled={pending || proposing !== null || !definitionVerdict.ok}
+                    title={!definitionVerdict.ok ? definitionVerdict.error : undefined}
+                    onClick={() => setProposing("definition")}
+                  >
+                    pin down a word
+                  </button>
+                )}
               </span>
             </>
           )}
@@ -742,10 +1396,72 @@ function TileNode({
       <ErrorLine error={error} />
       {/* The links above go dead together and for the same reason, so the
           reason is said once under the reason it belongs to. */}
-      {editing ? null : (
+      {editing || onBoard ? null : (
         <WhyNotAll
           className="text-p-sm text-gray ml-6"
-          verdicts={[mine ? editBlocked : null, mine ? removeVerdict : null, moveVerdict]}
+          verdicts={[
+            mine ? editBlocked : null,
+            mine ? removeVerdict : null,
+            // BRAIN-T260903-06: no "why not" line for a move that is not
+            // offered in the first place.
+            canStartLaterMove(board, "tile_relocation") ? moveVerdict : null,
+          ]}
+        />
+      )}
+
+      {!mine &&
+        tile.side !== me.role &&
+        !tile.removed &&
+        // The hand is another way to act on this reason, so it goes away with
+        // the rest of them while one of the forms is open.
+        !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
+          <CardHand
+            gameId={gameId}
+            tile={tile}
+            me={me}
+            board={board}
+            onBoard={onBoard}
+            onOpenChange={setHandOpen}
+          />
+        )}
+
+      {/* Open proposals about this reason, on this reason. Both directions:
+          the one you are waiting on and the one waiting on you. */}
+      {openProposals.map((proposal) => (
+        <ProposalCard
+          key={proposal.id}
+          gameId={gameId}
+          proposal={proposal}
+          board={board}
+          me={me}
+        />
+      ))}
+
+      {proposing === "reading" && (
+        <ReadingHandbackForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          me={me}
+          onDone={() => setProposing(null)}
+        />
+      )}
+
+      {proposing === "steelman" && (
+        <SteelmanTileForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          onDone={() => setProposing(null)}
+        />
+      )}
+
+      {proposing === "definition" && (
+        <DefinitionForm
+          gameId={gameId}
+          board={board}
+          tile={tile}
+          onDone={() => setProposing(null)}
         />
       )}
 
@@ -759,9 +1475,9 @@ function TileNode({
       )}
 
       {/* The throw, from both ends. Standing cards show to both players, but
-          only the reason's author gets the two ways to answer; the other side's
-          reasons also show the hand. Settled throws stay on the board because
-          the exchange is the record, not a step on the way to one. */}
+          only the reason's author gets the two ways to answer. Settled throws
+          stay on the board because the exchange is the record, not a step on
+          the way to one. */}
       {standing.map((thrown) => (
         <StandingThrow
           key={thrown.seq}
@@ -772,15 +1488,15 @@ function TileNode({
           answerable={mine}
         />
       ))}
-      {!mine && tile.side !== me.role && !tile.removed && (
-        <CardHand gameId={gameId} tile={tile} me={me} board={board} />
-      )}
       {settled.map((thrown) => (
         <SettledThrow key={thrown.seq} thrown={thrown} />
       ))}
+      {settledProposals.map((proposal) => (
+        <SettledProposal key={proposal.id} proposal={proposal} board={board} />
+      ))}
 
-      {tile.children.length > 0 && (
-        <ul className="ml-2 flex flex-col gap-2 border-l border-current/15 pl-4">
+      {!onBoard && tile.children.length > 0 && (
+        <ul className="ml-2 flex flex-col gap-2 border-gray/25 border-l pl-4">
           {tile.children.map((child) => (
             <TileNode key={child.id} tile={child} gameId={gameId} me={me} board={board} />
           ))}
@@ -788,6 +1504,239 @@ function TileNode({
       )}
     </li>
   );
+}
+
+/**
+ * A proposal, said in plain English, with the two answers.
+ *
+ * Drawn beside the reason it is about wherever it has one, and in the rail
+ * when it does not. Only the definition ask lands in the rail today, because
+ * it is the one proposal the engine stores with a null target tile.
+ *
+ * Everything cooperative in this game is a proposal: you ask, they answer, and
+ * nothing moves until they do. Until now they could be made and never seen,
+ * because nothing outside the topic-revision path rendered an open one. A
+ * proposal nobody can answer is a move that does not exist.
+ *
+ * Rejecting takes a typed reason rather than a second button. Steve's call, and
+ * the right one: whenever you say no to something, you should get to say why,
+ * and that sentence is the most interesting thing either of you writes.
+ */
+function ProposalCard({
+  gameId,
+  proposal,
+  board,
+  me,
+}: {
+  gameId: string;
+  proposal: BoardProposal;
+  board: BoardState;
+  me: { playerId: string; role: Side };
+}) {
+  const [reason, setReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const mine = proposal.askedBy === me.role;
+  const verdict = canAnswerProposal(board, proposal.id, me.role);
+
+  const answer = (accept: boolean) => {
+    setError(null);
+    startTransition(async () => {
+      const result: ActionResult = accept
+        ? await acceptProposal(gameId, { proposalId: proposal.id })
+        : await rejectProposal(gameId, {
+            proposalId: proposal.id,
+            reason: reason.trim().length > 0 ? reason : null,
+          });
+      if (!result.ok) setError(result.error);
+      else setRejecting(false);
+    });
+  };
+
+  return (
+    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
+      <p className="text-p-sm font-primary text-gray tracking-wide uppercase">
+        {mine ? "You asked" : "They asked"}
+      </p>
+      <p className="text-p-sm">{proposalSentence(proposal, board)}</p>
+      {mine ? (
+        <p className="text-p-sm text-gray italic">Waiting for them to answer.</p>
+      ) : rejecting ? (
+        <>
+          <textarea
+            className={FIELD}
+            value={reason}
+            maxLength={300}
+            disabled={pending}
+            placeholder="Why not? They will see this."
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <span className="flex gap-2">
+            <button
+              type="button"
+              className={PRIMARY_BUTTON}
+              disabled={pending}
+              onClick={() => answer(false)}
+            >
+              Send it
+            </button>
+            <button
+              type="button"
+              className={SECONDARY_BUTTON}
+              disabled={pending}
+              onClick={() => setRejecting(false)}
+            >
+              Back
+            </button>
+          </span>
+        </>
+      ) : (
+        <>
+          <WhyNot verdict={verdict.ok ? null : verdict} />
+          <span className="flex gap-2">
+            <button
+              type="button"
+              className={PRIMARY_BUTTON}
+              disabled={pending || !verdict.ok}
+              onClick={() => answer(true)}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              className={SECONDARY_BUTTON}
+              disabled={pending || !verdict.ok}
+              onClick={() => setRejecting(true)}
+            >
+              No, because...
+            </button>
+          </span>
+        </>
+      )}
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/**
+ * The asks that have no reason to sit beside.
+ *
+ * Every other proposal is drawn on its target tile, which is where an ask
+ * belongs: you answer it looking at the thing it is about. A definition ask
+ * has no target tile in the engine, so without this card it could be sent and
+ * never seen, and a move nobody can answer is a move that does not exist.
+ *
+ * Renders nothing at all when there is nothing pending, so the rail does not
+ * carry an empty box through the 95% of a game where this is quiet.
+ */
+/**
+ * The words the two of you have pinned down, kept in front of you.
+ *
+ * Define That is only worth making if the answer binds, and an agreement that
+ * scrolls away binds nothing. This was one of the four sections of the Match
+ * details drawer until 2026-09-03; it comes back as its own card because it is
+ * the one of the four that has to stay legible in the middle of an argument,
+ * which is exactly when nobody opens a drawer. Gym level 4 teaches the move,
+ * so the card is what the level is pointing at when it says the definition is
+ * pinned to the edge of the board.
+ *
+ * Silent until a definition is actually agreed, like every other card in this
+ * rail.
+ */
+function PinnedWords({ board }: { board: BoardState }) {
+  const words = agreedDefinitions(board);
+  if (words.length === 0) return null;
+
+  return (
+    <section className="border-gray/30 bg-offwhite flex w-full flex-col gap-2 rounded-2xl border px-5 py-4 shadow-md">
+      <h2 className="font-primary text-neutral-black text-p-lg">Words you pinned down</h2>
+      <dl className="flex flex-col gap-2">
+        {words.map((word) => (
+          <div key={word.term.toLowerCase()} className="flex flex-col">
+            <dt className="font-primary text-neutral-black text-p-sm">{word.term}</dt>
+            <dd className="font-secondary text-gray text-p-sm">{word.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function PendingAsks({
+  gameId,
+  board,
+  me,
+}: {
+  gameId: string;
+  board: BoardState;
+  me: { playerId: string; role: Side };
+}) {
+  const asks = board.proposals.filter(
+    (proposal) =>
+      proposal.status === "pending" &&
+      proposal.targetTileId === null &&
+      // The topic rewrite is the other null-target proposal, and it already
+      // has a home: the centre tile answers it in place. Listing it here too
+      // would put the same two buttons in two places on one screen.
+      proposal.kind !== "topic_revision",
+  );
+  if (asks.length === 0) return null;
+
+  return (
+    <section className="border-gray/30 bg-offwhite flex w-full flex-col gap-2 rounded-2xl border px-5 py-4 shadow-md">
+      <h2 className="font-primary text-neutral-black text-p-lg">Open asks</h2>
+      {asks.map((proposal) => (
+        <ProposalCard
+          key={proposal.id}
+          gameId={gameId}
+          proposal={proposal}
+          board={board}
+          me={me}
+        />
+      ))}
+    </section>
+  );
+}
+
+/**
+ * What a proposal is asking, as a sentence.
+ *
+ * One primitive carries six mechanics, so the raw content is a union of four
+ * shapes and reads as nothing at all. Every kind gets its own sentence here
+ * rather than a label plus a JSON dump.
+ */
+function proposalSentence(proposal: BoardProposal, board: BoardState): string {
+  const content = proposal.content;
+  switch (proposal.kind) {
+    case "reading_handback":
+      return "text" in content
+        ? `Have I got this right? "${content.text}"`
+        : "Have I got this right?";
+    case "steelman_tile":
+      return "text" in content
+        ? `A reason for your side, written by them: "${content.text}"`
+        : "A reason for your side, written by them.";
+    case "steelman_reading":
+      return "text" in content
+        ? `Is this your side? "${content.text}"`
+        : "Is this your side?";
+    case "definition":
+      return "term" in content
+        ? `Can we agree "${content.term}" means: ${content.text}`
+        : "Can we agree what a word means.";
+    case "topic_revision":
+      return "text" in content
+        ? `A rewritten topic: "${content.text}"`
+        : "A rewritten topic.";
+    case "tile_relocation":
+      return "new_parent_tile_id" in content
+        ? content.new_parent_tile_id === null
+          ? "Move this reason out to start its own thread."
+          : `Move this reason under: ${shortText(board, content.new_parent_tile_id)}`
+        : "Move this reason.";
+  }
 }
 
 function ResolutionRow({
@@ -847,15 +1796,15 @@ function ResolutionRow({
   const disabledTokens = RESOLUTION_TOKENS.filter((_, index) => !tokenVerdicts[index].ok);
 
   return (
-    <div className="flex flex-col items-center gap-2 text-sm">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <Placed who="You" token={myToken} />
-        <Placed who="Them" token={otherToken} />
-      </div>
+    // Question, then the answer to give, then who has answered. The standing
+    // line used to come first, so a card that had just asked "where do you two
+    // disagree?" answered itself with "You: no token. Them: no token" before
+    // offering anything to press.
+    <div className="flex flex-col items-center gap-2 text-p-sm">
       {myToken ? (
         <button
           type="button"
-          className="form-base px-3 py-1 text-xs"
+          className={SECONDARY_BUTTON}
           disabled={pending}
           onClick={clear}
         >
@@ -865,9 +1814,14 @@ function ResolutionRow({
         <ResolutionPicker
           tokens={RESOLUTION_TOKENS}
           disabledTokens={disabledTokens}
+          theirs={otherToken}
           onPick={place}
         />
       )}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Placed who="You" token={myToken} />
+        <Placed who="Them" token={otherToken} />
+      </div>
       {myToken ? null : <WhyNotAll verdicts={tokenVerdicts} />}
       <ErrorLine error={error} />
     </div>
@@ -894,285 +1848,350 @@ function Placed({ who, token }: { who: string; token: string | null | undefined 
 }
 
 /**
- * What each proposal kind is called out loud.
+ * Writing the reason on the board, in the cell it will occupy.
  *
- * The log's own names are snake_case identifiers and were leaking straight onto
- * the board, so a player was being asked to accept or reject a "topic_revision".
- * An unknown kind falls back to the identifier with its underscores opened up,
- * which is ugly but readable, and never blank.
+ * This is the retired client's signature gesture and the one Rannie draws in
+ * `1064:214081`: you hover a tile, click one of its open diagonals, and the
+ * new tile is already there with a cursor in it. Nothing about the move has
+ * to be explained, because the shape of the thing you are making is the box
+ * you are typing into.
+ *
+ * It answers one parent and nothing else, so it carries none of the target
+ * picking the bottom composer needs. Enter places, Escape backs out, and
+ * Shift+Enter is a newline, which is the convention every chat box in the
+ * world has already taught.
  */
-const PROPOSAL_KIND_LABEL: Record<ProposalKind, string> = {
-  topic_revision: "A new wording for the topic",
-  tile_relocation: "Move a reason",
-  reading_handback: "Hand the reading back",
-  steelman_reading: "Say their side for them",
-  steelman_tile: "A reason for their side",
-  definition: "Pin down a word",
-};
 
-function proposalKindLabel(kind: string): string {
-  return PROPOSAL_KIND_LABEL[kind as ProposalKind] ?? kind.replaceAll("_", " ");
-}
-
-function proposalSummary(proposal: BoardProposal, board: BoardState): string {
-  const content = proposal.content;
-  if (proposal.kind === "topic_revision" && "text" in content) {
-    return `New topic: "${content.text}"`;
-  }
-  if (proposal.kind === "tile_relocation" && "new_thread_root_id" in content) {
-    // Named in words, not in ids: the player answering this has to be able to
-    // picture the move without looking anything up.
-    const moved = shortText(board, proposal.targetTileId);
-    const under = content.new_parent_tile_id
-      ? `under "${shortText(board, content.new_parent_tile_id)}"`
-      : "into a thread of its own";
-    return `Move "${moved}" ${under}`;
-  }
-  if (
-    (proposal.kind === "steelman_tile" || proposal.kind === "steelman_reading") &&
-    "text" in content
-  ) {
-    return `"${content.text}"`;
-  }
-  if (proposal.kind === "reading_handback" && "text" in content) {
-    // Both halves, because judging a handback means comparing the words offered
-    // against the reason they claim to say back. One of the two is not enough.
-    return `Reads "${shortText(board, proposal.targetTileId)}" as: "${content.text}"`;
-  }
-  if (proposal.kind === "definition" && "term" in content) {
-    return `Define "${content.term}": ${content.text}`;
-  }
-  return proposalKindLabel(proposal.kind);
-}
-
-function ProposalRow({
-  gameId,
-  proposal,
-  board,
-  awaitingMe,
-}: {
-  gameId: string;
-  proposal: BoardProposal;
-  board: BoardState;
-  awaitingMe: boolean;
-}) {
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const accept = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await acceptProposal(gameId, { proposalId: proposal.id });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  const reject = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await rejectProposal(gameId, {
-        proposalId: proposal.id,
-        reason: reason.trim().length > 0 ? reason.trim() : null,
-      });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
+function reducedMotionPreferred(): boolean {
   return (
-    <li className="flex flex-col gap-1 border border-current/15 p-2 text-sm">
-      <span className="opacity-60">{proposalKindLabel(proposal.kind)}</span>
-      <span>{proposalSummary(proposal, board)}</span>
-      {awaitingMe ? (
-        <span className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="border border-current/30 px-2 py-0.5 text-xs"
-            disabled={pending}
-            onClick={accept}
-          >
-            Accept
-          </button>
-          <input
-            className="border border-current/30 px-1 py-0.5 text-xs"
-            placeholder="reason (optional)"
-            value={reason}
-            disabled={pending}
-            onChange={(event) => setReason(event.target.value)}
-          />
-          <button
-            type="button"
-            className="border border-current/30 px-2 py-0.5 text-xs"
-            disabled={pending}
-            onClick={reject}
-          >
-            Reject
-          </button>
-        </span>
-      ) : (
-        <span className="text-xs opacity-50">waiting on the other side</span>
-      )}
-      <ErrorLine error={error} />
-    </li>
-  );
-}
-
-function Composer({ gameId, board }: { gameId: string; board: BoardState }) {
-  const [text, setText] = useState("");
-  const [target, setTarget] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const targets = useMemo(() => allTargets(board), [board]);
-  const parentTileId = target.length > 0 ? target : null;
-  const verdict = canPlaceTile(board, text, parentTileId);
-
-  // Gym level 3 ("Claim size") teaches No Exaggeration. Two pre-written root
-  // threads about the level's tipping topic are offered as optional
-  // starting points, but only while the tile being composed is a root tile
-  // (no reply target picked): a suggestion for a brand new thread has
-  // nothing to say about a reply to something already on the board.
-  const showRootSuggestions =
-    board.mode === "gym" && board.levelId === "claim_size" && parentTileId === null;
-
-  // Computed against a placeholder instead of the real text on purpose. An
-  // empty box is the normal state of a composer and "a reason needs some
-  // words in it" is not news. What is news is a block that no amount of
-  // typing clears: the thread cap, a resolved thread, a game that has ended.
-  // WhyNot, above, is where the rest of that argument is written down.
-  const blocked = canPlaceTile(board, "a reason", parentTileId);
-
-  const submit = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await placeTile(gameId, { text, parentTileId });
-      if (!result.ok) setError(result.error);
-      else setText("");
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Reply to
-        <select
-          className="border border-current/30 p-1"
-          value={target}
-          disabled={pending}
-          onChange={(event) => setTarget(event.target.value)}
-        >
-          <option value="">Start a new thread</option>
-          {targets.map((tile) => (
-            <option key={tile.id} value={tile.id}>
-              {SIDE_MARK[tile.side]}{" "}
-              {tile.redacted ? REDACTED_TEXT : tile.text.slice(0, 40)}
-            </option>
-          ))}
-        </select>
-      </label>
-      {showRootSuggestions && (
-        <div className="flex flex-col gap-2 border border-current/20 p-2 text-xs">
-          <p className="opacity-60">
-            Optional starting points for a new thread on this topic. Click one to load it
-            into the box below, then edit it however you like before placing it.
-          </p>
-          {CLAIM_SIZE_ROOT_SUGGESTIONS.map((pair) => (
-            <div key={pair.id} className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
-                disabled={pending}
-                onClick={() => setText(pair.baited)}
-              >
-                {pair.baited}
-              </button>
-              <button
-                type="button"
-                className="border border-current/30 px-2 py-0.5 text-left disabled:opacity-40"
-                disabled={pending}
-                onClick={() => setText(pair.safe)}
-              >
-                {pair.safe}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <textarea
-        className="w-full border border-current/30 p-1 text-sm"
-        value={text}
-        maxLength={TILE_MAX_CHARS}
-        disabled={pending}
-        placeholder="A reason for your side."
-        onChange={(event) => setText(event.target.value)}
-      />
-      <span className="text-xs opacity-60">
-        {TILE_MAX_CHARS - text.length} characters left
-      </span>
-      <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Place tile
-      </button>
-      <ErrorLine error={error} />
-    </div>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
 
 /**
- * The anchor the minimap's pencil scrolls to. The two ways to win are drawn
- * at the top of the page and only one of them is actionable there, so the
- * pencil has to be able to take you to the form rather than just naming it.
+ * Types a sample answer into the box instead of dropping it in whole: the
+ * Gym's coach is suggesting the words, not filling out the player's form,
+ * and typing reads as an offer in a way a box that is simply already full
+ * does not (Steve, 2026-09-04, live playtest). 25 to 35ms per character
+ * with a little jitter, which keeps even a 60-character sample under the
+ * 2.5s it takes to start feeling slow.
+ *
+ * A click or focus in the box is a read action: it jumps straight to the
+ * finished text, the same as letting it finish on its own, and either way
+ * the textarea then selects the whole line so a player who wants to edit
+ * can just start typing over it. Actually typing while the sample is still
+ * revealing itself is a write action instead: it stops the reveal in place
+ * and leaves the text exactly as that keystroke produced it, never jumping
+ * to the full sample first. See `stopTyping` vs `finishTyping` below.
+ *
+ * The reveal itself is elapsed-time based, not counted one tick at a time
+ * (Steve, 2026-09-05 playtest: a background tab's timers get clamped by the
+ * browser to roughly 1Hz, and a fixed one-char-per-tick loop then takes as
+ * long as the sample has characters, which is exactly the 60+ second stall
+ * on Place that was seen). Same fix as the boss's own typing in
+ * `components/gym/director.tsx` (commit 427bc9b): `shown` is worked out from
+ * how much real time has elapsed since the reveal started, so a single
+ * clamped tick catches straight up instead of costing one full tick's worth
+ * of delay per character, and a React Strict Mode remount starts a fresh,
+ * correct timeline rather than resuming a stale one.
+ *
+ * `sample` is only ever read at mount. `InTileComposer` is remounted (see
+ * its `key` at the call site) whenever the slot it belongs to changes, so
+ * there is no case where the text this hook is typing needs to change out
+ * from under it mid-animation.
  */
-const TOPIC_REVISION_SECTION_ID = "rewriting-the-topic";
+const SAMPLE_TYPE_MIN_MS = 25;
+const SAMPLE_TYPE_MAX_MS = 35;
 
-function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardState }) {
-  const [text, setText] = useState("");
+function useTypedSample(sample: string): {
+  text: string;
+  setText: (value: string) => void;
+  typing: boolean;
+  finishTyping: () => void;
+  stopTyping: () => void;
+  /** Bumps once each time the reveal finishes, on its own or via a click. */
+  finishedAt: number;
+} {
+  const [reduced] = useState(reducedMotionPreferred);
+  const [text, setText] = useState(reduced ? sample : "");
+  const [typing, setTyping] = useState(!reduced && sample.length > 0);
+  const [finishedAt, setFinishedAt] = useState(0);
+  const stoppedRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!typing) return;
+    stoppedRef.current = false;
+    const avgMsPerChar = (SAMPLE_TYPE_MIN_MS + SAMPLE_TYPE_MAX_MS) / 2;
+    const startedAt = performance.now();
+    const nextDelay = () =>
+      SAMPLE_TYPE_MIN_MS + Math.random() * (SAMPLE_TYPE_MAX_MS - SAMPLE_TYPE_MIN_MS);
+    const tick = () => {
+      if (stoppedRef.current) return;
+      const elapsed = performance.now() - startedAt;
+      const shown = Math.min(sample.length, Math.floor(elapsed / avgMsPerChar) + 1);
+      setText(sample.slice(0, shown));
+      if (shown >= sample.length) {
+        timerRef.current = null;
+        setTyping(false);
+        setFinishedAt(Date.now());
+        return;
+      }
+      timerRef.current = setTimeout(tick, nextDelay());
+    };
+    timerRef.current = setTimeout(tick, nextDelay());
+    return () => {
+      stoppedRef.current = true;
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
+    // sample is fixed for the life of this hook; see the doc comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing]);
+
+  const finishTyping = () => {
+    if (!typing) return;
+    stoppedRef.current = true;
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setTyping(false);
+    setText(sample);
+    setFinishedAt(Date.now());
+  };
+
+  // Called the instant the player's own keystroke lands while the sample is
+  // still revealing: stop the reveal where it is and leave `text` exactly as
+  // that keystroke's onChange already produced it. Unlike finishTyping, this
+  // never writes `sample` into `text` and never counts as "finished" (no
+  // select-all follows it), because the player did not ask to see the rest.
+  const stopTyping = () => {
+    if (!typing) return;
+    stoppedRef.current = true;
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setTyping(false);
+  };
+
+  return { text, setText, typing, finishTyping, stopTyping, finishedAt };
+}
+
+function InTileComposer({
+  gameId,
+  board,
+  side,
+  parentTileId,
+  parentSide,
+  initialText = "",
+  locked = false,
+  corner,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  side: Side;
+  /** The tile being answered, or null for a new thread off the topic. */
+  parentTileId: string | null;
+  /** The answered tile's side, for the lead line. Null when answering the topic. */
+  parentSide: Side | null;
+  /**
+   * What the box opens with. The Gym coach's sample answer arrives here, from
+   * the slot the player clicked (Steve, 2026-09-03), and it is ordinary
+   * editable draft text from the moment it lands: the player can rewrite it,
+   * clear it, or place it as it stands, and the tile is theirs either way.
+   * Typed in rather than dropped in whole; see `useTypedSample`.
+   */
+  initialText?: string;
+  /**
+   * Steve, 2026-09-05: a cooked level's draft is the script's suggestion and
+   * nothing else. The textarea stops taking keystrokes once the sample has
+   * finished typing itself in; Place and Cancel are the only moves left.
+   */
+  locked?: boolean;
+  /** Which diagonal of the parent this box occupies, recorded on the tile. */
+  corner: TileCorner;
+  onDone: () => void;
+}) {
+  const { text, setText, typing, finishTyping, stopTyping, finishedAt } =
+    useTypedSample(initialText);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const verdict = canPlaceTile(board, text, parentTileId);
 
-  const verdict = canProposeTopicRevision(board, text);
+  // Runs after the sample finishes, whether it ran out on its own or a click
+  // or arrow key jumped it there: select the whole line so a player who
+  // wants to keep it can leave it, and a player who wants their own words
+  // can just start typing over the selection in one motion. `finishedAt` is
+  // 0 until the first finish, so the mount render is a no-op here.
+  useEffect(() => {
+    if (finishedAt === 0) return;
+    textareaRef.current?.select();
+  }, [finishedAt]);
+  /**
+   * Why Place is dead, on the screen rather than in the button's tooltip.
+   *
+   * Same shape as the steelman box further down this file: once there are
+   * words in the box the line under it judges those words, and until there
+   * are, it judges the box's standing situation instead. "A reason needs some
+   * words in it" is not news about an empty box.
+   *
+   * Found by playing level 4 on 2026-09-04. A reason may not end in a question
+   * mark, the moderator has a sentence for it, and the level tells the player
+   * in so many words to try it themselves and hear the same sentence. What
+   * they actually got was a greyed-out Place button and silence, because the
+   * moderator's sentence was only in `title`, which WhyNot's own note above
+   * says is not an explanation.
+   */
   const blocked =
-    text.trim().length > 0 ? verdict : canProposeTopicRevision(board, "a revised topic");
+    text.trim().length > 0 ? verdict : canPlaceTile(board, "a reason", parentTileId);
 
   const submit = () => {
+    if (!verdict.ok) return;
     setError(null);
     startTransition(async () => {
-      const result = await proposeTopicRevision(gameId, { text });
+      const result = await placeTile(gameId, { text, parentTileId, corner });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else onDone();
     });
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
-      <label className="flex flex-col gap-1 text-sm">
-        Propose a revised topic
-        <textarea
-          className="w-full border border-current/30 p-1 text-sm"
-          value={text}
-          maxLength={300}
-          disabled={pending}
-          placeholder="A statement both sides could sign."
-          onChange={(event) => setText(event.target.value)}
+    <div className="relative size-full">
+      <TileShape side={side} size={OUTER_FRAME_REM} watermark="reason" selected>
+        <p className="font-tiles w-full text-center">
+          <span className="block leading-tight" style={{ fontSize: `${TILE_LEAD_PX}px` }}>
+            {tileLead(side, parentTileId === null, parentSide)}
+          </span>
+          {/*
+            No border and no background: the octagon is the box. A visible
+            field inside it would draw a second, smaller tile inside the
+            first one and undo the whole point of writing on the board.
+          */}
+          <textarea
+            // The click that opened this cell was the request for a cursor
+            // in it; the whole gesture is one motion.
+            autoFocus
+            ref={textareaRef}
+            className="mt-1 block w-full resize-none bg-transparent text-center leading-snug outline-none"
+            style={{ fontSize: `${TILE_BODY_PX}px` }}
+            rows={3}
+            value={text}
+            maxLength={TILE_MAX_CHARS}
+            disabled={pending}
+            readOnly={locked}
+            aria-readonly={locked}
+            placeholder="A reason for your side."
+            onChange={(event) => {
+              // Cooked mode: the sample is the reason, and Place is the only
+              // move. `readOnly` already stops the browser from firing this
+              // for a real keystroke; this guard is only for a locked box
+              // remounting with a shorter `initialText`, which would
+              // otherwise read as an edit that never happened.
+              if (locked) return;
+              // The player's own keystroke just landed; it wins outright.
+              // Stop the reveal where it is rather than letting the next
+              // tick overwrite what they just produced, and never jump to
+              // the full sample first (that would replace their words with
+              // the coach's, which is the bug this fixes).
+              if (typing) stopTyping();
+              setText(event.target.value);
+            }}
+            // A click or focus is a read action, not a write: it may finish
+            // the sample, but it never touches what the player has typed.
+            onClick={() => {
+              if (typing) finishTyping();
+            }}
+            onFocus={() => {
+              if (typing) finishTyping();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onDone();
+                return;
+              }
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+                return;
+              }
+              // A navigation key while the sample is still revealing is a
+              // read action too, the same as a click: finish the line so
+              // the player can move the caret through it and edit, rather
+              // than typing over half of it.
+              if (
+                typing &&
+                (event.key === "ArrowLeft" ||
+                  event.key === "ArrowRight" ||
+                  event.key === "ArrowUp" ||
+                  event.key === "ArrowDown" ||
+                  event.key === "Home" ||
+                  event.key === "End")
+              ) {
+                finishTyping();
+              }
+            }}
+          />
+        </p>
+      </TileShape>
+      {/* Under the tile rather than in it: the octagon holds the reason, and
+          only the reason. Given its own solid pill because the cells below a
+          tile are where its diagonal neighbours sit, so this lands on top of
+          another octagon as often as not. */}
+      <div className="text-p-sm absolute top-full left-1/2 z-20 flex w-64 -translate-x-1/2 -translate-y-4 flex-col items-center gap-1 text-center">
+        {/*
+          Two buttons, drawn as two buttons. They used to sit inside one shared
+          pill with the gold one filling its left half, which is the exact
+          picture of a two-position switch: it read as one control that could be
+          flipped from Place to cancel rather than as a choice between placing
+          and not placing. Separate pills with air between them, and the second
+          one outlined rather than bare text, so the pair reads as a primary
+          action and its way out.
+        */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="bg-gold text-neutral-white font-primary cursor-pointer rounded-full px-5 py-1.5 tracking-wide uppercase shadow-lg disabled:cursor-default disabled:opacity-40"
+            disabled={pending || !verdict.ok}
+            title={!verdict.ok ? verdict.error : "Place it (or press Return)"}
+            onClick={submit}
+          >
+            {pending ? "Placing..." : "Place"}
+          </button>
+          <button
+            type="button"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary hover:bg-sand/40 cursor-pointer rounded-full border px-5 py-1.5 tracking-wide uppercase shadow-md disabled:cursor-default disabled:opacity-40"
+            disabled={pending}
+            title="Discard this reason (or press Escape)"
+            onClick={onDone}
+          >
+            Cancel
+          </button>
+        </div>
+        {/* Live count against the same limit the Place button's own verdict
+            enforces (`canPlaceTile`, `TILE_MAX_CHARS`), so a player closing in
+            on the limit sees it coming rather than discovering it only when
+            typing just stops working. */}
+        <span
+          className={`bg-offwhite rounded-full px-3 py-1 text-xs shadow-md ${
+            text.length >= TILE_MAX_CHARS
+              ? "text-red-600"
+              : "text-neutral-black opacity-60"
+          }`}
+        >
+          {text.length} / {TILE_MAX_CHARS}
+        </span>
+        {/* Its own pill for the same reason the buttons have one: this lands
+            on top of a neighbouring octagon as often as not, and grey text on
+            a tile is not readable. */}
+        <WhyNot
+          verdict={blocked}
+          className="bg-offwhite text-neutral-black rounded-full px-3 py-1 text-xs shadow-md"
         />
-      </label>
-      <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Propose
-      </button>
-      <ErrorLine error={error} />
+        <ErrorLine error={error} />
+      </div>
     </div>
   );
 }
@@ -1192,6 +2211,9 @@ function TopicRevisionForm({ gameId, board }: { gameId: string; board: BoardStat
  * saying the other side back, or that every one of them is a proposal the other
  * player has to accept before anything happens.
  */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Move({
   title,
   hint,
@@ -1202,9 +2224,9 @@ function Move({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2 border border-current/20 p-3">
+    <div className="flex flex-col gap-2 border-gray/30 bg-offwhite rounded-xl border p-3">
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-p-sm font-semibold">{title}</h3>
         <p className="text-xs opacity-60">{hint}</p>
       </div>
       {children}
@@ -1212,88 +2234,77 @@ function Move({
   );
 }
 
+/**
+ * Saying one of their reasons back to them, in your own words, on that reason.
+ *
+ * It used to carry a dropdown of every reason the other side had placed, which
+ * asked a player to find a tile they were already looking at in a list of
+ * truncated strings. Opened from the tile itself, the question it is asking is
+ * the tile it is attached to, and there is nothing left to pick.
+ */
 function ReadingHandbackForm({
   gameId,
   board,
+  tile,
   me,
+  onDone,
 }: {
   gameId: string;
   board: BoardState;
+  tile: BoardTile;
   me: { playerId: string; role: Side };
+  onDone: () => void;
 }) {
-  const [tileId, setTileId] = useState("");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const theirs = useMemo(
-    () => allTargets(board).filter((tile) => tile.side !== me.role),
-    [board, me.role],
-  );
-
-  const verdict = canProposeReadingHandback(board, tileId, me.role, text);
-  // Nothing worth saying until a reason is picked: "that reason is not on this
-  // board" is true of the empty selection and is not what the player needs.
+  const verdict = canProposeReadingHandback(board, tile.id, me.role, text);
   const blocked =
-    tileId.length === 0
-      ? null
-      : text.trim().length > 0
-        ? verdict
-        : canProposeReadingHandback(board, tileId, me.role, "a reading");
+    text.trim().length > 0
+      ? verdict
+      : canProposeReadingHandback(board, tile.id, me.role, "a reading");
 
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const result = await proposeReadingHandback(gameId, { tileId, text });
+      const result = await proposeReadingHandback(gameId, { tileId: tile.id, text });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else onDone();
     });
   };
 
-  if (theirs.length === 0) {
-    return (
-      <p className="text-sm opacity-50">
-        Once they have placed a reason, you can try saying it back to them.
-      </p>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-sm">
-        Which reason
-        <select
-          className="border border-current/30 p-1 text-sm"
-          value={tileId}
-          disabled={pending}
-          onChange={(event) => setTileId(event.target.value)}
-        >
-          <option value="">Pick one of their reasons</option>
-          {theirs.map((tile) => (
-            <option key={tile.id} value={tile.id}>
-              {SIDE_MARK[tile.side]} {shortText(board, tile.id)}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
+      <p className="text-p-sm text-gray">In your own words, what are they saying?</p>
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
-        placeholder="In your own words, what are they saying?"
+        placeholder="You think that..."
         onChange={(event) => setText(event.target.value)}
       />
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Ask if you have it right
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className={PRIMARY_BUTTON}
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Ask if you have it right
+        </button>
+        <button
+          type="button"
+          className={SECONDARY_BUTTON}
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
@@ -1301,6 +2312,9 @@ function ReadingHandbackForm({
 
 /** Their whole side, said for them. Aimed at nothing on the board, so it can be
     offered before either of you has placed much. */
+// Unrendered on purpose: rule-card machinery waiting for a hand to be played
+// from. See the note where "Understanding each other" used to be rendered.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardState }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1322,7 +2336,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
   return (
     <div className="flex flex-col gap-2">
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1332,7 +2346,7 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
       <WhyNot verdict={blocked} />
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className={`${SECONDARY_BUTTON} self-start`}
         disabled={pending || !verdict.ok}
         title={!verdict.ok ? verdict.error : undefined}
         onClick={submit}
@@ -1345,80 +2359,106 @@ function SteelmanReadingForm({ gameId, board }: { gameId: string; board: BoardSt
 }
 
 /**
- * A reason written for the other side, which lands on their half of the board
- * if they take it.
+ * A reason written for the other side, hung under the reason you are looking
+ * at, which lands on their half of the board if they take it.
  *
  * Which side it goes on is never sent from here. The server derives it, so this
- * form has no field for it and no way to be wrong about it.
+ * form has no field for it and no way to be wrong about it. The destination is
+ * not sent either any more: it is the tile this opened from.
  */
-function SteelmanTileForm({ gameId, board }: { gameId: string; board: BoardState }) {
-  const [parent, setParent] = useState("");
+function SteelmanTileForm({
+  gameId,
+  board,
+  tile,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  tile: BoardTile;
+  onDone: () => void;
+}) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const destinations = useMemo(() => allTargets(board), [board]);
-  const parentTileId = parent.length > 0 ? parent : null;
-  const verdict = canProposeSteelmanTile(board, parentTileId, text);
-  // Against a stand-in this surfaces the six-thread ceiling, which is the block
-  // no amount of typing clears and the one a player hits without warning.
+  const verdict = canProposeSteelmanTile(board, tile.id, text);
   const blocked =
-    text.trim().length > 0
-      ? verdict
-      : canProposeSteelmanTile(board, parentTileId, "a reason");
+    text.trim().length > 0 ? verdict : canProposeSteelmanTile(board, tile.id, "a reason");
 
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const result = await proposeSteelmanTile(gameId, { text, parentTileId });
+      const result = await proposeSteelmanTile(gameId, { text, parentTileId: tile.id });
       if (!result.ok) setError(result.error);
-      else setText("");
+      else onDone();
     });
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
+      <p className="text-p-sm text-gray">
+        A reason for their side that you think they missed, hung under this one.
+      </p>
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className={FIELD}
         value={text}
         maxLength={TILE_MAX_CHARS}
         disabled={pending}
-        placeholder="A reason for their side that you think they missed."
+        placeholder="Something their side could say here."
         onChange={(event) => setText(event.target.value)}
       />
-      <label className="flex flex-col gap-1 text-xs">
-        Hang it under
-        <select
-          className="border border-current/30 p-1 text-sm"
-          value={parent}
-          disabled={pending}
-          onChange={(event) => setParent(event.target.value)}
-        >
-          <option value="">Nothing: start its own thread</option>
-          {destinations.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {SIDE_MARK[candidate.side]} {shortText(board, candidate.id)}
-            </option>
-          ))}
-        </select>
-      </label>
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Offer it to them
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className={PRIMARY_BUTTON}
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Offer it to them
+        </button>
+        <button
+          type="button"
+          className={SECONDARY_BUTTON}
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
 }
 
-/** A word one of you keeps using and the other keeps hearing differently. */
-function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }) {
+/**
+ * A word one of you keeps using and the other keeps hearing differently.
+ *
+ * Opened from the reason the word appears in, which is the only place a word
+ * is ever confusing: nobody asks what "fair" means in the abstract, they ask
+ * what it meant in the sentence they just read. The tile's own words are shown
+ * above the box for exactly that reason, so the word can be copied out of it.
+ *
+ * The proposal itself is NOT anchored to that tile, and this is the one place
+ * the move does not fully match Steve's "a little dialog beside a tile" rule.
+ * `proposeDefinition` writes `target_tile_id: null`, so the pending ask has no
+ * tile to be drawn on and is answered from the rail instead (`PendingAsks`).
+ * Widening that is a server-action change, outside this lane. Filed rather
+ * than worked around: the ask is about the word for the rest of the game, so
+ * a null target is arguably right and only the answering surface is wrong.
+ */
+function DefinitionForm({
+  gameId,
+  board,
+  tile,
+  onDone,
+}: {
+  gameId: string;
+  board: BoardState;
+  tile: BoardTile;
+  onDone: () => void;
+}) {
   const [term, setTerm] = useState("");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1435,17 +2475,18 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
     startTransition(async () => {
       const result = await proposeDefinition(gameId, { term, text });
       if (!result.ok) setError(result.error);
-      else {
-        setTerm("");
-        setText("");
-      }
+      else onDone();
     });
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 border-gray/25 border-t pt-2">
+      <p className="text-p-sm text-gray">
+        A word in this reason that the two of you may be hearing differently.
+      </p>
+      <p className="text-p-sm font-tiles text-gray">&ldquo;{tile.text}&rdquo;</p>
       <input
-        className="w-full border border-current/30 p-1 text-sm"
+        className={FIELD}
         value={term}
         maxLength={DEFINITION_TERM_MAX_CHARS}
         disabled={pending}
@@ -1453,7 +2494,7 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
         onChange={(event) => setTerm(event.target.value)}
       />
       <textarea
-        className="w-full border border-current/30 p-1 text-sm"
+        className={FIELD}
         value={text}
         maxLength={READING_MAX_CHARS}
         disabled={pending}
@@ -1461,42 +2502,25 @@ function DefinitionForm({ gameId, board }: { gameId: string; board: BoardState }
         onChange={(event) => setText(event.target.value)}
       />
       <WhyNot verdict={blocked} />
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending || !verdict.ok}
-        title={!verdict.ok ? verdict.error : undefined}
-        onClick={submit}
-      >
-        Ask them to agree
-      </button>
-      <ErrorLine error={error} />
-    </div>
-  );
-}
-
-function GenerosityButton({ gameId }: { gameId: string }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const give = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await giveGenerosityToken(gameId, {});
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
-        disabled={pending}
-        onClick={give}
-      >
-        Give a generosity token
-      </button>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className={PRIMARY_BUTTON}
+          disabled={pending || !verdict.ok}
+          title={!verdict.ok ? verdict.error : undefined}
+          onClick={submit}
+        >
+          Ask them to agree
+        </button>
+        <button
+          type="button"
+          className={SECONDARY_BUTTON}
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </button>
+      </span>
       <ErrorLine error={error} />
     </div>
   );
@@ -1524,142 +2548,157 @@ function LeaveButton({ gameId }: { gameId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col items-start gap-1">
       <button
         type="button"
-        className="self-start border border-current/30 px-3 py-1 text-sm disabled:opacity-40"
+        className="border-gray/30 bg-offwhite text-p-sm text-neutral-black hover:bg-sand cursor-pointer rounded-full border px-4 py-2 font-semibold shadow-md disabled:opacity-40"
         disabled={pending}
         onClick={leave}
+        title="Leave this game and go back to the home screen"
       >
-        {sure ? "Yes, end it for both of us" : "Leave this game"}
+        {sure ? "Yes, end it for both of us" : "\u2190 Leave game"}
       </button>
-      <p className="text-sm opacity-60">
-        The map stays in your history either way, marked unfinished.
-      </p>
+      {sure ? (
+        <p className="text-p-sm bg-offwhite border-gray/30 max-w-[16rem] rounded-xl border px-3 py-2 opacity-80 shadow-md">
+          A live board needs both sides, so this ends the game for the other player too.
+          The map stays in both histories, marked unfinished.
+        </p>
+      ) : null}
       <ErrorLine error={error} />
     </div>
   );
 }
 
-function ThreadBlock({
-  gameId,
-  thread,
-  index,
-  me,
+/**
+ * A thread's resolution, drawn on the reason the thread started from.
+ *
+ * The whole first win condition is "name where you two actually disagree", and
+ * until this existed nothing on the board said whether that had happened. The
+ * drawer knew; the board, which is what a player is looking at, did not.
+ */
+/**
+ * An unanswered proposal about this reason, on the left edge of it.
+ *
+ * A proposal is a question somebody is standing there waiting on an answer to,
+ * and the answer lives inside the tile's card. Without a mark on the tile there
+ * is nothing on the board that would ever make a player open it.
+ */
+function TileProposalBadge({
   board,
+  tileId,
+  me,
 }: {
-  gameId: string;
-  thread: BoardThread;
-  index: number;
-  me: { playerId: string; role: Side };
   board: BoardState;
+  tileId: string;
+  me: { playerId: string; role: Side };
 }) {
-  const resolved = isResolved(thread);
-
+  const open = board.proposals.filter(
+    (proposal) => proposal.status === "pending" && proposal.targetTileId === tileId,
+  );
+  if (open.length === 0) return null;
+  const yours = open.some((proposal) => proposal.askedBy !== me.role);
   return (
-    <section className="border-neutral-black/15 flex flex-col gap-3 border-t pt-4">
-      <header className="flex flex-wrap items-baseline justify-between gap-4">
-        <h3 className="font-primary text-p-sm text-gray tracking-wide uppercase">
-          Thread {index + 1}
-        </h3>
-        <ResolutionRow gameId={gameId} thread={thread} me={me} board={board} />
-      </header>
-
-      {resolved && thread.root ? (
-        // A resolved thread collapses into a fanned stack, the way the
-        // retired client's CollapsedThread.vue did, rather than staying open
-        // as a full tree once the disagreement has been named.
-        <CollapsedThread root={thread.root} />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {thread.root ? (
-            <TileNode tile={thread.root} gameId={gameId} me={me} board={board} />
-          ) : (
-            <li className="text-gray">The reason this thread started from is gone.</li>
-          )}
-        </ul>
-      )}
-
-      {thread.orphans.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-wide opacity-50">
-            Replies to a removed reason
-          </p>
-          <ul className="flex flex-col gap-2">
-            {thread.orphans.map((tile) => (
-              <TileNode key={tile.id} tile={tile} gameId={gameId} me={me} board={board} />
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+    <span
+      style={{ left: CORNER_INSET, top: CORNER_INSET }}
+      className={`font-primary text-p-md absolute z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm ${
+        yours
+          ? "border-gold bg-sand text-neutral-black"
+          : "border-gray/30 bg-offwhite text-gray"
+      }`}
+      title={
+        yours
+          ? "They asked you something about this reason. Click it."
+          : "You asked them something about this reason."
+      }
+    >
+      ?
+    </span>
   );
 }
 
-/**
- * How close this game is to ending, in both of the ways it can end.
- *
- * Both win conditions are cooperative and both were invisible here. The topic
- * route was described in prose at the bottom of the page; the thread route was
- * described nowhere at all, and its two numbers were enforced silently. A
- * player could resolve every thread on the board and have nothing happen,
- * because the floor is four and they had three, with nothing on the screen that
- * would ever tell them so.
- *
- * The counts come from the same functions the rules enforce, so this cannot
- * describe a different game than the one being played.
- */
-function HowThisEnds({ board }: { board: BoardState }) {
-  const threads = liveThreads(board);
-  const resolved = threads.filter(isResolved).length;
-  const unresolved = threads.length - resolved;
-  const shortBy = Math.max(0, MIN_THREADS_TO_END - threads.length);
+function ThreadTokenBadge({
+  thread,
+  me,
+  onOpen,
+}: {
+  thread: BoardThread | null;
+  me: { playerId: string; role: Side };
+  /** Opens this thread's root tile card. Only the pending badge uses this; a
+   *  settled thread has nothing left to do. */
+  onOpen?: () => void;
+}) {
+  if (!thread) return null;
+  const settled = thread.resolution?.emoji ?? null;
+  const mine = thread.pending[me.role];
+  const theirs = thread.pending[OTHER_SIDE[me.role]];
+  const token = settled ?? mine ?? theirs ?? null;
+  if (!token) return null;
+  // A token they have put down and you have not matched is your move, and it
+  // is the move that ends a thread, so it gets the same gold a thrown card
+  // and an unanswered ask get. Before this the badge looked identical whether
+  // you were the one waiting or the one being waited on, and the only words
+  // anywhere were in a `title`, which needs a mouse held still long enough to
+  // trust and says nothing at all to a screen reader.
+  const yours = !settled && theirs !== null && mine === null;
+  const words = settled
+    ? `Thread resolved: ${tokenLabel(settled)}`
+    : yours
+      ? `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
+      : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
+  // A settled thread and a thread waiting on somebody are two different
+  // announcements, and they are drawn differently.
+  //
+  // Steve, 2026-09-04, live playtest: the 2026-09-03 corner stamp (24px,
+  // tucked in the lower right, matching the retired `Tile.vue`) read as too
+  // small to notice mid-game. His reference was the onboarding video's own
+  // resolve-a-thread ping (`public/onboarding/step3.mp4`): a large
+  // rounded-square badge with a real border and shadow, sitting bottom
+  // centre and overlapping the tile's own edge rather than tucked inside a
+  // corner. This replaces the corner placement with that one. Settled is
+  // still the calmer of the two, a plain stamp; pending keeps a dashed ring
+  // and a pulse, because a token one side has merely suggested is a live
+  // question addressed to the other player, and it is the loudest thing on
+  // that tile for exactly as long as it is unanswered.
+  //
+  // Shares the bottom edge with TileThrowBadges above. A root tile in a live
+  // (non-gym) game can carry both a thrown card and a thread token at once;
+  // gym mode never can, because a root tile cannot take a card there
+  // (see the CardHand root+gym gate further down this file).
+  if (settled) {
+    return (
+      <span
+        style={{ left: "50%", bottom: 0 }}
+        className="border-gray/40 absolute z-30 flex -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-2xl border-2 bg-white p-1.5 shadow-md"
+        title={words}
+      >
+        <TokenGlyph token={settled} size={56} />
+        <span className="sr-only">{words}</span>
+      </span>
+    );
+  }
 
-  const threadRoute =
-    shortBy > 0
-      ? unresolved === 0 && threads.length > 0
-        ? `Every thread here is resolved, and that on its own does not end it: a game needs at least ${MIN_THREADS_TO_END} threads. ${
-            shortBy === 1
-              ? "One more argument to have."
-              : `${shortBy} more arguments to have.`
-          }`
-        : `Resolving every thread ends the game, once there are at least ${MIN_THREADS_TO_END} of them.`
-      : unresolved === 0
-        ? null
-        : unresolved === 1
-          ? "Settle the last one and the game is over."
-          : "Settle them all and the game is over.";
-
-  // Quiet until the ceiling is close enough to matter. A board with two threads
-  // on it does not need to hear about the sixth.
-  const ceiling =
-    threads.length >= MAX_THREADS
-      ? `There are ${MAX_THREADS} threads here, which is the most a board holds. A new reason has to hang off one that is already here.`
-      : threads.length === MAX_THREADS - 1
-        ? "One more new thread and the board is full."
-        : null;
-
+  // Unlike the settled stamp, a pending token is unfinished business: it is
+  // your move (or theirs) to close the thread, and clicking it opens the
+  // same tile card the reason itself opens, which is where the picker to
+  // close it lives. The overlay row that draws this badge is
+  // `pointer-events-none` (spatial-board.tsx), so the button opts itself
+  // back in.
   return (
-    <section className="flex flex-col gap-2 border border-current/15 p-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-        How this game ends
-      </h2>
-      <p className="text-sm">
-        {threads.length === 0
-          ? "No threads yet."
-          : `${resolved} of ${threads.length} ${
-              threads.length === 1 ? "thread" : "threads"
-            } resolved.`}
-        {threadRoute ? ` ${threadRoute}` : null}
-      </p>
-      {ceiling ? <p className="text-sm opacity-70">{ceiling}</p> : null}
-      {topicAgreementEndsGame(board) ? (
-        <p className="text-sm opacity-70">
-          The other way out is agreeing on a rewritten topic, at the bottom of this page.
-          Either ending is a win, and it is the same win for both of you.
-        </p>
-      ) : null}
-    </section>
+    <button
+      type="button"
+      onClick={onOpen}
+      style={{ left: "50%", bottom: 0 }}
+      className={`pointer-events-auto absolute z-20 flex -translate-x-1/2 translate-y-1/2 animate-pulse cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed p-1.5 shadow-md ${
+        yours ? "border-gold bg-sand" : "border-gray/40 bg-offwhite opacity-70"
+      }`}
+      title={words}
+    >
+      <TokenGlyph token={token} size={64} />
+      <span className="font-secondary text-p-sm text-neutral-black">
+        {yours ? "Your move" : "Waiting on them"}
+      </span>
+      <span className="sr-only">{words}</span>
+    </button>
   );
 }
 
@@ -1668,261 +2707,822 @@ export function LiveBoard({
   board,
   me,
   coachEnabled,
+  buildStamp = null,
+  joinCode = null,
+  opponentEmoji,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
-  const definitions = agreedDefinitions(board);
-  const awaiting = proposalsAwaiting(board, me.role);
-  const asked = proposalsFrom(board, me.role);
+
+  // Placement is offered per parent, because the rules answer per parent: a
+  // resolved thread takes no more replies, and the topic stops offering new
+  // threads at the cap. TOPIC_CELL_ID is not a tile, so it asks the
+  // new-thread question instead.
+  const canPlaceUnder = useCallback(
+    (parentId: string) =>
+      canPlaceTile(board, "a reason", parentId === TOPIC_CELL_ID ? null : parentId).ok,
+    [board],
+  );
+  const placementEnabled =
+    canPlaceUnder(TOPIC_CELL_ID) || allTargets(board).some((t) => canPlaceUnder(t.id));
   // Refetches the server projection when the other player appends.
   const { connected } = useGameFeed(gameId);
   // Toasts what the other player did between one projection and the next.
   usePeerNotices(board, me.role);
 
-  // The minimap wants an edge per thread so a thread keeps its corner as the
-  // board grows. Nothing in the projection records where a tile sits, so
-  // there is no edge to give it and the corners fill in thread order
-  // instead: stable for a given board, because thread order is placement
-  // order. See the parentEdge note in ways-to-win-card.tsx.
+  // The minimap wants the corner each thread's root actually sits on, read
+  // off the same layout the board itself draws from, not dealt out in
+  // thread order: the 2026-09-04 playtest found level 1's two threads (both
+  // hung off the bottom corners) lighting the top two on the stamp instead,
+  // "which are not even available", because the old code picked a corner by
+  // side rather than by where the tile really landed. See the `corner` note
+  // in ways-to-win-card.tsx.
+  const miniLayout = useMemo(
+    () =>
+      topicRootedLayout(
+        allTargets(board).map((t) => ({
+          id: t.id,
+          parentId: t.parentId,
+          side: t.side ?? null,
+        })),
+      ),
+    [board],
+  );
+  // Moved above `miniThreads` (was declared after it, further down this
+  // function): the mini icons' `onOpen` (BRAIN-T260905, "ways to win icons
+  // are inert") opens a tile the same way `ThreadTokenBadge` does, and a
+  // `const` declared later in the same render is not visible yet when
+  // `useMemo` calls its function body immediately.
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  // Which tile the on-tile pencil was clicked on, if it was: read exactly
+  // once, by TileNode's lazy initializer, the moment its card mounts (see
+  // `startEditing` on TileNode). State rather than a ref, because the value
+  // that seeds `startEditing` is read during render (React's rules disallow
+  // reading a ref's current value there). Every other way a tile card opens
+  // or closes clears it in its own click handler below (not an effect --
+  // setting state synchronously inside one just to mirror another piece of
+  // state is the cascading-render pattern React's lint now flags), so it is
+  // never stale by the time a later, ordinary click reads it again.
+  const [pencilEditTileId, setPencilEditTileId] = useState<string | null>(null);
   const miniThreads = useMemo<MiniThread[]>(
     () =>
-      threads.map((thread) => ({
-        tileId: thread.rootId,
-        side: thread.root?.side ?? thread.orphans[0]?.side ?? "plus",
-        parentEdge: null,
-        resolved: thread.resolution !== null,
-        token: thread.resolution?.emoji ?? null,
-      })),
-    [threads],
+      threads.map((thread) => {
+        const topicPos = miniLayout.positions.get(TOPIC_CELL_ID);
+        const rootPos = miniLayout.positions.get(thread.rootId);
+        const corner: MiniCorner | null =
+          topicPos && rootPos
+            ? CORNER_TO_MINI[
+                cornerFromOffset(rootPos.x - topicPos.x, rootPos.y - topicPos.y)
+              ]
+            : null;
+        const mine = thread.pending[me.role];
+        const theirs = thread.pending[OTHER_SIDE[me.role]];
+        const pending: MiniThread["pending"] =
+          thread.resolution === null && mine !== null && theirs === null
+            ? { emoji: mine, mine: true }
+            : thread.resolution === null && theirs !== null && mine === null
+              ? { emoji: theirs, mine: false }
+              : null;
+        return {
+          tileId: thread.rootId,
+          side: thread.root?.side ?? thread.orphans[0]?.side ?? "plus",
+          parentEdge: null,
+          corner,
+          resolved: thread.resolution !== null,
+          token: thread.resolution?.emoji ?? null,
+          pending,
+          // Same pattern as `ThreadTokenBadge`'s `onOpen` below: opens the
+          // same tile card the reason itself opens. Only when the root has
+          // actually landed (`thread.root`, not just `thread.rootId`, which
+          // survives even for an orphaned thread whose root is gone): a mini
+          // icon for a thread with nothing to open stays inert on purpose.
+          onOpen: thread.root
+            ? () => {
+                setPencilEditTileId(null);
+                setSelectedTileId(thread.rootId);
+              }
+            : undefined,
+        };
+      }),
+    [threads, miniLayout, me.role],
   );
   const resolvedCount = miniThreads.filter((thread) => thread.resolved).length;
+
+  // The two lines the Ways to win card cannot draw. Both come from the same
+  // functions the rules enforce, so the card cannot describe a different game
+  // than the one being played.
+  const endsOnTopic = topicAgreementEndsGame(board);
+  // Quiet until the ceiling is close enough to matter. A board with two
+  // threads on it does not need to hear about the sixth.
+  const ceilingNote =
+    threads.length >= MAX_THREADS
+      ? `There are ${MAX_THREADS} threads here, which is the most a board holds. A new reason has to hang off one that is already here.`
+      : threads.length === MAX_THREADS - 1
+        ? "One more new thread and the board is full."
+        : null;
+  // A thread is named by the reason it started from, so the tile the player
+  // clicked is enough to find the thread it heads, if it heads one.
+  // The other seat. `role` is nullable on a BoardPlayer because a player
+  // exists from the moment they join and picks a side afterwards, so the
+  // opposite of mine is the safe fallback: there are only two sides, and by
+  // the time a board is live the other one is taken.
+  const opponent = board.players.find((player) => player.id !== me.playerId) ?? null;
+  const opponentSide: Side = opponent?.role ?? (me.role === "plus" ? "minus" : "plus");
+
+  const threadByRoot = useMemo(
+    () => new Map(threads.map((thread) => [thread.rootId, thread])),
+    [threads],
+  );
   // Matches the retired client's isTutorialOpen: true on every arrival at the
   // board, no "seen it already" memory anywhere. See
   // components/onboarding/onboarding-overlay.tsx for why that is deliberate.
-  const [onboardingOpen, setOnboardingOpen] = useState(true);
+  const onboarding = useOnboarding({ auto: board.mode !== "gym" });
+  // The topic editor opens from two places (the tile itself and the Ways to
+  // win pencil), so the board owns whether it is open, not the tile.
+  const [topicEditing, setTopicEditing] = useState(false);
+  const topicPending = pendingTopicRevision(board) !== null;
+  // What a reason can do belongs on the reason. Clicking one opens its actions
+  // beside it rather than sending the player to a list somewhere else on the
+  // screen to find the same tile a second time.
+  // Where a reason is being written on the board, if anywhere: the parent it
+  // answers and the cell it will occupy. The board reports both from the
+  // clicked slot, because it is the board that knows where its open cells
+  // are; this only remembers which one was picked.
+  const [draft, setDraft] = useState<{
+    parentId: string;
+    pos: { x: number; y: number };
+    /** The coach's sample answer, when the slot clicked was carrying one. */
+    sample?: string | null;
+    /** Which diagonal of the parent this slot is, for the placement event. */
+    corner: TileCorner;
+  } | null>(null);
+  // A same-side answer the player has asked for but not yet been let into,
+  // because this is the first one this match and the notice is in front of
+  // them. Dismissing the notice opens it; there is no way to say no, because
+  // clicking the slot already said yes (Steve, 2026-09-02).
+  const [sameSideHold, setSameSideHold] = useState<{
+    parentId: string;
+    pos: { x: number; y: number };
+    sample?: string | null;
+    corner: TileCorner;
+  } | null>(null);
+  // What the Gym coach has offered to write for the next tile, published by
+  // GymDirector (components/gym/sample-answers.ts). Empty in a live game.
+  const sampleAnswers = useSampleAnswers();
+  const pointedSlot = usePointedSlot();
+  const pointedTileId = usePointedTile();
+  const bossDraft = useBossDraft();
+  // Board chrome level 1 keeps off screen until the Director's script says
+  // otherwise (components/gym/hidden-surfaces.ts). Empty in a live game.
+  const hiddenSurfaces = useHiddenSurfaces();
+  // How tightly a cooked level narrows placement down to one choice
+  // (components/gym/cooked-placement.ts). Unrestricted in a live game.
+  const cookedPlacement = useCookedPlacement();
+  // Throwing a card is arm-then-target: pick the card in the tray, then click
+  // the reason it answers. While a card is armed a click on a tile plays it
+  // instead of opening that tile's actions, so the two never fire at once.
+  const [armedCardId, setArmedCardId] = useState<string | null>(null);
+  const [throwError, setThrowError] = useState<string | null>(null);
+  const [throwPending, startThrow] = useTransition();
+  const deck = cardsInPlay(board);
+  const cardCounts = useMemo(() => {
+    const tally: Record<string, number> = {};
+    for (const thrown of board.throws) {
+      if (thrown.thrownBy !== me.playerId) continue;
+      tally[thrown.cardId] = (tally[thrown.cardId] ?? 0) + 1;
+    }
+    return tally;
+  }, [board.throws, me.playerId]);
+  // A reason's lead line depends on whose reason it hangs under, so the board
+  // needs one lookup from tile id to side.
+  const sideOf = useMemo(
+    () => new Map(allTargets(board).map((tile) => [tile.id, tile.side])),
+    [board],
+  );
+  /*
+    Connection as a dot rather than a sentence. "In progress, updating live"
+    is true of almost every second of every game, so it was a line of text
+    that never said anything; what a player needs to see is the moment it
+    stops being true.
+  */
+  const statusDot = (
+    <span
+      className="flex items-center gap-2"
+      title={`${STATUS_LABEL[board.status]}. ${connected ? "Updating live." : "Reconnecting."}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 rounded-full ${connected ? "bg-green" : "bg-orange"}`}
+      />
+      <span className="sr-only">
+        {STATUS_LABEL[board.status]}, {connected ? "updating live" : "reconnecting"}
+      </span>
+    </span>
+  );
+  const selectedTile = useMemo(
+    () => allTargets(board).find((tile) => tile.id === selectedTileId) ?? null,
+    [board, selectedTileId],
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4">
-      <header className="border-neutral-black/15 relative flex flex-col items-center gap-3 border-b pb-4">
-        {/*
-          The board's utility row: small controls that are not part of play
-          itself. The floating feedback button (app/layout.tsx) hides itself
-          on /game routes so it never floats over the board; this inline pill
-          is the replacement entry point while a game is in view.
-        */}
-        <div className="absolute right-0 top-0 flex items-center gap-2">
-          <FeedbackPopover variant="inline" />
+    /*
+      The board is the screen.
+
+      Ported from the retired client's `pages/game/[gameCode].vue`, which is
+      also what Rannie's `1064:214081` draws: a pan-and-zoom board filling the
+      viewport, with four floating clusters over its corners and nothing else
+      competing with it. What used to be here was a 3600px scrolling column of
+      headings, of which the board was one section among ten.
+
+      Everything that column held is still reachable and still wired; it moved
+      into the clusters. The pieces that ought to answer on the tile itself
+      (per-tile actions, thread resolution) are in the right-hand drawer until
+      they get their tile popovers, which is BRAIN-T260901-09, not this pass.
+    */
+    // Ends above the dev hot seat bar when there is one. The bar publishes its
+    // measured height as `--dev-bar-h` (components/dev/hotseat-bar.tsx); with no
+    // bar the variable is unset and the fallback puts the board back on the
+    // floor, so nothing about the real game changes.
+    <div className="bg-offwhite fixed inset-x-0 top-0 bottom-[var(--dev-bar-h,0px)] overflow-hidden">
+      <SpatialBoard
+        // A rewrite of the topic is a negotiation about the whole board,
+        // so the board stops offering places to put a new reason while one
+        // is open or waiting for an answer.
+        placementEnabled={placementEnabled && !topicEditing && !topicPending}
+        canPlaceOn={canPlaceUnder}
+        placeSide={me.role}
+        // How many opening reasons this game wants before replies open:
+        // four normally, two in gym level 1. The board draws a placeholder
+        // for every corner still in play (Steve, 2026-09-04).
+        rootTarget={rootTarget(board)}
+        // The rail is `right-8 w-[15rem]`, so 15 plus its 2rem gutter. Keep
+        // this in step with the rail wrapper's classes below.
+        reserveRight={17}
+        // The bottom cluster is `bottom-8` plus the Place a reason pill, the
+        // gap, and the rule-card tray with its tab and its hint line. Keep
+        // this in step with that column's classes below; the composer is
+        // taller than the pill it replaces, and that is allowed to overlap,
+        // because a player who opened the composer is typing in it rather
+        // than reading the tile behind it.
+        reserveBottom={13}
+        // The coach persona pill (`CoachPersona`, components/gym/director.tsx)
+        // is `top-4` plus its own padded height, and is the one piece of coach
+        // furniture with a fixed, knowable position: its speech bubble already
+        // tracks the target it is talking about, so only this strip needs
+        // reserving. A live game runs no coach and passes 0.
+        reserveTop={board.mode === "gym" ? 5 : 0}
+        draftAt={draft?.pos ?? null}
+        draft={
+          draft && (
+            <InTileComposer
+              gameId={gameId}
+              board={board}
+              side={me.role}
+              parentTileId={draft.parentId === TOPIC_CELL_ID ? null : draft.parentId}
+              parentSide={
+                draft.parentId === TOPIC_CELL_ID
+                  ? null
+                  : (sideOf.get(draft.parentId) ?? null)
+              }
+              initialText={draft.sample ?? ""}
+              locked={cookedPlacement.lockedText}
+              corner={draft.corner}
+              // A fresh box per slot, so the coach's words load into the one
+              // that was clicked rather than being ignored because the
+              // component was already mounted with an empty draft in it.
+              key={`${draft.parentId}:${draft.pos.x},${draft.pos.y}`}
+              onDone={() => setDraft(null)}
+            />
+          )
+        }
+        slotSamples={sampleAnswers}
+        pointedSlot={pointedSlot}
+        pointedTileId={pointedTileId}
+        bossDraft={bossDraft}
+        placement={cookedPlacement}
+        onPlace={(parentId, pos, sample, corner) => {
+          setPencilEditTileId(null);
+          setSelectedTileId(null);
+          setArmedCardId(null);
+          // Answering your own reason is legal and gets one word about it,
+          // once per match. The topic belongs to neither side, so starting a
+          // thread off it is never a same-side answer.
+          const answering = parentId === TOPIC_CELL_ID ? null : sideOf.get(parentId);
+          // The composer prints the stem as a chip in front of the text, so
+          // a coach sample that opens with the same words is trimmed before
+          // it becomes the draft, or it typed out "Hmm But a bun...".
+          const seed = sample ? stripDuplicateLead(sample) : null;
+          if (answering && answering === me.role && !sameSideNoticeSeen(gameId)) {
+            setSameSideHold({ parentId, pos, sample: seed, corner });
+            return;
+          }
+          setDraft({ parentId, pos, sample: seed, corner });
+        }}
+        onSelect={(tileId) => {
+          if (armedCardId) {
+            const verdict = canThrowCard(
+              board,
+              tileId,
+              armedCardId,
+              me.role,
+              me.playerId,
+            );
+            if (!verdict.ok) {
+              setThrowError(verdict.error);
+              return;
+            }
+            setThrowError(null);
+            const cardId = armedCardId;
+            startThrow(async () => {
+              const result: ActionResult = await throwCard(gameId, {
+                tileId,
+                cardId,
+              });
+              if (!result.ok) setThrowError(result.error);
+              else setArmedCardId(null);
+            });
+            return;
+          }
+          setPencilEditTileId(null);
+          setSelectedTileId((current) => (current === tileId ? null : tileId));
+        }}
+        tiles={allTargets(board)}
+        topic={
+          <TopicCell
+            gameId={gameId}
+            board={board}
+            me={me}
+            size={OUTER_FRAME_REM}
+            editing={topicEditing}
+            onEdit={() => setTopicEditing(true)}
+            onEditEnd={() => setTopicEditing(false)}
+          />
+        }
+        renderTile={(tile) => {
+          const mine = tile.placedBy === me.playerId;
+          const editVerdict = mine
+            ? canEditTile(board, tile.id, me.playerId, tile.text)
+            : null;
+          return (
+            <div className="relative size-full">
+              <TileShape
+                side={tile.side}
+                size={OUTER_FRAME_REM}
+                // Steve, 2026-09-05: the topic tile and the root reason tiles
+                // are special, so they wear the thick border.
+                weight={
+                  tile.isOpeningReason || tile.parentId === null ? "root" : "normal"
+                }
+                // Every tile on the board says "reason", opening tiles
+                // included: that is what Rannie stamps on all four of them in
+                // `1064:214081`. A thread is a shape on the board, not a
+                // different kind of tile, and calling the first one something
+                // else was a word the player had to learn for no gain.
+                watermark="reason"
+                // Everything else fades while the topic is being rewritten,
+                // the same move the retired client makes for an emoji
+                // resolution (GameBoard.vue:110-134, `resolvingThreadRoot`):
+                // a negotiation on one tile should not look like it belongs
+                // to the whole board.
+                dimmed={tile.removed || topicEditing || topicPending}
+                selected={tile.id === selectedTileId}
+              >
+                <p className="font-tiles text-center">
+                  {/* The lead line, ported from the retired Tile.vue's
+                    `tilePrefix` and drawn the way Rannie draws it: a larger
+                    line above the reason, so a tile reads as a sentence
+                    rather than as a text box. Both lines are sized against
+                    the octagon rather than against the page, because Rannie's
+                    tiles carry text at roughly 8% of the tile's width and the
+                    shared page body size left a 17rem octagon looking empty. */}
+                  <span
+                    className="block leading-tight"
+                    style={{ fontSize: `${TILE_LEAD_PX}px` }}
+                  >
+                    {tileLead(
+                      tile.side,
+                      // A reason with no parent hangs off the topic, which is
+                      // what an opening reason is. The flag is the engine's
+                      // word for the same thing and is trusted first, but it
+                      // defaults to false on older rows, and a tile answering
+                      // the topic must never come out as a rebuttal.
+                      tile.isOpeningReason || tile.parentId === null,
+                      tile.parentId ? (sideOf.get(tile.parentId) ?? null) : null,
+                    )}
+                  </span>
+                  <span
+                    className="block leading-snug"
+                    style={{ fontSize: `${TILE_BODY_PX}px` }}
+                  >
+                    <TileText tile={tile} />
+                  </span>
+                </p>
+              </TileShape>
+              {/* A card thrown at a reason leaves a mark on the reason, on its
+              bottom edge, which is where Rannie draws it and where the
+              retired client put it too. Without this the throw is invisible
+              until you open the tile, and a card nobody sees is a card that
+              did not land. A card waiting on you is gold, a card waiting on
+              them is plain, and a settled one fades back to a record. */}
+              <TileThrowBadges board={board} tileId={tile.id} me={me} />
+              <TileProposalBadge board={board} tileId={tile.id} me={me} />
+              {/* Steve, 2026-09-05, ruling on the tile card: edit becomes "a
+                standard pencil icon on top of the tile", shown only on your
+                own tiles and only when the card's own edit rule would allow
+                it (same canEditTile verdict the card checks, not a second
+                rule). Opposite corner from TileProposalBadge, which already
+                takes CORNER_INSET's top-left. Clicking it opens the same card
+                a tile click opens, already in edit mode, via pencilEditRef:
+                one edit entry point (TileNode's setEditing), reached from
+                either the tile or (still, for now) the card that opens under
+                it. */}
+              {mine && editVerdict?.ok && (
+                <button
+                  type="button"
+                  aria-label="Edit this reason"
+                  title="Edit this reason"
+                  // Matches TileProposalBadge's corner vocabulary (the board's
+                  // own neutral-black/offwhite, not the account flow's
+                  // ink/card tokens -- see the note on --color-ink in
+                  // globals.css), mirrored to the opposite corner and centred
+                  // on the inset point the same way that badge is.
+                  className="border-gray/30 bg-offwhite text-neutral-black absolute z-20 flex size-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1.5 shadow-sm transition-transform hover:-translate-y-1 active:translate-y-0"
+                  style={{ right: CORNER_INSET, top: CORNER_INSET }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPencilEditTileId(tile.id);
+                    setSelectedTileId(tile.id);
+                  }}
+                >
+                  <PencilGlyph className="size-full" />
+                </button>
+              )}
+            </div>
+          );
+        }}
+        // A settled thread says so on the reason it started from, on the
+        // bottom edge, the same edge TileThrowBadges uses above. Half
+        // strength while only one side has laid a token down, because a
+        // thread with one token on it is a question, not an answer. Drawn
+        // through renderOverlay rather than inside renderTile: the badge is
+        // meant to hang half off the tile's own bottom edge (matching the
+        // onboarding video), and the tile wrapper above is clipped to the
+        // octagon for hit-testing, which would cut the hanging half away.
+        renderOverlay={(tile) => (
+          <ThreadTokenBadge
+            thread={threadByRoot.get(tile.id) ?? null}
+            me={me}
+            onOpen={() => {
+              setPencilEditTileId(null);
+              setSelectedTileId(tile.id);
+            }}
+          />
+        )}
+      />
+
+      {/* Top left: the way out, and which game this is. Ported from the
+          retired client, where the browser Back button is trapped and this
+          button is the only exit. */}
+      <div className="fixed top-14 left-8 z-30 flex items-center gap-4">
+        <LeaveButton gameId={gameId} />
+        {/* Which side you are, in the corner Rannie puts it in. Your colour is
+            on every tile you have placed, but only once you have placed one,
+            and the first move of the game is the one where knowing matters. */}
+        <SideAvatar side={me.role} className="h-9 w-9" />
+        {/* Rannie writes the room code up here as plain small print, not as a
+            chip: `#Room: 83083` in `1096:252192`. It used to sit in the
+            bottom-left stack with the bug reporter, which is where you look
+            for site furniture rather than for the thing you read aloud to the
+            person you are about to argue with. */}
+        {joinCode ? (
+          <span className="font-primary text-p-md text-gray tracking-wide">
+            #Room: <span className="text-neutral-black">{joinCode}</span>
+          </span>
+        ) : null}
+        {board.mode === "gym" && board.levelId ? (
+          <span className="bg-orange text-neutral-black text-p-sm font-primary rounded-full px-4 py-2 tracking-wide uppercase shadow-md">
+            {board.levelId.replace(/_/g, " ")}
+          </span>
+        ) : null}
+        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
+            replaced it on the board: a "?" that opens the same four-step
+            overlay in place. A player who is stuck mid-argument will not
+            leave the game to go and read a page, and the retired client's
+            help was a corner button for the same reason. */}
+        <OnboardingLauncher
+          label="How to play"
+          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg shadow-md"
+        >
+          <span aria-hidden>?</span>
+        </OnboardingLauncher>
+      </div>
+
+      {/* A soft fade under the right rail.
+          The cards float over a canvas that pans, so a tile can end up behind
+          them, and the 12 px gaps between the cards then show a two-word
+          sliver of somebody's reason. On screen that reads as a rendering
+          fault rather than as a tile passing behind: "Whoever decides this"
+          hanging in a gap belongs to no card. The fade puts the canvas back
+          to the ground colour Rannie draws the rail on, without making the
+          rail an opaque panel, which it is not. Nothing to click, so nothing
+          is caught: the board still pans and the tiles under here still
+          answer the mouse exactly as before. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 right-0 z-20 w-[26rem]"
+        style={{
+          background:
+            "linear-gradient(to left, var(--color-board-ground) 66%, color-mix(in srgb, var(--color-board-ground) 55%, transparent) 85%, transparent)",
+        }}
+      />
+
+      {/* Top right: who you are, help, and the two ways this ends. Same stack
+          and the same 13rem column width as the retired client. */}
+      <div className="fixed top-8 right-8 z-30 flex max-h-[calc(100vh-4rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
+        {/* The person on the other side of the argument, named and coloured,
+            which is what Rannie hangs in this corner. It used to say who
+            *you* are, and you already know: your own side is written on
+            every tile you have placed and on the card in the bottom centre
+            that only offers your colour. Theirs is the thing worth a
+            permanent corner. */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-end gap-2">
+            {/* Steve, 2026-09-05: the boss's own face is who you are looking
+                at; the side's plus/minus octagon is a label on it, not the
+                other way around. The emoji is now the primary badge and the
+                octagon the small corner mark, where the two used to be
+                sized the other way round. */}
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+              {opponentEmoji ? (
+                <span
+                  aria-hidden="true"
+                  className="border-ink bg-orange flex h-12 w-12 items-center justify-center rounded-full border-2 text-2xl leading-none shadow-md"
+                >
+                  {opponentEmoji}
+                </span>
+              ) : (
+                <SideAvatar side={opponentSide} className="h-12 w-12" />
+              )}
+              {opponentEmoji ? (
+                <span className="absolute -right-1.5 -bottom-1.5">
+                  <SideAvatar side={opponentSide} className="h-6 w-6" />
+                </span>
+              ) : null}
+            </div>
+            <h3
+              className="font-primary text-p-md tracking-wide uppercase"
+              style={{
+                color:
+                  opponentSide === "plus" ? "var(--color-green)" : "var(--color-orange)",
+                textShadow:
+                  "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
+              }}
+            >
+              {opponent?.displayName ?? SIDE_LABEL[opponentSide]}
+            </h3>
+          </div>
           <button
             type="button"
             title="Instructions"
             aria-label="Instructions"
-            onClick={() => setOnboardingOpen(true)}
-            className="btn-icon h-9 w-9 rounded-full border-2 border-gray bg-offwhite text-base font-bold text-neutral-black shadow-md"
+            onClick={onboarding.show}
+            className="btn-icon border-gray/30 bg-offwhite text-p-md text-neutral-black h-10 w-10 shrink-0 cursor-pointer rounded-full border font-bold shadow-md"
           >
             ?
           </button>
         </div>
-        <p className="text-p-sm text-gray">
-          {STATUS_LABEL[board.status]} · you are {SIDE_LABEL[me.role]} ·{" "}
-          {connected ? "updating live" : "reconnecting"}
-        </p>
-        <TopicTile text={board.currentTopicText} />
-      </header>
 
-      <OnboardingOverlay
-        open={onboardingOpen}
-        onClose={() => setOnboardingOpen(false)}
-        myRole={me.role}
-      />
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Players
-        </h2>
-        <ul className="flex flex-col gap-1 text-sm">
-          {board.players.map((player) => (
-            <li key={player.id}>
-              {player.displayName ?? "Someone"}
-              {player.id === me.playerId ? " (you)" : ""}
-              {": "}
-              {player.role ? SIDE_LABEL[player.role] : "no side yet"}
-              {player.signed && player.signed.length > 0
-                ? ", signed"
-                : ", has not signed"}
-              {player.left && `, left: ${player.left}`}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Generosity
-        </h2>
-        <p className="text-sm opacity-70">
-          Thanks, on the record. When the other player takes a challenge well, or rewrites
-          a reason to meet you halfway, give them a token. It always goes to them, and it
-          counts toward nothing: this game is won together or not at all.
-        </p>
-        <p className="text-sm">
-          {SIDE_LABEL.plus} has been given {board.generosity.plus} · {SIDE_LABEL.minus}{" "}
-          has been given {board.generosity.minus}
-        </p>
-        <GenerosityButton gameId={gameId} />
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Place a tile
-        </h2>
-        <Composer gameId={gameId} board={board} />
-      </section>
-
-      <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
-
-      {definitions.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-            Words you have pinned down
-          </h2>
-          <dl className="flex flex-col gap-2 text-sm">
-            {definitions.map((entry) => (
-              <div key={entry.proposalId} className="flex flex-col">
-                <dt className="font-semibold">{entry.term}</dt>
-                <dd className="opacity-80">{entry.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
-
-      <div className="flex flex-col items-start gap-4 sm:flex-row">
-        <div className="w-full max-w-[13rem] shrink-0">
+        {/* One card, not two. "Ways to win" and a "How this ends" panel under
+            it said the same two things in the same rail, one as a diagram and
+            one as a paragraph, and Rannie draws a single card. The three lines
+            the paragraph had that the diagram did not are now lines on the
+            diagram's card. */}
+        {/* Held back until the Director reveals it (level 1's script), a
+            live game never hides this: `hiddenSurfaces` is always empty
+            there. */}
+        {hiddenSurfaces.includes("ways-to-win") ? null : (
           <WaysToWinCard
             threads={miniThreads}
             resolvedCount={resolvedCount}
-            onRevise={() => {
-              document
-                .getElementById(TOPIC_REVISION_SECTION_ID)
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
+            // BRAIN-T260903-06: proposing a topic revision is a Gym level 5+
+            // move. The pencil already knows how to go quiet when this game's
+            // rules do not allow a revision at all (`endsOnTopic`); reusing
+            // that same "no hint, no handler" shape is how it stays quiet
+            // while the move is held back from the live game too.
+            onRevise={
+              canStartLaterMove(board, "topic_revision")
+                ? () => setTopicEditing(true)
+                : undefined
+            }
+            reviseHint={
+              endsOnTopic && canStartLaterMove(board, "topic_revision")
+                ? "Write the version you would both sign."
+                : null
+            }
+            ceilingNote={ceilingNote}
+            showRevise={canStartLaterMove(board, "topic_revision")}
+            // BRAIN-T260903-06: the footer names the topic-revision ending as
+            // something you can go do right now, so it is gated the same way
+            // the pencil is, rather than describing a door the card itself has
+            // just closed.
+            footer={
+              endsOnTopic && canStartLaterMove(board, "topic_revision")
+                ? "Either ending is a win, and it is the same win for both of you."
+                : null
+            }
           />
-        </div>
-        <div className="w-full">
-          <HowThisEnds board={board} />
-        </div>
+        )}
+
+        {/* The coach is a card in this rail in Rannie's frame, under Ways to
+            win. It spent a while as a wide bar across the top centre, where
+            it was the first thing on the screen and sat directly over the
+            tiles the moment anyone opened it, and then a while folded inside
+            a FloatingPanel, which hid its switch behind a click. It draws its
+            own card now, so there is no wrapper here.
+
+            Never in the Gym: GymDirector already runs a scripted coach at
+            the top of the board, and the player's own coach preference is
+            not a Gym setting, so this panel (and any toggle for it) simply
+            does not exist while board.mode is "gym", regardless of
+            coachEnabled. */}
+        {board.mode !== "gym" ? (
+          <CoachPanel gameId={gameId} board={board} me={me} enabled={coachEnabled} />
+        ) : null}
+
+        <PendingAsks gameId={gameId} board={board} me={me} />
+
+        <PinnedWords board={board} />
+
+        {/*
+          The Match details drawer is gone (Steve, 2026-09-03), and so are all
+          four of its sections: the per-thread tile lists, Generosity, the
+          words the two of you have pinned down, and Who is here.
+
+          It was a page-long list of the board rendered beside the board, kept
+          alive because the per-tile actions in it had nowhere else to go.
+          They have somewhere else to go now. Nothing here was the only copy of
+          anything: the threads are the board, the roster is the header, and
+          the pinned words come back as their own strip on the board itself
+          rather than folded inside a drawer nobody opens mid-argument.
+        */}
       </div>
 
-      {threads.length === 0 ? (
-        <p className="opacity-70">Place the first tile above.</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {threads.map((thread, index) => (
-            <ThreadBlock
-              key={thread.rootId}
-              gameId={gameId}
-              thread={thread}
-              index={index}
-              me={me}
-              board={board}
-            />
-          ))}
+      {/* Bottom left: the small print, stacked the way Rannie stacks it. A
+          row here ran into the composer in the middle of the screen the
+          moment the window got narrow, and this corner is the one part of
+          the board with vertical room to spare. */}
+      {/* `fixed`, so it is measured against the viewport and not against the
+          board root, which means raising the board off the dev hot seat bar
+          does not raise this with it. It has to carry the same offset itself. */}
+      <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-30 flex flex-col items-start gap-2">
+        <FeedbackPopover variant="inline" />
+        {buildStamp}
+        {/* `Your games` used to sit here as a quiet way off the board. It
+            read as a button on the game rather than a link off it, and
+            clicking it looked like it removed you from the match, so it is
+            gone (Steve, 2026-09-02). Leave game in the top left is the only
+            door out, and it says what it does. */}
+        <span className="flex items-center gap-3 pl-1">{statusDot}</span>
+      </div>
+
+      {/* Bottom centre: the hand you hold.
+
+          Clicking an open diagonal writes the reason directly on the board,
+          in the cell it will occupy, which is the retired client's whole
+          gesture (Steve, 2026-09-04: a separate "Place a reason" pill here
+          was a second, redundant way in and is gone; the board itself is now
+          the only place a reason gets started).
+
+          Not dead-centred on the viewport: the zoom and pan cluster lives at
+          the board's bottom right (spatial-board.tsx, `right-8 bottom-8`),
+          and a full-width centre reliably drifted this tray on top of it at
+          ordinary desktop widths. The right inset below reserves that
+          cluster's own footprint plus its gutter, so this column centres
+          itself in what is left rather than in the whole screen. */}
+      {/* Held back until the Director reveals it (level 1's script), a live
+          game never hides this: `hiddenSurfaces` is always empty there. */}
+      {hiddenSurfaces.includes("card-tray") ? null : (
+        <div
+          className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+          style={{ right: "23rem" }}
+        >
+          <RuleCardTray
+            deck={deck}
+            counts={cardCounts}
+            armedCardId={armedCardId}
+            onArm={(cardId) => {
+              setArmedCardId(cardId);
+              setThrowError(null);
+              // A card and a tile's action card both want the click on a tile,
+              // so arming one closes the other, and closes an open draft with it.
+              if (cardId) {
+                setPencilEditTileId(null);
+                setSelectedTileId(null);
+                setDraft(null);
+              }
+            }}
+            hint={
+              throwError ??
+              (throwPending
+                ? "Playing that card..."
+                : armedCardId
+                  ? "Now click the reason you want to play it on."
+                  : // First-use nudge: shown until this player has thrown any
+                    // card at all, then it steps aside for the refusal/arm
+                    // hints above. A tester dragged a card onto a tile and
+                    // nothing happened, because throwing one is click-then-
+                    // click, not drag-and-drop, and nothing on the tray said so.
+                    deck.length > 0 && Object.keys(cardCounts).length === 0
+                    ? "Click a card, then click the reason it applies to."
+                    : null)
+            }
+          />
         </div>
       )}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Proposals waiting on you
-        </h2>
-        {awaiting.length === 0 ? (
-          <p className="text-sm opacity-50">None right now.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {awaiting.map((proposal) => (
-              <ProposalRow
-                key={proposal.id}
-                gameId={gameId}
-                proposal={proposal}
-                board={board}
-                awaitingMe
-              />
-            ))}
+      {/* Click a reason, act on that reason, right where it sits. The card
+          follows its tile through pan and zoom, so the two never drift apart.
+          What it holds is TileNode unchanged, the same edit / remove / ask to
+          move / card-throw surface the thread list uses, so there is one
+          implementation of a move and not two that can disagree. */}
+      {selectedTile && (
+        <AnchoredCard
+          anchorSelector={`[data-tile-id="${cssEscape(selectedTile.id)}"]`}
+          onClose={() => {
+            setPencilEditTileId(null);
+            setSelectedTileId(null);
+          }}
+          // The right rail is 15rem wide sitting 2rem in from the edge, and
+          // the canvas runs underneath it, so a tile near the middle of the
+          // board has "room to the right" that is actually Ways to win. One
+          // rem of air on top of the rail's own footprint, so the card flips
+          // to the tile's left instead of landing on the panel.
+          reserveRight={18}
+        >
+          {/* Steve, 2026-09-05, ruling on the tile card: the popup no longer
+              restates the tile's text at the top. The octagon is right there
+              on the board, a few pixels away, reading the reason in its own
+              hand and colour already; repeating it here was the header this
+              card used to open with. See the on-tile pencil (LiveBoard's
+              renderTile, and TileShape's wrapper below) for where "which
+              reason is this" now lives instead: on the tile, not the card. */}
+          <ul className="flex flex-col gap-2 pr-6">
+            {/* Keyed by the reason, so clicking a second tile builds a second
+                card rather than handing this one a new `tile` prop. React
+                would otherwise reuse the instance and every piece of state in
+                it: the half-typed edit, the open form, which move you were
+                part-way through. Found by playing it. Clicking one reason,
+                then another, then Edit put the first reason's text inside the
+                second reason's octagon, one Save away from overwriting it. */}
+            <TileNode
+              key={selectedTile.id}
+              tile={selectedTile}
+              gameId={gameId}
+              me={me}
+              board={board}
+              onBoard
+              startEditing={pencilEditTileId === selectedTile.id}
+            />
           </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Proposals you asked
-        </h2>
-        {asked.length === 0 ? (
-          <p className="text-sm opacity-50">None right now.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {asked.map((proposal) => (
-              <ProposalRow
-                key={proposal.id}
+          {/* Resolving belongs to the reason a thread started from, so it is
+              offered on that tile and nowhere else. It used to live only in
+              the folded thread drawer, which meant the game's first win
+              condition was two clicks and a scroll away from the board it is
+              played on. */}
+          {threadByRoot.has(selectedTile.id) && (
+            <div className="border-neutral-black/15 mt-3 flex flex-col gap-2 border-t pt-3">
+              {/* An action heading, not a question. "Where do you two
+                  disagree?" read as a prompt with no action attached to it;
+                  the tokens below it are the action, so the heading now
+                  names the thing pressing them does. */}
+              <h4 className="font-primary text-p-md text-neutral-black">
+                Close this thread
+              </h4>
+              <ResolutionRow
                 gameId={gameId}
-                proposal={proposal}
+                thread={threadByRoot.get(selectedTile.id)!}
+                me={me}
                 board={board}
-                awaitingMe={false}
               />
-            ))}
-          </ul>
-        )}
-      </section>
+            </div>
+          )}
+        </AnchoredCard>
+      )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Understanding each other
-        </h2>
-        <p className="text-sm opacity-70">
-          Four moves that are not arguments. Each one is a proposal: nothing lands on the
-          board until the other player accepts it.
-        </p>
-        <Move
-          title="Say one of their reasons back"
-          hint="Put something they wrote into your own words. They tell you whether you got it."
-        >
-          <ReadingHandbackForm gameId={gameId} board={board} me={me} />
-        </Move>
-        <Move
-          title="Say their whole side for them"
-          hint="Not one reason, the whole position, put as strongly as you can. You can offer this before either of you has written much."
-        >
-          <SteelmanReadingForm gameId={gameId} board={board} />
-        </Move>
-        <Move
-          title="Offer them a reason"
-          hint="A reason for their side that you think they missed. If they take it, it lands on their half of the board."
-        >
-          <SteelmanTileForm gameId={gameId} board={board} />
-        </Move>
-        <Move
-          title="Pin down a word"
-          hint="A word the two of you keep using differently. Agree what it means for the rest of this game."
-        >
-          <DefinitionForm gameId={gameId} board={board} />
-        </Move>
-      </section>
+      {sameSideHold && (
+        <SameSideNotice
+          onDismiss={() => {
+            markSameSideNoticeSeen(gameId);
+            setDraft(sameSideHold);
+            setSameSideHold(null);
+          }}
+        />
+      )}
 
-      <section id={TOPIC_REVISION_SECTION_ID} className="flex flex-col gap-2 scroll-mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Rewriting the topic
-        </h2>
-        <p className="text-sm opacity-70">
-          One of the two ways this game ends well. If the argument has taught you both
-          what the real question was, write that question down: a version of the topic you
-          would both sign. The other way out is resolving every thread.
-        </p>
-        <TopicRevisionForm gameId={gameId} board={board} />
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-60">
-          Leaving
-        </h2>
-        <LeaveButton gameId={gameId} />
-      </section>
+      <OnboardingOverlay
+        open={onboarding.open}
+        onClose={onboarding.close}
+        myRole={me.role}
+      />
     </div>
   );
 }

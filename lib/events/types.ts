@@ -61,6 +61,21 @@ export interface GameStartedPayload {
     raised_by: Uuid | null;
   };
   coach: { coach_id: string; temperament: string } | null;
+  /**
+   * How many thread roots the board opens with. Until that many roots are
+   * down, no tile may hang off another one: the game starts by putting the
+   * disagreement's main branches on the table, not by diving into the first
+   * one. Four in a live game and in gym levels 2 and up, one in gym level 1.
+   *
+   * Settings rather than a constant because it varies per game, and settings
+   * rather than a mode switch because a gym game and a live game are the same
+   * kind of game played under different numbers.
+   *
+   * Optional in this type and only in this type: version 1 of this payload
+   * predates the field, and those rows are still in the log. Version 2 always
+   * writes it. Readers default to `LIVE_ROOT_TARGET` (lib/board/rules.ts).
+   */
+  root_target?: number;
 }
 
 export interface PlayerLeftPayload {
@@ -71,6 +86,16 @@ export interface GameEndedPayload {
   win_condition: "threads_resolved" | "topic_agreed" | "abandoned" | "timeout";
 }
 
+/**
+ * Which diagonal of its parent a tile was placed on, as the player clicked it.
+ * Roots hang off the topic, replies off the reason they answer. Optional and
+ * advisory: the layout honours it when the cell is free and falls back to its
+ * own order otherwise, so a log written before this field draws as it always
+ * did (Steve, 2026-09-04: a rebuttal placed on the lower right must not come
+ * back on the upper right).
+ */
+export type TileCorner = "ne" | "se" | "sw" | "nw";
+
 export interface TilePlacedPayload {
   tile_id: Uuid;
   parent_tile_id: Uuid | null;
@@ -80,6 +105,7 @@ export interface TilePlacedPayload {
   text: string;
   is_opening_reason?: boolean;
   via_proposal_id?: Uuid;
+  corner?: TileCorner;
 }
 
 export interface TileEditedPayload {
@@ -233,6 +259,46 @@ export interface GymRunRecordedPayload {
   client_ended_at: string | null;
 }
 
+// --- Awards ----------------------------------------------------------------
+// What a player walked away with. These are the only events written about a
+// player rather than about the board, and they are still game events: they
+// carry the actor_id of the player they belong to, so an account's whole
+// history of them is one query and no join (lib/db/awards.ts).
+//
+// Nothing here is a score against an opponent. There is no losing, so there is
+// no event that says anyone lost.
+
+export interface LevelClearedPayload {
+  /** Level id as used by lib/gym/levels, e.g. "onboarding". */
+  level_id: string;
+  /** The rule card this level grants, or null for a level that grants none. */
+  card_id: string | null;
+}
+
+export interface BadgeGrantedPayload {
+  /** Kebab-case badge id (BIZ-T260823-66). */
+  badge_id: string;
+  /**
+   * 1 the first time this player earned it, 2 the second, and so on. The same
+   * badge can be earned again in a later game, and the log keeps both, so the
+   * reader can say "3 times" without the writer having to know it is a repeat.
+   */
+  occurrence: number;
+}
+
+export interface PointsChangedPayload {
+  /** Signed. Negative is a stake put down, never a punishment for being wrong. */
+  delta: number;
+  /** Why, in a stable machine-readable word: "throw", "dare_staked", "dare_repaired". */
+  reason: string;
+}
+
+export interface CertificateGrantedPayload {
+  level_id: string;
+  /** ISO timestamp. Written rather than derived so a reprint says the same date. */
+  issued_at: string;
+}
+
 export interface ContentRedactedPayload {
   target_seq: number;
   /** Dotted path into that event's payload, e.g. "text". */
@@ -273,6 +339,10 @@ export interface EventPayloads {
   ai_feedback_shown: AiFeedbackShownPayload;
   coach_nudge_delivered: CoachNudgeDeliveredPayload;
   gym_run_recorded: GymRunRecordedPayload;
+  level_cleared: LevelClearedPayload;
+  badge_granted: BadgeGrantedPayload;
+  points_changed: PointsChangedPayload;
+  certificate_granted: CertificateGrantedPayload;
   content_redacted: ContentRedactedPayload;
 }
 
@@ -293,7 +363,9 @@ export const EVENT_TYPES: Record<GameEventType, EventTypeSpec> = {
   role_selected: { schemaVersion: 1, maxBytes: 256 },
   agreement_signed: { schemaVersion: 1, maxBytes: 512 },
   topic_set: { schemaVersion: 1, maxBytes: 1024 },
-  game_started: { schemaVersion: 1, maxBytes: 2048 },
+  // Version 2 adds root_target (0012_root_stage.sql). Version 1 rows are still
+  // in the log and still project; they read as the live target of four.
+  game_started: { schemaVersion: 2, maxBytes: 2048 },
   player_left: { schemaVersion: 1, maxBytes: 256 },
   game_ended: { schemaVersion: 1, maxBytes: 256 },
   tile_placed: { schemaVersion: 1, maxBytes: 1024 },
@@ -315,6 +387,12 @@ export const EVENT_TYPES: Record<GameEventType, EventTypeSpec> = {
   ai_feedback_shown: { schemaVersion: 1, maxBytes: 256 },
   coach_nudge_delivered: { schemaVersion: 1, maxBytes: 2048 },
   gym_run_recorded: { schemaVersion: 1, maxBytes: 1024 },
+  // The four awards (0014_awards.sql). Small on purpose: each one names an id
+  // and a number, and the words that go with the id live in content.
+  level_cleared: { schemaVersion: 1, maxBytes: 256 },
+  badge_granted: { schemaVersion: 1, maxBytes: 256 },
+  points_changed: { schemaVersion: 1, maxBytes: 256 },
+  certificate_granted: { schemaVersion: 1, maxBytes: 256 },
   content_redacted: { schemaVersion: 1, maxBytes: 1024 },
 };
 

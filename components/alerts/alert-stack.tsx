@@ -31,11 +31,13 @@ import {
   subscribeAlerts,
 } from "./alert-store";
 
+// The design system has no red/blue/amber tokens, so the retired client's
+// four hues are remapped onto the closest tone this palette actually has.
 const VARIANT_CLASSES: Record<AlertVariant, string> = {
   success: "border-green bg-mint",
-  error: "border-red-600 bg-red-100",
-  info: "border-blue-600 bg-blue-100",
-  warning: "border-amber-600 bg-amber-100",
+  error: "border-orange bg-peach",
+  info: "border-brown bg-offwhite",
+  warning: "border-gold bg-sand",
 };
 
 export function AlertStack() {
@@ -63,7 +65,7 @@ export function AlertStack() {
             type="button"
             aria-label="Dismiss"
             onClick={() => removeAlert(alert.id)}
-            className="shrink-0 font-semibold leading-none opacity-70 hover:opacity-100"
+            className="shrink-0 font-semibold leading-none text-gray hover:opacity-100"
           >
             ✕
           </button>

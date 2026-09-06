@@ -22,6 +22,38 @@ export interface AvatarMark {
 }
 
 /**
+ * The nine emoji a player may pick as their avatar, in the fixed order they
+ * are offered. This is the same set the sibling game Point Taken Heart
+ * offers, so a player who has already picked one there recognises the choice
+ * here. Nobody is picked by default: `players.avatar_emoji` is null until a
+ * player opens the picker, and null keeps the derived initials mark instead.
+ *
+ * The list itself is content this file owns, but the *set* is not: it is
+ * mirrored in `supabase/migrations/0015_player_avatar.sql`'s check
+ * constraint, the same way the event vocabulary is mirrored between
+ * `lib/events/types.ts` and its catalogue migration. Changing the set means
+ * changing both, by hand, in the same commit.
+ */
+export const PLAYER_EMOJIS = [
+  "👨🏻",
+  "👩🏻",
+  "👱🏻‍♂️",
+  "👩🏻‍🦰",
+  "👩🏽",
+  "👨🏽",
+  "🧑🏼",
+  "👨🏾‍🦲",
+  "👩🏾‍🦱",
+] as const;
+
+export type PlayerEmoji = (typeof PLAYER_EMOJIS)[number];
+
+/** Whether a string is one of the nine emoji a player may set as their avatar. */
+export function isPlayerEmoji(value: string): value is PlayerEmoji {
+  return (PLAYER_EMOJIS as readonly string[]).includes(value);
+}
+
+/**
  * Spread ids across the colour wheel.
  *
  * The classic string hash, kept because it is short and its only job is to be

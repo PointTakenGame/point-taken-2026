@@ -28,7 +28,7 @@
  *     design choice rather than a technical constraint." This rebuild keeps
  *     it instant, matching the retired behaviour, rather than inventing one.
  *
- * The "Share to Linkedin" button was originally scoped OUT of this pass,
+ * The "Share to LinkedIn" button was originally scoped OUT of this pass,
  * then added back in by an explicit scope change from Steve delivered
  * mid-task: build it using LinkedIn's public, auth-free share-offsite URL
  * (no API key, no OAuth, nothing posted on anyone's behalf; the player's own
@@ -76,9 +76,9 @@ function ReopenPill({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="form-base btn-primary fixed right-6 bottom-6 z-40 rounded-full px-5 py-3 text-p-sm font-secondary"
+      className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md fixed right-6 bottom-6 z-40 px-5 py-3"
     >
-      🎉 You won — show results
+      🎉 You both won. Show results
     </button>
   );
 }
@@ -142,19 +142,23 @@ export function WinOverlay({ board }: { board: BoardState }) {
           type="button"
           aria-label="Close and review the board"
           onClick={close}
-          className="absolute top-4 right-4 text-xl leading-none opacity-70 hover:opacity-100"
+          className="absolute top-4 right-4 text-xl leading-none text-gray hover:opacity-100"
         >
           ✕
         </button>
 
+        {/* "You both won", not "You've won". Both win conditions in this
+            game are cooperative and the recap page under this overlay already
+            says so in as many words. A headline that congratulates one player
+            is the one sentence on the screen that contradicts the game. */}
         <h2 id="win-overlay-heading" className="font-primary text-3xl">
-          You&apos;ve won!
+          You both won.
         </h2>
 
         {variant === "threads" ? (
           <div className="flex w-full flex-col items-center gap-3">
             <p className="font-secondary text-p-md text-center">
-              You&apos;ve resolved all threads on the game board:
+              Every thread got a token:
             </p>
             {/* Sized to content rather than laid out in fixed columns: the number of
                 distinct token types here is 1 to 5, and a rigid two-column grid wrapped
@@ -163,8 +167,16 @@ export function WinOverlay({ board }: { board: BoardState }) {
               {Array.from(resolvedByToken.entries()).map(([token, count]) => (
                 <div key={token} className="flex items-center gap-2">
                   <TokenGlyph token={token} size={28} />
+                  {/* Name first, tally second. Counting first produced
+                      "1 Agree to disagree thread", which puts a capitalised
+                      three-word label inside a noun phrase and has to be
+                      re-read to parse. What the players agreed is the thing
+                      worth reading here; how many times is the footnote. */}
                   <span className="font-secondary text-p-sm">
-                    {count} {tokenLabel(token)} {count === 1 ? "thread" : "threads"}
+                    {tokenLabel(token)}{" "}
+                    <span className="text-gray">
+                      {count} {count === 1 ? "thread" : "threads"}
+                    </span>
                   </span>
                 </div>
               ))}
@@ -173,24 +185,41 @@ export function WinOverlay({ board }: { board: BoardState }) {
         ) : (
           <div className="flex w-full flex-col items-center gap-3">
             <p className="font-secondary text-p-md text-center">
-              You&apos;ve agreed on a revised topic:
+              You agreed on a wording you would both sign:
             </p>
             <TopicTile text={board.currentTopicText} />
           </div>
         )}
 
+        {/* What this used to say was "nothing stops you reading it back,
+            adding to it, or trying for the other ending too". Two thirds of
+            that is not true: reaching either ending ends the game, and the
+            live board is replaced by the read-only recap underneath this
+            overlay. There is no Place a reason to go back to and no second
+            ending left to try for. Whether a win should end the game is a
+            design question and not this component's to answer; what it can do
+            is stop promising a door that is not there. */}
         <p className="font-secondary text-p-sm text-gray text-center italic">
-          Feel free to stay if you want to review the game board, expand your arguments,
-          or try to agree on a revised topic!
+          Stay as long as you like. The game is finished, and the whole board is still
+          here underneath, to read back as often as you want.
         </p>
 
+        {/* The board's pill vocabulary, not the ported `form-base` chrome
+            these three used to wear. The finished page under this overlay
+            already speaks it (`app/game/[gameId]/page.tsx`: one gold pill for
+            the way on, offwhite pills for the rest), and the two were visible
+            in the same composited view: a 6px-radius grey rectangle beside a
+            gold pill, at the one moment of the game that should look
+            finished. Going out to LinkedIn is not the thing a player most
+            wants next, so those two are the quiet pair and Play Again is the
+            gold one. */}
         <div className="flex flex-wrap items-center justify-center gap-3">
           {shareMoreUrl ? (
             <a
               href={shareMoreUrl}
               target="_blank"
               rel="noreferrer"
-              className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+              className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border tracking-wide px-4 py-1.5"
             >
               Leave feedback
             </a>
@@ -199,9 +228,9 @@ export function WinOverlay({ board }: { board: BoardState }) {
             href={linkedInShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border tracking-wide px-4 py-1.5"
           >
-            Share to Linkedin
+            Share to LinkedIn
           </a>
         </div>
       </div>
@@ -209,7 +238,7 @@ export function WinOverlay({ board }: { board: BoardState }) {
       <Link
         href="/"
         onClick={(event) => event.stopPropagation()}
-        className="form-base btn-primary px-4 py-2 text-p-sm font-secondary"
+        className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md px-4 py-1.5"
       >
         Play Again
       </Link>

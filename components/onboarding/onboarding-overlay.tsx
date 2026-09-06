@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The four-step new-player walkthrough, full screen.
+ * The five-step new-player walkthrough, full screen.
  *
  * Ported from the retired client's OnboardingModal.vue and OnboardingVideo.vue
  * (app/components/ in point-taken-frontend), which is the only place the
@@ -18,20 +18,23 @@
  * accents, form-base/btn-icon chrome, the close glyph) so the two read as the
  * same product.
  *
- * Scope note: the retired component actually has six steps. The fifth plays a
- * YouTube embed and the sixth is a callout about the AI coach's turn, with no
- * video asset of its own (the source file says so in a comment). The coach's
- * turn is explicitly listed as still moving in this repo's own CLAUDE.md, so
- * teaching it here would be teaching something that has not been decided yet.
- * Only the first four steps, the ones with an actual instructional clip, are
- * ported. If the coach step is wanted later it needs its own pass once that
- * shape settles.
+ * Scope note: the retired component has six steps. Five are here. The sixth is
+ * a callout about the AI coach's turn, with no media of its own (the retired
+ * source says so in a comment), and the coach's turn is listed as still moving
+ * in this repo's own CLAUDE.md, so teaching it here would be teaching something
+ * that has not been decided yet. It needs its own pass once that shape settles.
+ *
+ * The fifth, the explainer video, was left out of the first port for the same
+ * reason as the sixth and should not have been: it is the same video the live
+ * game shows today, it teaches nothing that is still moving, and it is the one
+ * step where a person explains the game in their own voice. Restored on Steve's
+ * ask, 2026-09-02.
  *
  * No "remembers seen" behaviour: the retired component always reset to step
  * one on open and never wrote a seen flag anywhere, so this does not either.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 import { RESOLUTION_TOKENS } from "@/lib/board/rules";
@@ -41,12 +44,22 @@ import { OnboardingVideo } from "@/components/onboarding/onboarding-video";
 type OnboardingRole = "plus" | "minus";
 
 type OnboardingMedia =
-  { kind: "video"; src: string } | { kind: "images"; top: string; bottom: string };
+  | { kind: "video"; src: string }
+  | { kind: "images"; top: string; bottom: string }
+  /**
+   * Somebody else's player in an iframe, as opposed to `video`, which is one of
+   * our own looping clips served from `public/`. Kept as its own kind rather
+   * than folded into `video` because the two share no markup: this one cannot
+   * loop, cannot be muted by us, and has to carry the permissions list.
+   */
+  | { kind: "embed"; src: string };
 
 type OnboardingStep = {
   id: string;
   heading: string;
   subtitle?: string;
+  /** Makes the subtitle a link out. Only the video step uses it. */
+  subtitleHref?: string;
   media: OnboardingMedia;
   showTokenLegend?: boolean;
 };
@@ -65,6 +78,16 @@ const ACCENT_DOT: Record<OnboardingRole, string> = {
   plus: "bg-green",
   minus: "bg-orange",
 };
+
+/**
+ * The explainer the live game already shows (retired `OnboardingVideo.vue`).
+ *
+ * `youtube-nocookie.com` rather than `youtube.com`: same video, same player, no
+ * tracking cookie set on a player who never presses play. The retired client
+ * used the plain host, which was the default at the time and not a decision.
+ */
+const EXPLAINER_EMBED_URL = "https://www.youtube-nocookie.com/embed/bqh1aegbaU8";
+const EXPLAINER_WATCH_URL = "https://www.youtube.com/watch?v=bqh1aegbaU8";
 
 function buildSteps(myRole: OnboardingRole): OnboardingStep[] {
   return [
@@ -91,6 +114,13 @@ function buildSteps(myRole: OnboardingRole): OnboardingStep[] {
       subtitle: "What does each token mean?",
       media: { kind: "video", src: "/onboarding/step3.mp4" },
       showTokenLegend: true,
+    },
+    {
+      id: "watch-the-explainer",
+      heading: "Learn more by watching this video.",
+      subtitle: "You can also watch this video on YouTube",
+      subtitleHref: EXPLAINER_WATCH_URL,
+      media: { kind: "embed", src: EXPLAINER_EMBED_URL },
     },
     {
       id: "two-ways-to-win",
@@ -224,7 +254,20 @@ export function OnboardingOverlay({
             {step.heading}
           </h2>
           {step.subtitle ? (
-            <p className="font-secondary text-p-sm text-gray">{step.subtitle}</p>
+            <p className="font-secondary text-p-sm text-gray">
+              {step.subtitleHref ? (
+                <a
+                  href={step.subtitleHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="hover:text-neutral-black underline underline-offset-2"
+                >
+                  {step.subtitle}
+                </a>
+              ) : (
+                step.subtitle
+              )}
+            </p>
           ) : null}
         </div>
 
@@ -232,6 +275,21 @@ export function OnboardingOverlay({
           {step.media.kind === "video" ? (
             <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
               <OnboardingVideo key={step.media.src} src={step.media.src} />
+            </div>
+          ) : step.media.kind === "embed" ? (
+            <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
+              {/* Permissions and referrer policy carried over verbatim from the
+                  retired client's OnboardingVideo.vue, which is what YouTube's
+                  own share dialog emits. */}
+              <iframe
+                key={step.media.src}
+                src={step.media.src}
+                title="How to play Point Taken"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
             </div>
           ) : (
             <div className="flex w-full flex-col items-center gap-2">
@@ -259,9 +317,9 @@ export function OnboardingOverlay({
         {step.showTokenLegend ? (
           <ul className="flex flex-col items-center gap-2">
             {RESOLUTION_TOKENS.map((token) => (
-              <li key={token} className="flex items-center gap-3 text-sm">
+              <li key={token} className="flex items-center gap-3 text-p-sm">
                 <TokenGlyph token={token} size={24} />
-                <span className="opacity-70">{tokenLabel(token)}</span>
+                <span className="text-gray">{tokenLabel(token)}</span>
               </li>
             ))}
           </ul>
@@ -314,4 +372,64 @@ export function OnboardingOverlay({
       </div>
     </div>
   );
+}
+
+/**
+ * Whether this browser has already been walked through the four steps.
+ *
+ * The overlay used to open on every mount, so it covered the board again on
+ * every reload, and reloading mid-game is an ordinary thing to do. There is
+ * no event for this and there should not be: having read a tutorial is a fact
+ * about the person, not about the game, so it lives in their browser rather
+ * than in the log. Losing it costs them one dismissal.
+ */
+const SEEN_KEY = "pt.onboarding.seen";
+
+const subscribeNoop = () => () => {};
+
+function seenSnapshot(): boolean {
+  try {
+    return window.localStorage.getItem(SEEN_KEY) === "1";
+  } catch {
+    // A private window or blocked site data throws on access rather than
+    // answering null. Showing the walkthrough again is the harmless answer.
+    return false;
+  }
+}
+
+/**
+ * Read once at mount, and never again: the value cannot change under us
+ * because this hook is the only thing that writes it.
+ *
+ * The server answers "seen" so a returning player never gets a frame of
+ * backdrop over the board before hydration corrects it. A new player waits
+ * one frame for the tutorial instead, which is the right way round.
+ */
+export function useOnboarding({ auto = true }: { auto?: boolean } = {}): {
+  open: boolean;
+  show: () => void;
+  close: () => void;
+} {
+  const seen = useSyncExternalStore(subscribeNoop, seenSnapshot, () => true);
+  const [dismissed, setDismissed] = useState(false);
+  // Asked for on purpose, from the board's "?" button, which has to work
+  // whether or not the walkthrough has been read before.
+  const [asked, setAsked] = useState(false);
+
+  const show = useCallback(() => setAsked(true), []);
+
+  const close = useCallback(() => {
+    setAsked(false);
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      // Same as above: it just means they see it again next time.
+    }
+  }, []);
+
+  // `auto: false` keeps the "?" button working and stops the unasked-for
+  // open. A scripted Gym level is its own walkthrough, beat by beat, and two
+  // tutorials stacked on the first frame teach neither.
+  return { open: asked || (auto && !seen && !dismissed), show, close };
 }
