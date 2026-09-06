@@ -28,6 +28,15 @@ export function PledgeText({ text, className }: { text: string; className?: stri
     <span className={`flex flex-col gap-1 ${className ?? ""}`}>
       {text.split("\n").map((paragraph, i) => (
         <span key={i}>
+          {/*
+            This split is for authored pledge copy only (SIGNING_LINES in
+            lib/board/setup.ts), never for anything a player types. It does
+            not handle nested or tripled asterisks: "***" renders as a single
+            italic asterisk rather than three literal characters, and a
+            literal asterisk (e.g. "5 * 3") will pair with the next real
+            italic marker instead of being left alone. See finding 6,
+            2026-09-05_pre-push-review-903fc33-7397fcc.md.
+          */}
           {paragraph
             .split(/(\*[^*]+\*)/)
             .map((part, j) =>
