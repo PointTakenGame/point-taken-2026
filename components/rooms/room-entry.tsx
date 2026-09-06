@@ -156,8 +156,9 @@ export function JoinByCode({ signedIn }: { signedIn: boolean }) {
 }
 
 /**
- * "Join a game" as a solid button on the left with the room-number field on
- * its right, rather than the plain-text link `JoinByCode` uses. Built for the
+ * "Join game" (Steve, 2026-09-05: shortened from "Join a game" so the room
+ * code beside it has room for all its characters) as a solid button on the
+ * left with the room-number field on its right, rather than the plain-text link `JoinByCode` uses. Built for the
  * profile's Live play card (`components/account/hero.tsx`), which now offers
  * starting a new game and joining one at once, so the join control needed to
  * read as a peer of the "Start a new game" button beside it rather than a
@@ -193,7 +194,7 @@ export function JoinRoomInline({
             "Working..."
           ) : (
             <>
-              Join a game
+              Join game
               <ArrowGlyph onDark />
             </>
           )}
