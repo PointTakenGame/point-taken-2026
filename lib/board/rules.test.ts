@@ -661,6 +661,41 @@ describe("isAbandoned", () => {
     l.push("player_left", { reason: "quit" }, BOB);
     expect(isAbandoned(projectBoard(l.events))).toBe(false);
   });
+
+  const BOSS = "33333333-3333-4333-8333-333333333333";
+
+  /** A scripted Gym run, seated but never started: the boss never leaves. */
+  function gymSeated() {
+    const l = log();
+    l.push("game_created", {
+      mode: "gym",
+      level_id: "opening-gambit",
+      boss_id: "board-blocker",
+      join_code: null,
+    });
+    l.push("player_joined", { display_name: "Brisk Copper Otter" }, ALICE);
+    l.push("player_joined", { display_name: "The Board Blocker" }, BOSS);
+    return l;
+  }
+
+  it("is true once the human quits a gym level, even though the boss stays seated", () => {
+    const l = gymSeated();
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
+    l.push("player_left", { reason: "quit" }, ALICE);
+    // The boss is a script, not a person: it never counts toward "somebody is
+    // still here" the way a second human waiting on a lobby code does below.
+    expect(isAbandoned(projectBoard(l.events))).toBe(true);
+  });
+
+  it("still waits for the last human in an ordinary lobby, unlike a gym level", () => {
+    // Same shape as `gymSeated` above (one join, then a second party seated,
+    // never started) but carrying no level_id or boss_id, so this is the
+    // live-lobby rule the gym fix must not disturb: it is `waiting()` from
+    // above, kept here as a side-by-side contrast with the gym case.
+    const l = waiting();
+    l.push("player_left", { reason: "quit" }, ALICE);
+    expect(isAbandoned(projectBoard(l.events))).toBe(false);
+  });
 });
 
 describe("the thread ceiling", () => {

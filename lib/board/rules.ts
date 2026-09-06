@@ -143,11 +143,22 @@ export function threadsWinReached(board: BoardState): boolean {
  * A live board needs both sides, so one deliberate walk-out ends it. A lobby can
  * wait for somebody else to use the code, unless the last person left. A
  * disconnect never ends anything: reloading puts them back in the same seat.
+ *
+ * A scripted gym run (carrying a `levelId` or `bossId`, same test
+ * `topicAgreementEndsGame` uses above) plays by the active rule even while it
+ * is still in `lobby`. `startLevel` seats the human and the boss with
+ * `player_joined` and does not append `game_started` until the agreement is
+ * signed, so a level a player quits before signing sits in `lobby` with the
+ * boss still seated. The boss is not a person who can carry the game on, so
+ * counting it toward "somebody is still here" would leave that lobby open
+ * forever. A live lobby with no script has no such non-person seat, so it
+ * keeps waiting for the last person to leave.
  */
 export function isAbandoned(board: BoardState): boolean {
   if (board.status === "ended") return false;
   const here = board.players.filter((player) => player.left !== "quit");
-  return board.status === "active" ? here.length < 2 : here.length === 0;
+  const scripted = board.levelId !== null || board.bossId !== null;
+  return board.status === "active" || scripted ? here.length < 2 : here.length === 0;
 }
 
 /** Proposals still waiting on an answer from the given side. */

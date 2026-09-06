@@ -27,6 +27,47 @@ export async function endIfAbandoned(gameId: string): Promise<void> {
 }
 
 /**
+ * Runs `fn` for a given game after every call already queued for that same
+ * game has finished, never alongside one.
+ *
+ * `endInFlightGame` is read-then-append with no database-level compare-and-set
+ * available to it: `append_game_event` (lib/events/append.ts) takes no
+ * expected-seq argument, and `game_events` grants `service_role` `SELECT`
+ * only, so an insert outside that RPC is refused before it reaches the
+ * per-game advisory lock the RPC itself takes
+ * (`supabase/migrations/0002_event_type_catalogue.sql`). Adding either is a
+ * core/migration change outside this fix's lane. `games` and `game_players`
+ * do carry columns a compare-and-set could target, but both are a read model
+ * "maintained by one [trigger]" and the projection trigger's own comment says
+ * they "must never be updated by hand"
+ * (`supabase/migrations/0004_identity_and_games.sql`), so using one as a lock
+ * is the same mistake with extra steps.
+ *
+ * What is left, and what this does, is serialise in the process that is about
+ * to make the call: queue same-game calls onto one promise chain so the
+ * second call's read only ever starts after the first call's write has
+ * landed, at which point it reads `left: "quit"` and no-ops. This closes the
+ * race this function is actually exposed to, a double click or two buttons on
+ * one page firing together, both on the same request-handling process. It
+ * does not reach across separate server processes; nothing short of a core
+ * change does.
+ */
+const gameLocks = new Map<Uuid, Promise<unknown>>();
+
+function withGameLock<T>(gameId: Uuid, fn: () => Promise<T>): Promise<T> {
+  const queued = (gameLocks.get(gameId) ?? Promise.resolve()).then(fn, fn);
+  const settled = queued.then(
+    () => {},
+    () => {},
+  );
+  gameLocks.set(gameId, settled);
+  settled.then(() => {
+    if (gameLocks.get(gameId) === settled) gameLocks.delete(gameId);
+  });
+  return queued;
+}
+
+/**
  * Ends whatever game this player has not finished, the moment they start
  * another one.
  *
@@ -49,24 +90,27 @@ export async function endIfAbandoned(gameId: string): Promise<void> {
  * A no-op when there is nothing unfinished, when this player already left it
  * (the projection already reads `left: "quit"`), or when the game has since
  * ended by some other path, so calling this before every kind of "start" is
- * always safe.
+ * always safe. Concurrent calls for the same player queue on `withGameLock`
+ * above rather than racing, so at most one `player_left` is ever appended.
  */
 export async function endInFlightGame(playerId: Uuid): Promise<void> {
   const unfinished = inFlightGame(await listGamesForPlayer(playerId));
   if (!unfinished) return;
 
-  const board = projectBoard(await readGameEvents(unfinished.id));
-  if (board.status === "ended") return;
+  await withGameLock(unfinished.id, async () => {
+    const board = projectBoard(await readGameEvents(unfinished.id));
+    if (board.status === "ended") return;
 
-  const player = board.players.find((candidate) => candidate.id === playerId);
-  if (!player || player.left === "quit") return;
+    const player = board.players.find((candidate) => candidate.id === playerId);
+    if (!player || player.left === "quit") return;
 
-  await appendGameEvent(unfinished.id, {
-    type: "player_left",
-    actorRole: player.role ?? "server",
-    source: "human",
-    actorId: playerId,
-    payload: { reason: "quit" },
+    await appendGameEvent(unfinished.id, {
+      type: "player_left",
+      actorRole: player.role ?? "server",
+      source: "human",
+      actorId: playerId,
+      payload: { reason: "quit" },
+    });
+    await endIfAbandoned(unfinished.id);
   });
-  await endIfAbandoned(unfinished.id);
 }
