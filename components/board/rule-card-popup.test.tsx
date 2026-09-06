@@ -66,7 +66,7 @@ describe("RuleCardPopup: shared-facts", () => {
   it("shows the header and subheader", () => {
     render(<Harness type="shared-facts" />);
 
-    expect(screen.getByText("Shared Facts")).toBeTruthy();
+    expect(screen.getByText("Shared Evidence")).toBeTruthy();
     expect(screen.getByText("Fact Check?")).toBeTruthy();
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PledgeText } from "@/components/lobby/player-agreement";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -245,7 +246,10 @@ function AgreementCard({
             <span className="font-primary text-ink text-p-md uppercase tracking-wide">
               {line.title}
             </span>
-            <span className="font-secondary text-ink-soft text-p-sm">{line.pledge}</span>
+            <PledgeText
+              text={line.pledge}
+              className="font-secondary text-ink-soft text-p-sm"
+            />
           </li>
         ))}
       </ol>

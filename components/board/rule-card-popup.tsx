@@ -78,7 +78,9 @@ const RULE_CARD_CONTENT: Record<RuleCardType, RuleCardContent> = {
     ],
   },
   "shared-facts": {
-    header: "Shared Facts",
+    // Steve, 2026-09-05: the family is now called Shared Evidence; the key
+    // and the card ids keep the old spelling.
+    header: "Shared Evidence",
     subheader: "Fact Check?",
     agreement:
       "I'm willing to collaboratively track facts down, without bias for 'my side'. A shared source is a good start (at least it has citations).",

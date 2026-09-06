@@ -17,6 +17,32 @@ const GLYPH_FOR: Record<string, "monacle" | "heart" | "glasses" | "book" | "part
   shared_facts: "book",
 };
 
+/**
+ * Renders a pledge string: newlines become short paragraphs and a word
+ * wrapped in single asterisks is italic. Steve wrote the pledges this way on
+ * 2026-09-05 ("They *might* even change my mind"), and both the lobby and
+ * the Gym's agreement screen read the same strings from `SIGNING_LINES`.
+ */
+export function PledgeText({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={`flex flex-col gap-1 ${className ?? ""}`}>
+      {text.split("\n").map((paragraph, i) => (
+        <span key={i}>
+          {paragraph
+            .split(/(\*[^*]+\*)/)
+            .map((part, j) =>
+              part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
+                <em key={j}>{part.slice(1, -1)}</em>
+              ) : (
+                <span key={j}>{part}</span>
+              ),
+            )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 interface PlayerAgreementProps {
   lines: readonly AgreementLine[];
   signed: boolean;
@@ -60,9 +86,10 @@ export function PlayerAgreement({
             <h3 className="font-secondary text-p-sm text-neutral-black font-bold">
               {line.family}
             </h3>
-            <p className="font-secondary text-p-sm text-gray">
-              {line.pledge ?? line.text}
-            </p>
+            <PledgeText
+              text={line.pledge ?? line.text}
+              className="font-secondary text-p-sm text-gray"
+            />
           </span>
         </div>
       ))}
