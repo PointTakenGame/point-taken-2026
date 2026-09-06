@@ -7,7 +7,12 @@ import {
   type GameEventType,
 } from "@/lib/events/types";
 import { ONBOARDING } from "@/lib/gym/levels/onboarding";
-import { ALL_PAUSES_DISMISSED, currentBeat, levelProgress } from "@/lib/gym/script";
+import {
+  ALL_PAUSES_DISMISSED,
+  currentBeat,
+  levelCleared,
+  levelProgress,
+} from "@/lib/gym/script";
 
 const GAME = "00000000-0000-4000-8000-000000000000";
 /** Level 1 seats the player on minus and Bashful Bob on plus. */
@@ -294,6 +299,102 @@ describe("levelProgress on level 1", () => {
     const progress = levelProgress(ONBOARDING, l.board(), ALL_PAUSES_DISMISSED);
     expect(progress.complete).toBe(true);
     expect(progress.done).toHaveLength(ONBOARDING.beats.length);
+  });
+});
+
+/**
+ * BRAIN-T260905-46: clicking "Leave game" partway through a level ended the
+ * game (win_condition "abandoned") and the certificate screen was keying off
+ * `board.status === "ended"` alone, so it showed the full "Level cleared"
+ * certificate at all zeroes. `levelCleared` is the fix's predicate; these
+ * pin what it should say for the shapes of board a real game can produce.
+ */
+describe("levelCleared", () => {
+  it("is false when the game ended early by a player leaving", () => {
+    const l = opened();
+    l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    l.push("player_left", { reason: "quit" }, PLAYER);
+    l.push("game_ended", { win_condition: "abandoned" });
+    expect(levelCleared(ONBOARDING, l.board())).toBe(false);
+  });
+
+  it("is true once certificate_granted is in the log, regardless of the walk", () => {
+    const l = opened();
+    l.push(
+      "certificate_granted",
+      { level_id: ONBOARDING.id, issued_at: "2026-09-05T00:00:00Z" },
+      PLAYER,
+    );
+    expect(levelCleared(ONBOARDING, l.board())).toBe(true);
+  });
+
+  it("is true for a legacy game that finished the script cooperatively before certificate_granted existed", () => {
+    const l = opened();
+    const a = l.tile(
+      BOB,
+      null,
+      null,
+      "Yes, because a hot dog is a filling served inside bread, and that's what a sandwich is.",
+    );
+    const b = l.tile(
+      PLAYER,
+      null,
+      null,
+      "No, because nobody who orders a sandwich would ever be handed a hot dog.",
+    );
+    l.tile(
+      PLAYER,
+      a,
+      a,
+      "But a bun is one hinged piece of bread, and a sandwich needs two.",
+    );
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, BOB);
+    l.push("resolution_emoji_placed", { thread_root_id: a, emoji: "👍" }, PLAYER);
+    l.push("thread_resolved", { thread_root_id: a, emoji: "👍", note: null });
+    const b1 = l.tile(
+      BOB,
+      b,
+      b,
+      "But you only think that because you grew up eating them at ballparks. That's nostalgia, not a rule.",
+    );
+    const throwSeq = l.push(
+      "card_thrown",
+      { card_id: "you_is_taboo", rung_id: null, target_tile_id: b1 },
+      PLAYER,
+    );
+    l.push(
+      "tile_revised",
+      {
+        tile_id: b1,
+        text: "But the ballpark version of this argument is about memory, not about what the food is.",
+        in_response_to_seq: throwSeq,
+      },
+      BOB,
+    );
+    const b2 = l.tile(
+      PLAYER,
+      b1,
+      b,
+      "Still, nobody ordering a sandwich expects to be handed a hot dog either way.",
+    );
+    l.tile(
+      BOB,
+      b2,
+      b,
+      "Maybe, but a name can outlast its own history. I still think it's a sandwich.",
+    );
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👀" }, PLAYER);
+    l.push("resolution_emoji_placed", { thread_root_id: b, emoji: "👀" }, BOB);
+    l.push("thread_resolved", { thread_root_id: b, emoji: "👀", note: null });
+    l.push("game_ended", { win_condition: "threads_resolved" });
+
+    expect(l.board().awards.certificate).toBeNull();
+    expect(levelCleared(ONBOARDING, l.board())).toBe(true);
   });
 });
 

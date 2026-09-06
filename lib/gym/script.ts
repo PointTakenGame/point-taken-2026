@@ -461,6 +461,33 @@ export function currentBeat(level: Level, progress: LevelProgress): Beat | null 
 }
 
 /**
+ * Whether a level actually finished, as distinct from the game around it
+ * merely having ended. `certificate_granted` is the strongest signal: it is
+ * only ever written by `grantLevelAwards` (lib/gym/awards.ts), which itself
+ * refuses to fire for anything but a cooperative `win_condition` and a fully
+ * complete script. A legacy game that finished the level before that event
+ * existed is recognised the same way, by re-checking the same two conditions
+ * here instead of trusting `board.status === "ended"` alone.
+ *
+ * `levelProgress`'s own "win" beat matches on `board.status === "ended"`
+ * regardless of why the game ended, so `progress.complete` on its own is not
+ * enough: a player who leaves partway through never gets that far because the
+ * earlier, unfinished beats fail to match first, but a player who finishes
+ * every real beat and then leaves before the game's own win event lands could
+ * otherwise slip through. Requiring a cooperative `win_condition` as well
+ * closes that gap and matches `grantLevelAwards` exactly, so a game that
+ * would never be awarded a certificate never reads as cleared here either
+ * (BRAIN-T260905-46: "Leave game" on level 2 or 3 was showing the full
+ * certificate at all zeroes).
+ */
+export function levelCleared(level: Level, board: BoardState): boolean {
+  if (board.awards.certificate) return true;
+  const cooperative =
+    board.winCondition === "threads_resolved" || board.winCondition === "topic_agreed";
+  return cooperative && levelProgress(level, board, ALL_PAUSES_DISMISSED).complete;
+}
+
+/**
  * The board's token controls do not gate on where the script currently
  * stands, so a player can put a token down on a thread well before the
  * script's own beat for it. Left alone, that reads as a stall: the pill

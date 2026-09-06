@@ -13,6 +13,7 @@ import { Certificate } from "@/components/gym/certificate";
 import { GymDirector } from "@/components/gym/director";
 import { GymLobby } from "@/components/gym/gym-lobby";
 import { levelById } from "@/lib/gym/levels";
+import { levelCleared } from "@/lib/gym/script";
 import { projectBoard } from "@/lib/board/project";
 import { readPlayerAwards } from "@/lib/db/awards";
 import { getPlayer } from "@/lib/db/players";
@@ -71,10 +72,41 @@ export default async function GamePage({
   ) : null;
 
   if (board.status === "ended" && level) {
+    // A level only reads as cleared when it was actually cleared, not just
+    // because the game around it ended: "Leave game" partway through ends
+    // the game too, and must not show the certificate (BRAIN-T260905-46).
+    // See levelCleared's own comment for what "cleared" means.
+    if (levelCleared(level, board)) {
+      return (
+        <>
+          <Certificate level={level} board={board} />
+          <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+          {hotseat}
+        </>
+      );
+    }
+
+    // Left early: the same sentence and map a non-gym game shows for the same
+    // situation, plus a way back to the Gym instead of "Start another room",
+    // which makes no sense mid-level.
     return (
       <>
-        <Certificate level={level} board={board} />
+        <Ending board={board} />
         <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+        <nav className="mx-auto flex w-full max-w-3xl flex-wrap gap-3 px-8 pb-8 print:hidden">
+          <Link
+            href="/#ladder"
+            className="bg-gold text-neutral-white font-primary text-p-sm rounded-full px-4 py-1.5 tracking-wide shadow-md"
+          >
+            Back to the Gym
+          </Link>
+          <Link
+            href="/account"
+            className="border-gray/40 bg-offwhite text-neutral-black font-primary text-p-sm hover:bg-sand/40 rounded-full border px-4 py-1.5 tracking-wide"
+          >
+            Your games
+          </Link>
+        </nav>
         {hotseat}
       </>
     );
