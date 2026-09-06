@@ -17,9 +17,11 @@ import { ArrowGlyph } from "@/components/account/account-shell";
  * now both on offer at once rather than an either/or (BRAIN-T260905 profile
  * play card rework).
  *
- * What happens to an unfinished game if one is running when this fires is
- * unresolved on purpose: this button does not check for one, end one, or warn
- * about one. See the investigation note in `components/account/hero.tsx`.
+ * An unfinished game, if one is running when this fires, is ended before the
+ * new one opens: `createRoom` calls `endInFlightGame`
+ * (`lib/games/abandon.ts`), so the other player sees it end exactly as if
+ * this player had left it. No confirmation here, by Steve's ruling
+ * (2026-09-05, BRAIN-T260905-44): the choice to start over is the confirmation.
  */
 export function StartNewGameButton({ className }: { className: string }) {
   const router = useRouter();

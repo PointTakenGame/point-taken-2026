@@ -38,12 +38,13 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * player has a game already running. Earlier this card only ever showed one
  * of starting or resuming, never both (see the comment that used to live on
  * `ResumeOrStart`'s compact mode); Steve asked for both to be visible at once.
- * That leaves open what starting a new game should do to an unfinished one
- * still in progress: right now, nothing, `createRoom` does not look for one.
- * Whether both players can come back to an unfinished game and see the same
- * state, and what "Back to your game" actually resumes, are both unchanged by
- * this rework and are answered in the 2026-09-05 investigation note filed
- * alongside it, not in this file.
+ * What starting a new game does to an unfinished one was answered 2026-09-05
+ * (Steve's ruling, BRAIN-T260905-44): starting a new game ends the unfinished
+ * one, the same way leaving it would. `createRoom` calls `endInFlightGame`
+ * (`lib/games/abandon.ts`) before opening the new room, so "Back to your
+ * game" below naturally stops pointing at a game that no longer needs
+ * resuming; it still exists for the crash case, a game left unfinished with
+ * no new one started since.
  *
  * **Three stat tiles, not nine.** The old page had a four-tile Progress row
  * and a five-tile row in the identity card, with Games played in both. Hers

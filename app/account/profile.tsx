@@ -1,4 +1,5 @@
 import { readPlayerAwards } from "@/lib/db/awards";
+import { inFlightGame } from "@/lib/db/games";
 import type { PlayerStats } from "@/lib/db/stats";
 import type { Uuid } from "@/lib/events/types";
 import { SCRIPTED_LEVELS } from "@/lib/gym/levels";
@@ -106,14 +107,10 @@ export async function Profile({ playerId }: { playerId: Uuid }) {
     readPlayerAwards(playerId),
   ]);
 
-  // The game to offer going back to. `games` is already newest first, so the
-  // first hit is the most recent one. A game underway beats a room still
-  // waiting for its second player, because the argument you left in the middle
-  // is more urgent than the invitation nobody accepted.
-  const inFlight =
-    games.find((game) => game.status === "active") ??
-    games.find((game) => game.status === "lobby") ??
-    null;
+  // The game to offer going back to. Shared with `endInFlightGame`
+  // (lib/games/abandon.ts) so starting a new game and resuming an old one
+  // agree on what "unfinished" means (BRAIN-T260905-44).
+  const inFlight = inFlightGame(games);
 
   const thisWeek = joinedThisWeek(playedAt);
 
