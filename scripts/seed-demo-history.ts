@@ -20,7 +20,15 @@
  *   select * from games where id::text like '5eed0000-%';
  *   select * from game_events where game_id::text like '5eed0000-%';
  *   select * from game_players where game_id::text like '5eed0000-%';
- * This script never deletes anything, on any run.
+ * Without --reset, this script never deletes anything, on any run. Pass
+ * --reset (`npm run seed:demo -- --reset`) to remove exactly those rows
+ * first, in dependency order (game_events and game_players by their marked
+ * game_id, then games, then players), before seeding runs as normal. See
+ * resetSeed() below. The auth.users identity behind a marked player is left
+ * in place on purpose; ensurePlayers() upserts rather than updates the
+ * players row for exactly that reason, so a player whose row was just
+ * removed here gets it rebuilt correctly on this same pass rather than
+ * silently staying blank.
  *
  * IDEMPOTENCY
  * Every id is derived from a fixed string key (a player's cohort slug, a
@@ -123,6 +131,7 @@
  *
  * RUN
  *   npm run seed:demo
+ *   npm run seed:demo -- --reset   (delete this script's own rows first)
  */
 
 import { readFileSync } from "node:fs";
@@ -231,6 +240,15 @@ function markedUuid(key: string): Uuid {
   const g5 = hex.slice(10, 22);
   return `5eed0000-${g2}-${g3}-${g4}-${g5}`;
 }
+
+// PostgREST has no LIKE operator for a uuid column ("operator does not exist:
+// uuid ~~ unknown"), so the marker prefix is matched with a range instead:
+// every 5eed0000-* uuid sorts within [5eed0000-0...0, 5eed0001-0...0). Shared
+// by resetSeed() and the marked-row totals report at the end of main().
+const MARKER_LO = "5eed0000-0000-0000-0000-000000000000";
+const MARKER_HI = "5eed0001-0000-0000-0000-000000000000";
+
+const RESET = process.argv.includes("--reset");
 
 const rngPlayers = makeRng("5eedseed:players");
 const rngPairing = makeRng("5eedseed:pairing");
@@ -416,12 +434,19 @@ async function ensurePlayers(): Promise<SeededPlayer[]> {
     }
 
     const joinedAt = new Date(Date.now() - spec.joinDaysAgo * 86400_000).toISOString();
-    const { error: updateErr } = await db
+    // Upsert, not update: the common case is a players row the
+    // on_auth_user_created trigger just inserted for the createUser call
+    // above, so this only fills it in. But after --reset removed a marked
+    // player's players row while leaving the auth user behind (see the
+    // marker-convention note at the top of this file), createUser above
+    // fails quietly with "already registered" and the trigger never fires
+    // again, so there is no row for a plain update to find. Upsert covers
+    // both cases with one call.
+    const { error: upsertErr } = await db
       .from("players")
-      .update({ display_name: displayName, created_at: joinedAt })
-      .eq("id", id);
-    if (updateErr)
-      throw new Error(`backdating player ${spec.slug} failed: ${updateErr.message}`);
+      .upsert({ id, display_name: displayName, created_at: joinedAt });
+    if (upsertErr)
+      throw new Error(`backdating player ${spec.slug} failed: ${upsertErr.message}`);
 
     seeded.push({ id, slug: spec.slug, displayName, weight: spec.weight });
   }
@@ -1010,11 +1035,74 @@ async function writeGame(
 }
 
 // ---------------------------------------------------------------------------
+// Step: reset (only when --reset is passed)
+// ---------------------------------------------------------------------------
+
+/**
+ * Deletes only the rows this script itself created, scoped by the
+ * 5eed0000- marker, never a blanket delete of any table. Order matters:
+ * game_events.game_id is a foreign key to games with ON DELETE RESTRICT
+ * (supabase/migrations/0004_identity_and_games.sql: "a game holding events
+ * must not be deletable at all"), so a marked game cannot be deleted while
+ * its events still exist. game_players has no marker of its own, so it is
+ * keyed by the same marked game_id as game_events. So: game_events and
+ * game_players first (both by game_id), then games, then players.
+ *
+ * What this does not touch: the auth.users identity behind a marked player.
+ * See the marker-convention note at the top of this file and the comment in
+ * ensurePlayers() for why that is safe to leave behind.
+ */
+async function resetSeed(): Promise<void> {
+  console.log("--reset: removing this script's own rows before seeding...");
+
+  const { count: eventsDeleted, error: eventsErr } = await db
+    .from("game_events")
+    .delete({ count: "exact" })
+    .gte("game_id", MARKER_LO)
+    .lt("game_id", MARKER_HI);
+  if (eventsErr)
+    throw new Error(`reset: deleting game_events failed: ${eventsErr.message}`);
+
+  const { count: gamePlayersDeleted, error: gamePlayersErr } = await db
+    .from("game_players")
+    .delete({ count: "exact" })
+    .gte("game_id", MARKER_LO)
+    .lt("game_id", MARKER_HI);
+  if (gamePlayersErr)
+    throw new Error(`reset: deleting game_players failed: ${gamePlayersErr.message}`);
+
+  const { count: gamesDeleted, error: gamesErr } = await db
+    .from("games")
+    .delete({ count: "exact" })
+    .gte("id", MARKER_LO)
+    .lt("id", MARKER_HI);
+  if (gamesErr) throw new Error(`reset: deleting games failed: ${gamesErr.message}`);
+
+  const { count: playersDeleted, error: playersErr } = await db
+    .from("players")
+    .delete({ count: "exact" })
+    .gte("id", MARKER_LO)
+    .lt("id", MARKER_HI);
+  if (playersErr)
+    throw new Error(`reset: deleting players failed: ${playersErr.message}`);
+
+  console.log("--- Reset: rows deleted ---");
+  console.log(`game_events (game_id 5eed0000-*): ${eventsDeleted ?? 0}`);
+  console.log(`game_players (game_id 5eed0000-*): ${gamePlayersDeleted ?? 0}`);
+  console.log(`games (id 5eed0000-*): ${gamesDeleted ?? 0}`);
+  console.log(`players (id 5eed0000-*): ${playersDeleted ?? 0}`);
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
   const now = Date.now();
+
+  if (RESET) {
+    await resetSeed();
+  }
 
   console.log(
     "Checking Steve's account (id fixed, not created or modified by this script)...",
@@ -1095,11 +1183,10 @@ async function main() {
     `Games left in progress: ${activeCreated} created, ${activeSkipped} already present.`,
   );
 
-  // PostgREST has no LIKE operator for a uuid column ("operator does not
-  // exist: uuid ~~ unknown"), so the marker prefix is matched with a range
-  // instead: every 5eed0000-* uuid sorts within [5eed0000-0...0, 5eed0001-0...0).
-  const MARKER_LO = "5eed0000-0000-0000-0000-000000000000";
-  const MARKER_HI = "5eed0001-0000-0000-0000-000000000000";
+  // MARKER_LO / MARKER_HI (top-level, shared with resetSeed()) bound the
+  // 5eed0000-* marker range; PostgREST has no LIKE operator for a uuid
+  // column ("operator does not exist: uuid ~~ unknown"), so it is matched as
+  // a range instead.
   const { count: playerCount } = await db
     .from("players")
     .select("*", { count: "exact", head: true })
