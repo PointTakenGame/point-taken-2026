@@ -36,6 +36,7 @@ import {
   publishPointedSlot,
   type PointedSlot,
 } from "@/components/gym/pointed-slot";
+import { useMovingTile } from "@/components/gym/moving-tile";
 import { clearPointedTile, publishPointedTile } from "@/components/gym/pointed-tile";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
@@ -344,6 +345,10 @@ function Director({
     () => "[]",
   );
   const dismissed = useMemo(() => parseDismissed(rawDismissed), [rawDismissed]);
+  // Which reason the board is currently waiting to put somewhere else, if any.
+  // The only reader is the relocate anchor below; see the file comment in
+  // `components/gym/moving-tile.ts` for why the board has to say this out loud.
+  const movingTileId = useMovingTile();
   const [error, setError] = useState<string | null>(null);
   // The boss move is the only transition left here now that the sample
   // answers are placed from the board; nothing on this card is disabled
@@ -514,22 +519,15 @@ function Director({
     if (beat.kind === "player") {
       if (beat.expect.kind === "relocate") {
         // Two-phase pointer: point at the tile to pick up first, then, once
-        // the player has actually asked to move it (a pending proposal now
-        // exists), switch to pointing at the destination root, so the coach
-        // walks the player through both clicks instead of freezing on the
-        // first one for the rest of the beat.
+        // the player has pressed Move it and the board is waiting for the
+        // destination click, switch to pointing at the destination root, so
+        // the coach walks the player through both clicks instead of freezing
+        // on the first one for the rest of the beat. A move lands on that
+        // second click with nothing appended in between (BRAIN-T260905-64),
+        // so the phase comes from the board rather than from the log.
         const tileId = progress.keys[beat.expect.tile];
-        const asked = Boolean(
-          tileId &&
-          board.proposals.some(
-            (proposal) =>
-              proposal.kind === "tile_relocation" &&
-              proposal.status === "pending" &&
-              proposal.targetTileId === tileId &&
-              proposal.askedBy === level.playerSide,
-          ),
-        );
-        return asked
+        const armed = Boolean(tileId && movingTileId === tileId);
+        return armed
           ? { tile: beat.expect.to }
           : (beat.anchor ?? { tile: beat.expect.tile });
       }
@@ -540,7 +538,7 @@ function Director({
       return null;
     }
     return null;
-  }, [beat, level, board, progress.keys]);
+  }, [beat, level, board, progress.keys, movingTileId]);
 
   const targetSelector = useMemo(
     () => resolveAnchor(anchor, progress.keys),

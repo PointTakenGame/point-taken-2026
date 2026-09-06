@@ -59,11 +59,11 @@ vi.mock("@/app/game/[gameId]/actions", () => ({
   placeTile: actionResult,
   proposeDefinition: actionResult,
   proposeReadingHandback: actionResult,
-  proposeRelocation: actionResult,
   proposeSteelmanReading: actionResult,
   proposeSteelmanTile: actionResult,
   proposeTopicRevision: actionResult,
   rejectProposal: actionResult,
+  relocateTile: actionResult,
   removeTile: vi.fn(actionResult),
   reviseTile: actionResult,
   setCoach: actionResult,
@@ -708,7 +708,8 @@ describe("LiveBoard: the tile card no longer repeats the reason's text", () => {
     await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
     await user.click(document.querySelector(`[data-tile-id="${TILE}"]`)!);
 
-    expect(screen.getByText(/Take your reason back off the board/)).toBeTruthy();
+    // Remove in the card's upper left is the proof the card opened at all.
+    expect(screen.getByRole("button", { name: /^Remove$/ })).toBeTruthy();
     expect(container.querySelector("header")).toBeNull();
   });
 });

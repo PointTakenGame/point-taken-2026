@@ -382,17 +382,17 @@ export function levelProgress(
           if (tile?.removed) matchedSeq = cursor;
           break;
         }
+        // A move happens on the click, with nobody asked first (Steve,
+        // 2026-09-05, BRAIN-T260905-64), so what says the beat is done is the
+        // reason hanging in its new place. Read off board state like "remove"
+        // and "edit" above, not off a pending proposal: there is no longer a
+        // proposal to find.
         case "relocate": {
           const tileId = resolve(spec.tile);
-          if (!tileId) break;
-          const proposal = board.proposals.find(
-            (p) =>
-              p.kind === "tile_relocation" &&
-              p.targetTileId === tileId &&
-              p.askedBy === side &&
-              p.askedAtSeq > cursor,
-          );
-          if (proposal) matchedSeq = proposal.askedAtSeq;
+          const toId = resolve(spec.to);
+          if (!tileId || !toId) break;
+          const tile = board.tiles.find((t) => t.id === tileId);
+          if (tile && !tile.removed && tile.parentId === toId) matchedSeq = cursor;
           break;
         }
         case "accept": {

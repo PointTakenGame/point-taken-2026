@@ -202,26 +202,35 @@ function perform(
       );
       return;
     }
-    case "relocate":
+    case "relocate": {
+      // Moving a reason asks nobody: the second click writes the move
+      // (BRAIN-T260905-64), so the walk appends the same single event
+      // `relocateTile` in app/game/[gameId]/actions.ts does, with no
+      // proposal and therefore no `via_proposal_id`.
+      const targetId = keys[spec.tile] ?? null;
+      const target = targetId ? board.tiles.find((t) => t.id === targetId) : null;
+      const to = keys[spec.to] ?? null;
+      const toTile = to ? board.tiles.find((t) => t.id === to) : null;
+      p.push(
+        "tile_relocated",
+        {
+          tile_id: targetId as string,
+          new_parent_tile_id: to,
+          new_thread_root_id: toTile ? toTile.threadRootId : board.threads[0].rootId,
+          new_side: target ? target.side : side,
+        },
+        actor,
+      );
+      return;
+    }
     case "propose": {
-      const kind = spec.kind === "relocate" ? "tile_relocation" : spec.proposal;
+      const kind = spec.proposal;
       const targetId = spec.tile === null ? null : (keys[spec.tile] ?? null);
       const target = targetId ? board.tiles.find((t) => t.id === targetId) : null;
-      // A relocation says where it is going, the way the board's own move
-      // dialogue does: under the root the script names, keeping the tile's
-      // side, because live-board.tsx passes `tile.side` unchanged.
-      const to = spec.kind === "relocate" ? (keys[spec.to] ?? null) : null;
-      const toTile = to ? board.tiles.find((t) => t.id === to) : null;
       const content: ProposalContent =
-        kind === "tile_relocation"
-          ? {
-              new_parent_tile_id: to,
-              new_thread_root_id: toTile ? toTile.threadRootId : board.threads[0].rootId,
-              new_side: target ? target.side : side,
-            }
-          : kind === "definition"
-            ? { term: "authentic", text: `${beat.id} definition` }
-            : { text: `${beat.id} reading` };
+        kind === "definition"
+          ? { term: "authentic", text: `${beat.id} definition` }
+          : { text: `${beat.id} reading` };
       p.push(
         "proposal_made",
         {

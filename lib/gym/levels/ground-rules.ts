@@ -300,18 +300,11 @@ export const GROUND_RULES: Level = {
       kind: "player",
       id: "player-relocates",
       coach:
-        "Nothing wrong with that tile, it's just in the wrong thread. Click it, choose Move it, then click Rosa's root about evenings, the one it was actually arguing for.",
+        "Nothing wrong with that tile, it's just in the wrong thread. Click it, hit Move it, then click the empty spot under Rosa's root about evenings, the one it was actually arguing for.",
       nudge:
-        "Click that tile, choose Move it, then click Rosa's evenings thread. Don't answer it where it sits.",
+        "Click that tile, hit Move it, then click the empty spot under Rosa's evenings root. Don't answer it where it sits.",
       expect: { kind: "relocate", tile: "B3", to: "C" },
       anchor: { tile: "B3" },
-    },
-    {
-      kind: "boss",
-      id: "rosa-accepts-move",
-      // Same as rosa-removes: the line here was ours, not his. The move
-      // landing is the whole answer.
-      act: { kind: "accept", proposal: "tile_relocation", tile: "B3" },
     },
     {
       kind: "pause",

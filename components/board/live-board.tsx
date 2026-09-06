@@ -81,7 +81,6 @@ import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
 import { CoachPanel } from "./coach-panel";
 import { SIDE_LABEL, stripDuplicateLead, tileLead } from "./side-label";
-import { TilePicker } from "./tile-picker";
 import type { ActionResult } from "@/app/game/[gameId]/actions";
 import {
   acceptProposal,
@@ -93,10 +92,10 @@ import {
   placeTile,
   proposeDefinition,
   proposeReadingHandback,
-  proposeRelocation,
   proposeSteelmanReading,
   proposeSteelmanTile,
   rejectProposal,
+  relocateTile,
   removeTile,
   reviseTile,
   throwCard,
@@ -106,6 +105,7 @@ import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher"
 import { useBossDraft } from "@/components/gym/boss-draft";
 import { useCookedPlacement } from "@/components/gym/cooked-placement";
 import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
+import { publishMovingTile } from "@/components/gym/moving-tile";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
 import { usePointedTile } from "@/components/gym/pointed-tile";
 import { useSampleAnswers } from "@/components/gym/sample-answers";
@@ -896,101 +896,23 @@ function shortText(board: BoardState, tileId: Uuid | null): string {
 }
 
 /**
- * Ask the other side to move a reason somewhere else on the board.
+ * The four arrows on the Move it control.
  *
- * Moving is a proposal rather than an edit because where a reason hangs is
- * itself a claim about what answers what. One player quietly rearranging the
- * shape of the argument is the move the game exists to prevent, so either
- * player may ask about either player's reason and the other side answers.
+ * Steve, 2026-09-05 (BRAIN-T260905-64): Move it sits in the tile card's upper
+ * right "with an icon that reads as moving". Same reasoning as PencilGlyph
+ * above: no icon package is installed here, so it is a small inline glyph.
  */
-function MoveForm({
-  gameId,
-  tile,
-  board,
-  onDone,
-}: {
-  gameId: string;
-  tile: BoardTile;
-  board: BoardState;
-  onDone: () => void;
-}) {
-  const [target, setTarget] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  // The same rule builds the menu and gates the button, so a destination is
-  // never offered and then refused.
-  const destinations = useMemo(
-    () =>
-      allTargets(board).filter(
-        (candidate) =>
-          canProposeRelocation(board, tile.id, candidate.id, candidate.threadRootId).ok,
-      ),
-    [board, tile.id],
-  );
-
-  const parentTileId = target.length > 0 ? target : null;
-  const parent = destinations.find((candidate) => candidate.id === parentTileId) ?? null;
-  // With no parent the reason heads its own thread; under one it joins whatever
-  // thread that parent already belongs to.
-  const threadRootId = parent ? parent.threadRootId : tile.id;
-  const verdict = canProposeRelocation(board, tile.id, parentTileId, threadRootId);
-
-  const submit = () => {
-    setError(null);
-    startTransition(async () => {
-      const result: ActionResult = await proposeRelocation(gameId, {
-        tileId: tile.id,
-        newParentTileId: parentTileId,
-        newThreadRootId: threadRootId,
-        // A move changes where a reason sits, not whose reason it is.
-        newSide: tile.side,
-      });
-      if (!result.ok) setError(result.error);
-      else onDone();
-    });
-  };
-
+function MoveGlyph({ className }: { className?: string }) {
   return (
-    // The same card the other asks are written in. This one was still the
-    // prototype's indented box with two hairline buttons, so the one move that
-    // asks a player to read four candidate reasons was the one that looked
-    // least like the game.
-    <div className="border-gold/60 bg-sand/20 flex flex-col gap-2 rounded-lg border p-2">
-      <TilePicker
-        legend="Move it under"
-        value={target}
-        disabled={pending}
-        noneLabel="Nothing: start its own thread"
-        onChange={setTarget}
-        choices={destinations.map((candidate) => ({
-          id: candidate.id,
-          side: candidate.side,
-          label: shortText(board, candidate.id),
-        }))}
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M10 2.5v15M2.5 10h15M10 2.5L7.5 5M10 2.5L12.5 5M10 17.5L7.5 15M10 17.5l2.5-2.5M2.5 10L5 7.5M2.5 10L5 12.5M17.5 10L15 7.5M17.5 10L15 12.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
       />
-      <WhyNot verdict={verdict} />
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={PRIMARY_BUTTON}
-          disabled={pending || !verdict.ok}
-          title={!verdict.ok ? verdict.error : undefined}
-          onClick={submit}
-        >
-          Ask to move it
-        </button>
-        <button
-          type="button"
-          className={SECONDARY_BUTTON}
-          disabled={pending}
-          onClick={onDone}
-        >
-          Cancel
-        </button>
-      </div>
-      <ErrorLine error={error} />
-    </div>
+    </svg>
   );
 }
 
@@ -1001,6 +923,7 @@ function TileNode({
   board,
   onBoard = false,
   startEditing,
+  onMove,
 }: {
   tile: BoardTile;
   gameId: string;
@@ -1023,6 +946,13 @@ function TileNode({
    * a click inside the card.
    */
   startEditing?: boolean;
+  /**
+   * Arms the move. Move it is two clicks (Steve, BRAIN-T260905-64): this one
+   * hands the reason to the board, which then waits for the empty spot the
+   * player clicks. The board owns the second half, so the card only says which
+   * reason is going somewhere and gets out of the way.
+   */
+  onMove?: () => void;
 }) {
   const [editing, setEditing] = useState(() => startEditing ?? false);
   // Removing a reason takes two presses, the way leaving the game does.
@@ -1031,7 +961,6 @@ function TileNode({
   // card either asks the other player first or can be typed over; this one
   // just happens.
   const [removeArmed, setRemoveArmed] = useState(false);
-  const [moving, setMoving] = useState(false);
   const [handOpen, setHandOpen] = useState(false);
   // The two cooperative moves that are about one particular reason. They open
   // one at a time, because both of them are you writing something in the other
@@ -1064,6 +993,24 @@ function TileNode({
     tile.parentId,
     tile.threadRootId,
   );
+  // BRAIN-T260903-06: the four later moves are gated by canStartLaterMove.
+  // Relocation stays available outside live play (it is load-bearing for Gym
+  // level 2); the other three are Gym level 5+ and hidden everywhere for now.
+  //
+  // Steve, 2026-09-04 (playtest): on top of that gate, a Gym root tile hides
+  // "Move it" / "Say it back" / "Write one for them" outright. A root tile
+  // answers the topic itself, not another reason, so these three (which are all
+  // about a reason's relationship to what it is under) read as non-sequiturs
+  // there and were confusing playtesters. Live play is untouched: it never
+  // reaches this branch, since canStartLaterMove is already false for
+  // board.mode === "live". A non-root tile, including level 1's scripted
+  // card-throw target A3 (parent "A1"), is unaffected.
+  const hideOnGymRoot = board.mode === "gym" && tile.parentId === null;
+  const moveOffered =
+    onMove !== undefined &&
+    !tile.removed &&
+    !hideOnGymRoot &&
+    canStartLaterMove(board, "tile_relocation");
   // Saying a reason back only makes sense for a reason that is not yours to
   // begin with; the rules say so too, and this keeps the card from offering a
   // move it would then refuse.
@@ -1123,6 +1070,60 @@ function TileNode({
 
   return (
     <li className="flex flex-col gap-2">
+      {/* The two corners of the opened card (Steve, 2026-09-05,
+          BRAIN-T260905-64). Upper left takes the reason off the board, upper
+          right sends it somewhere else, and the middle of the card is the
+          reason itself. They sit above everything rather than inside the menu
+          because they are not asks: neither one waits on the other player, and
+          both stay reachable while a form below is open.
+
+          Remove shows only on a reason of your own that is the last one in its
+          thread. Move it shows on any reason, yours or theirs, because where a
+          reason hangs is a claim about what answers what and either player may
+          be the one who spots that it is hanging in the wrong place. */}
+      {onBoard && !editing && (mine || moveOffered) && (
+        <div className="flex items-start justify-between gap-2">
+          {mine && isTerminal ? (
+            <span className="flex flex-col gap-1">
+              <button
+                type="button"
+                className="text-p-sm text-gray self-start underline disabled:opacity-30"
+                disabled={pending || !removeBlocked.ok}
+                title={!removeBlocked.ok ? removeBlocked.error : undefined}
+                onClick={runRemove}
+              >
+                {removeArmed ? "Remove it" : "Remove"}
+              </button>
+              {/* The warning the old menu row carried as its hint. Nothing in
+                  the game puts a reason back, so the second press keeps its
+                  sentence even though the corner is otherwise a bare word. */}
+              {removeArmed && (
+                <span className="text-p-sm text-gray">
+                  Click again and it comes off the board. There is no putting it back.
+                </span>
+              )}
+            </span>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+          {moveOffered && (
+            <button
+              type="button"
+              aria-label="Move it"
+              title={
+                moveVerdict.ok
+                  ? "Move it: then click the empty spot it should hang in."
+                  : moveVerdict.error
+              }
+              className="text-gray hover:text-neutral-black disabled:opacity-30"
+              disabled={pending || !moveVerdict.ok}
+              onClick={onMove}
+            >
+              <MoveGlyph className="size-5" />
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-start gap-3">
         {/* The octagon is redundant on the board, where the real one is a
             few pixels away. It comes back while editing, because then it is
@@ -1199,97 +1200,44 @@ function TileNode({
                   four dead rows of things you could have done instead. */}
               <div
                 className={`flex flex-col gap-2 ${
-                  proposing !== null || moving || handOpen || awaitingMyAnswer
-                    ? "hidden"
-                    : ""
+                  proposing !== null || handOpen || awaitingMyAnswer ? "hidden" : ""
                 }`}
               >
-                {/* BRAIN-T260903-06: the four moves below are gated by
-                    canStartLaterMove. Relocation stays available outside live
-                    play (it is load-bearing for Gym level 2); the other three
-                    are Gym level 5+ and hidden everywhere for now.
-
-                    Steve, 2026-09-04 (playtest): on top of that gate, a Gym
-                    root tile hides "Move it" / "Say it back" / "Write one for
-                    them" outright. A root tile answers the topic itself, not
-                    another reason, so these three (which are all about a
-                    reason's relationship to what it is under) read as
-                    non-sequiturs there and were confusing playtesters. Live
-                    play is untouched: it never reaches this branch, since
-                    canStartLaterMove is already false for board.mode ===
-                    "live". A non-root tile, including level 1's scripted
-                    card-throw target A3 (parent "A1"), is unaffected. */}
-                {(() => {
-                  const hideOnGymRoot = board.mode === "gym" && tile.parentId === null;
-                  return (
-                    <>
-                      {!hideOnGymRoot && canStartLaterMove(board, "tile_relocation") && (
-                        <ActionItem
-                          label="Move it"
-                          hint="Ask them to hang this reason under a different one."
-                          verdict={moveVerdict}
-                          disabled={pending || moving}
-                          onClick={() => setMoving(true)}
-                        />
-                      )}
-                      {!hideOnGymRoot &&
-                        readingVerdict &&
-                        canStartLaterMove(board, "reading_handback") && (
-                          <ActionItem
-                            label="Say it back"
-                            hint="Write what you think they meant. They tell you whether you have it."
-                            verdict={readingVerdict}
-                            disabled={pending || proposing !== null}
-                            onClick={() => setProposing("reading")}
-                          />
-                        )}
-                      {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile") && (
-                        <ActionItem
-                          label="Write one for them"
-                          hint="Put their point better than they did, and offer it as their reason."
-                          verdict={steelmanVerdict}
-                          disabled={pending || proposing !== null}
-                          onClick={() => setProposing("steelman")}
-                        />
-                      )}
-                    </>
-                  );
-                })()}
-                {!(board.mode === "gym" && tile.parentId === null) &&
-                  canStartLaterMove(board, "definition") && (
+                {/* Steve, 2026-09-05, ruling on the tile card
+                    (BRAIN-T260905-64): Edit is the pencil on the tile itself
+                    (see LiveBoard's renderTile), and Remove and Move it are
+                    the two corners above. What is left here is the three asks
+                    that put a question to the other player and wait for an
+                    answer, all of them Gym level 5+ and hidden for now by
+                    canStartLaterMove (BRAIN-T260903-06). */}
+                {!hideOnGymRoot &&
+                  readingVerdict &&
+                  canStartLaterMove(board, "reading_handback") && (
                     <ActionItem
-                      label="Pin down a word"
-                      hint="Ask what one word in here is doing, and agree on what it means."
-                      verdict={definitionVerdict}
+                      label="Say it back"
+                      hint="Write what you think they meant. They tell you whether you have it."
+                      verdict={readingVerdict}
                       disabled={pending || proposing !== null}
-                      onClick={() => setProposing("definition")}
+                      onClick={() => setProposing("reading")}
                     />
                   )}
-                {/* Steve, 2026-09-05, ruling on the tile card: Edit moved to
-                    the pencil that now sits on the tile itself (see
-                    LiveBoard's renderTile), so it no longer needs a row here.
-                    Remove stays in the card, but only for a terminal tile,
-                    the last tile in its thread nobody has replied under
-                    (isTerminal, above) -- once a reply is hanging off it,
-                    taking it back would take the reply with it, silently. */}
-                {mine && isTerminal && (
-                  <>
-                    <span
-                      aria-hidden="true"
-                      className="bg-neutral-black/15 mx-2 my-2 h-px"
-                    />
-                    <ActionItem
-                      label={removeArmed ? "Remove it" : "Remove"}
-                      hint={
-                        removeArmed
-                          ? "Click again and it comes off the board. There is no putting it back."
-                          : "Take your reason back off the board."
-                      }
-                      verdict={removeBlocked}
-                      disabled={pending}
-                      onClick={runRemove}
-                    />
-                  </>
+                {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile") && (
+                  <ActionItem
+                    label="Write one for them"
+                    hint="Put their point better than they did, and offer it as their reason."
+                    verdict={steelmanVerdict}
+                    disabled={pending || proposing !== null}
+                    onClick={() => setProposing("steelman")}
+                  />
+                )}
+                {!hideOnGymRoot && canStartLaterMove(board, "definition") && (
+                  <ActionItem
+                    label="Pin down a word"
+                    hint="Ask what one word in here is doing, and agree on what it means."
+                    verdict={definitionVerdict}
+                    disabled={pending || proposing !== null}
+                    onClick={() => setProposing("definition")}
+                  />
                 )}
               </div>
             </>
@@ -1332,16 +1280,20 @@ function TileNode({
                     <span aria-hidden="true" className="bg-gray/30 h-3.5 w-px" />
                   </>
                 )}
-                {/* Anyone may ask to move any reason: the other side answers.
+                {/* Anyone may move any reason: where it hangs is a claim about
+                    what answers what, and either player may be the one who
+                    spots that it is hanging in the wrong place.
                     BRAIN-T260903-06: relocation is hidden in live play and
-                    stays available only outside it (Gym level 2 needs it). */}
-                {canStartLaterMove(board, "tile_relocation") && (
+                    stays available only outside it (Gym level 2 needs it).
+                    Picking the new spot happens out on the board, so this link
+                    is offered only where a board is listening (`onMove`). */}
+                {moveOffered && (
                   <button
                     type="button"
                     className="text-p-sm underline text-gray disabled:opacity-30"
-                    disabled={pending || moving || !moveVerdict.ok}
+                    disabled={pending || !moveVerdict.ok}
                     title={!moveVerdict.ok ? moveVerdict.error : undefined}
-                    onClick={() => setMoving(true)}
+                    onClick={onMove}
                   >
                     move
                   </button>
@@ -1404,7 +1356,7 @@ function TileNode({
             mine ? removeVerdict : null,
             // BRAIN-T260903-06: no "why not" line for a move that is not
             // offered in the first place.
-            canStartLaterMove(board, "tile_relocation") ? moveVerdict : null,
+            moveOffered ? moveVerdict : null,
           ]}
         />
       )}
@@ -1414,7 +1366,7 @@ function TileNode({
         !tile.removed &&
         // The hand is another way to act on this reason, so it goes away with
         // the rest of them while one of the forms is open.
-        !(onBoard && (proposing !== null || moving || awaitingMyAnswer)) && (
+        !(onBoard && (proposing !== null || awaitingMyAnswer)) && (
           <CardHand
             gameId={gameId}
             tile={tile}
@@ -1462,15 +1414,6 @@ function TileNode({
           board={board}
           tile={tile}
           onDone={() => setProposing(null)}
-        />
-      )}
-
-      {moving && (
-        <MoveForm
-          gameId={gameId}
-          tile={tile}
-          board={board}
-          onDone={() => setMoving(false)}
         />
       )}
 
@@ -2883,6 +2826,14 @@ export function LiveBoard({
   const [armedCardId, setArmedCardId] = useState<string | null>(null);
   const [throwError, setThrowError] = useState<string | null>(null);
   const [throwPending, startThrow] = useTransition();
+  // Moving a reason is the same two clicks as throwing a card (Steve,
+  // 2026-09-05, BRAIN-T260905-64): Move it on the tile's card arms the board,
+  // then the empty spot clicked is where the reason goes. Nobody is asked
+  // first. The difference from a card throw is what the second click lands on:
+  // a card wants an existing reason, a move wants an empty one.
+  const [movingTileId, setMovingTileId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [movePending, startMove] = useTransition();
   const deck = cardsInPlay(board);
   const cardCounts = useMemo(() => {
     const tally: Record<string, number> = {};
@@ -2922,6 +2873,42 @@ export function LiveBoard({
     () => allTargets(board).find((tile) => tile.id === selectedTileId) ?? null,
     [board, selectedTileId],
   );
+  const movingTile = useMemo(
+    () => allTargets(board).find((tile) => tile.id === movingTileId) ?? null,
+    [board, movingTileId],
+  );
+  // While a reason is in the air the empty spots answer a different question.
+  // Not "may a new reason go here" but "may this one", and the rule that
+  // answers it is the relocation rule, the same one the server will run.
+  // TOPIC_CELL_ID is not a tile: clicking it means the reason heads its own
+  // thread, so the parent is null and the thread root is the reason itself.
+  const canMoveUnder = useCallback(
+    (parentId: string) => {
+      if (!movingTile) return false;
+      const parent =
+        parentId === TOPIC_CELL_ID
+          ? null
+          : (allTargets(board).find((tile) => tile.id === parentId) ?? null);
+      if (parentId !== TOPIC_CELL_ID && !parent) return false;
+      return canProposeRelocation(
+        board,
+        movingTile.id,
+        parent ? parent.id : null,
+        parent ? parent.threadRootId : movingTile.id,
+      ).ok;
+    },
+    [board, movingTile],
+  );
+
+  // Puts the reason back down where it was and takes the board out of pick
+  // mode. Every exit from the move goes through here, including the one the
+  // move itself takes when it lands, so the Gym coach (moving-tile.ts) never
+  // hears about a move that is over.
+  const cancelMove = useCallback(() => {
+    setMovingTileId(null);
+    setMoveError(null);
+    publishMovingTile(null);
+  }, []);
 
   return (
     /*
@@ -2947,9 +2934,15 @@ export function LiveBoard({
         // A rewrite of the topic is a negotiation about the whole board,
         // so the board stops offering places to put a new reason while one
         // is open or waiting for an answer.
-        placementEnabled={placementEnabled && !topicEditing && !topicPending}
-        canPlaceOn={canPlaceUnder}
-        placeSide={me.role}
+        // While a reason is in the air the empty spots are still the thing to
+        // click, but they are answering the relocation rule instead of the
+        // placement rule, and they wear the moving reason's side rather than
+        // yours: a move changes where a reason sits, not whose it is.
+        placementEnabled={
+          movingTile ? true : placementEnabled && !topicEditing && !topicPending
+        }
+        canPlaceOn={movingTile ? canMoveUnder : canPlaceUnder}
+        placeSide={movingTile ? movingTile.side : me.role}
         // How many opening reasons this game wants before replies open:
         // four normally, two in gym level 1. The board draws a placeholder
         // for every corner still in play (Steve, 2026-09-04).
@@ -3000,6 +2993,46 @@ export function LiveBoard({
         bossDraft={bossDraft}
         placement={cookedPlacement}
         onPlace={(parentId, pos, sample, corner) => {
+          // An empty spot means two different things depending on whether a
+          // reason is in the air. With one in the air it is the destination,
+          // and the move is written on this click; there is no box to type in,
+          // because the words already exist.
+          if (movingTile) {
+            const parent =
+              parentId === TOPIC_CELL_ID
+                ? null
+                : (allTargets(board).find((tile) => tile.id === parentId) ?? null);
+            if (parentId !== TOPIC_CELL_ID && !parent) {
+              setMoveError("That spot is not on the board any more.");
+              return;
+            }
+            const tileId = movingTile.id;
+            const newParentTileId = parent ? parent.id : null;
+            const newThreadRootId = parent ? parent.threadRootId : tileId;
+            const verdict = canProposeRelocation(
+              board,
+              tileId,
+              newParentTileId,
+              newThreadRootId,
+            );
+            if (!verdict.ok) {
+              setMoveError(verdict.error);
+              return;
+            }
+            setMoveError(null);
+            startMove(async () => {
+              const result: ActionResult = await relocateTile(gameId, {
+                tileId,
+                newParentTileId,
+                newThreadRootId,
+                // A move changes where a reason sits, not whose reason it is.
+                newSide: movingTile.side,
+              });
+              if (!result.ok) setMoveError(result.error);
+              else cancelMove();
+            });
+            return;
+          }
           setPencilEditTileId(null);
           setSelectedTileId(null);
           setArmedCardId(null);
@@ -3018,6 +3051,18 @@ export function LiveBoard({
           setDraft({ parentId, pos, sample: seed, corner });
         }}
         onSelect={(tileId) => {
+          // A reason in the air is looking for a place to land, and an
+          // existing reason is not one. Say so rather than quietly opening
+          // that tile's card and losing the move the player was halfway
+          // through.
+          if (movingTile) {
+            setMoveError(
+              tileId === movingTile.id
+                ? "That is the reason you are moving. Click the empty spot it should go to."
+                : "Click an empty spot, not a reason.",
+            );
+            return;
+          }
           if (armedCardId) {
             const verdict = canThrowCard(
               board,
@@ -3400,7 +3445,10 @@ export function LiveBoard({
           itself in what is left rather than in the whole screen. */}
       {/* Held back until the Director reveals it (level 1's script), a live
           game never hides this: `hiddenSurfaces` is always empty there. */}
-      {hiddenSurfaces.includes("card-tray") ? null : (
+      {/* The tray stands down while a reason is in the air. Both surfaces want
+          the next click, and a card armed mid-move would be two things waiting
+          on one click. The move banner below takes the same spot. */}
+      {hiddenSurfaces.includes("card-tray") || movingTile ? null : (
         <div
           className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
           style={{ right: "23rem" }}
@@ -3436,6 +3484,32 @@ export function LiveBoard({
                     : null)
             }
           />
+        </div>
+      )}
+
+      {/* The board says out loud that it is holding a reason, because the
+          board itself changed underneath the player: the empty spots are
+          suddenly answering a different question and are wearing somebody
+          else's colour. Same spot and same voice as the rule-card tray's hint,
+          since it is the same gesture (Steve, 2026-09-05, BRAIN-T260905-64).
+          A way out is always offered: nothing has been written yet, so cancel
+          really does put it back. */}
+      {movingTile && (
+        <div
+          className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+          style={{ right: "23rem" }}
+        >
+          <div className="border-gold bg-sand flex max-w-lg flex-col items-center gap-2 rounded-lg border-2 p-3 shadow-md">
+            <span className="font-secondary text-p-sm text-neutral-black text-center">
+              {moveError ??
+                (movePending
+                  ? "Moving it..."
+                  : "Now click the empty spot this reason should hang in.")}
+            </span>
+            <button type="button" className={SECONDARY_BUTTON} onClick={cancelMove}>
+              Leave it where it is
+            </button>
+          </div>
         </div>
       )}
 
@@ -3481,6 +3555,23 @@ export function LiveBoard({
               board={board}
               onBoard
               startEditing={pencilEditTileId === selectedTile.id}
+              // Move it hands the reason to the board and closes this card,
+              // the same way arming a rule card does: the next click belongs
+              // to an empty spot out there, and a card sitting over the board
+              // is in the way of it.
+              onMove={() => {
+                const tileId = selectedTile.id;
+                setPencilEditTileId(null);
+                setSelectedTileId(null);
+                setArmedCardId(null);
+                setDraft(null);
+                setMoveError(null);
+                setMovingTileId(tileId);
+                // The Gym coach cannot read this off the log, because between
+                // the two clicks nothing has been appended yet. See
+                // components/gym/moving-tile.ts.
+                publishMovingTile(tileId);
+              }}
             />
           </ul>
           {/* Resolving belongs to the reason a thread started from, so it is
