@@ -69,14 +69,21 @@ True today in the code:
    too short reads "A name needs at least two characters." and too long reads
    "A name can be at most 40 characters." (`:55`, `:60`).
 3. Both players sign the agreement. **Three lines** [ruled BIZ-T260822-04]: Mutual Respect, Honest
-   Thinking, Shared Facts. The old placeholder slogans ("Play fair," "Stay on the thread," "Pin it
-   down") are gone; each line's title is now its own family name, paired with the real pledge sentence
-   [ruled Steve 2026-09-05, from his own level 1 playthrough, `lib/board/setup.ts:45-70`]:
-   - Mutual Respect: "I'm here to think, not to troll. I'll be kind and generous, I'll critique
-     arguments and not people, and I might even revise my position (no promises)."
-   - Honest Thinking: "I'll think with clear reasons and humility, not with aggression and arrogance."
-   - Shared Facts: "Facts matter, so I'll track them down collaboratively and use them honestly,
-     without bias for \"my side.\""
+   Thinking, Shared Evidence (renamed from Shared Facts by Steve on 2026-09-05; the id stays
+   `shared_facts`). The old placeholder slogans ("Play fair," "Stay on the thread," "Pin it down") are
+   gone; each line's title is its own family name, paired with the pledge in Steve's own words
+   [ruled Steve 2026-09-05, second wording of the day, `lib/board/setup.ts:45-70`]:
+   - Mutual Respect: "I'm here to collaborate with my fellow player, not to troll them. I'll be
+     kind, generous, and humble. They *might* even change my mind a bit (hey, no promises)."
+     (three short paragraphs, "might" italic)
+   - Honest Thinking: "Staying in a bubble feels safe, but it makes thinking weak. Strong thinking
+     needs a (kind) opponent to hone reasoning. I'll collaborate with mine, and hold each other
+     accountable." (three short paragraphs)
+   - Shared Evidence: "I'll track down facts collaboratively, and without bias for \"my side.\""
+
+   Pledges are rendered through `PledgeText` (`components/lobby/player-agreement.tsx`): newlines
+   are paragraph breaks and single asterisks mark italics. The rule-card popup's family header uses
+   the same new name (`components/board/rule-card-popup.tsx`).
 
    It is a ritual, not a consent form: there is no partial signing, and Rannie's frame draws a fourth
    line ("I'll control my emotions") folded into Mutual Respect rather than shipped on its own

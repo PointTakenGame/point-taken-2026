@@ -461,12 +461,8 @@ In beat order, the coach and boss strings players actually see:
    highlighted spot connected to his first tile," suggested text "But a bun is one
    hinged piece of bread, and a sandwich needs two." A pause then names what just
    happened: "You answered Bob. We're making a threaded discussion."
-5. A pause teaches the board's own navigation: drag to pan, arrows, zoom,
-   fit-to-screen `[unratified: lib/gym/levels/onboarding.ts, beat
-   p3b-move-the-board]`. Placed here, right after the player's first reply, rather
-   than after Bob's violation tile as Steve suggested when he asked for this hint:
-   the level's actual tension point is the "you" attack two beats later, and a
-   player who has just placed one tile still has both hands free to explore.
+5. (Moved; see 8.) The navigation hint used to sit here, right after the player's
+   first reply. Steve ruled on 2026-09-05 that it belongs after Bob's second tile.
 6. Bob agrees outright rather than arguing back: "You're right, I hadn't thought of
    that." A pause names the token, 👍, Agree to agree, and the player mirrors it,
    coached: "Put your 👍 down and the thread closes." That thread closes at two
@@ -476,8 +472,11 @@ In beat order, the coach and boss strings players actually see:
    thread too and you and Bob win the game together."
 8. Bob's first reply on the player's own thread breaks 🙅 "You" is Taboo: "But you
    only think that because you grew up eating them at ballparks. That's nostalgia,
-   not a rule." A held pause calls it out ("Bob just made this about you, not about
-   the hot dog"), then a second pause reveals the rule-card tray and names the card:
+   not a rule." After a held pause so the tile can be read, a pause teaches the
+   board's own navigation: drag to pan, arrows, zoom, fit-to-screen [ruled Steve
+   2026-09-05, beat `p3b-move-the-board`, kept its id]. Then Hold up calls the tile
+   out ("Bob just made this about you, not about the hot dog"), and a further pause
+   reveals the rule-card tray and names the card:
    "This is a rule card: 'You' is taboo. Click the card, then click Bob's tile that
    broke it." The player throws it.
 9. Bob revises the thrown tile: "But the ballpark version of this argument is about

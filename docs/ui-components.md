@@ -557,7 +557,7 @@ the app does not store this way. One conflict this list used to carry as unresol
 signing-ritual frame draws four lines; shipped code keeps three, folding "I'll control my emotions" into
 Mutual Respect and cutting it as its own line `[ruled]` (`lib/board/setup.ts:45-70`). The three pledges'
 short labels ("Play fair," "Stay on the thread," "Pin it down") are also gone: each pledge's title is now
-its own family name (Mutual Respect, Honest Thinking, Shared Facts) read out in full, not a nickname
+its own family name (Mutual Respect, Honest Thinking, Shared Evidence) read out in full, not a nickname
 `[ruled Steve 2026-09-05]` (`lib/board/setup.ts:45-70`); see `rules.md` section 3 for the full pledge text.
 One conflict remains settled: Rannie's live-board frame has no hand/throw mechanic for picking up and
 throwing a rule card at
