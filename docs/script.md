@@ -135,7 +135,8 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 - No `MIN_THREADS_TO_END` any more. The constant is gone from the code; a game ends once every live
   thread resolves, whatever their number [ruled Steve 2026-09-01, BRAIN-T260901-06]. This entry
   used to quote the constant's own now-removed GAP comment about a carried-forward floor of 4; that
-  floor no longer exists.
+  floor no longer exists. Nathan ruled a floor of 4 in live play on 2026-08-29; Steve's later
+  removal of any floor overtakes it.
 
 **Resolution tokens** (agree/disagree markers on a thread, distinct from Heart's 🙏):
 `RESOLUTION_TOKENS = ["👍", "👀"]`, settled 2026-08-23 by Steve, `[ruled]`.

@@ -404,7 +404,9 @@ ends once every live thread resolves, whatever their number `[ruled Steve
 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]`, reconfirmed
 2026-09-03: "it is all threads, not four threads." This entry previously
 tracked a carried-forward floor of 4 as an open gap (`BRAIN-T260823-10`); that
-gap is resolved. `MAX_THREADS = 4` is `[ruled Steve 2026-09-05, BRAIN-T260905-33]`: four is the tile board's capacity, six belongs to compact mode when it ships.
+gap is resolved. Nathan ruled a floor of 4 in live play and the level's own
+thread count in the Gym on 2026-08-29, also closing `BRAIN-T260823-10`; Steve's
+2026-09-01 removal of any floor is later and overtakes it. `MAX_THREADS = 4` is `[ruled Steve 2026-09-05, BRAIN-T260905-33]`: four is the tile board's capacity, six belongs to compact mode when it ships.
 `RESOLUTION_TOKENS = ["👍", "👀"]`
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so

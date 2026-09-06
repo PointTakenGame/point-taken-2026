@@ -113,6 +113,7 @@ Nothing else can be built on top until this is settled, because everything else 
   `:194` and `:512` `[unratified]`.
   The mode enum is `GameMode = "gym" | "live"` (`lib/db/types.ts:16`) `[unratified]`. The source
   specifies `'dojo' | 'gym'`, which names the retired word and omits the live mode; build to the code.
+  Nathan reached the same "build to the code" ruling on 2026-08-29.
 - **1.4 The account progression record.** Cards owned, badges earned with occurrence counts, points,
   highest level reached, in-flight practice game id, coach pick. **Absent from this repo entirely.**
   Harvest it from the retired backend's progression module rather than reimplementing; the old

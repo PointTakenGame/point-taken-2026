@@ -91,15 +91,11 @@ True today in the code:
 4. Either player sets the topic, from a 17-entry library or written fresh [unratified: lib/board/setup.ts:55]. Either player can start; nobody waits on a host.
 5. Play begins. Tiles go down, threads grow, tokens close threads, cards get thrown.
 
-Designed, unbuilt: each player writes 2 starting reason tiles before play, Plus using "Yes, because" and Minus using "No, because" [unratified: GAME_MECHANICS.md]. Nothing in the code requires this.
-
-`GAP: does the web version require each player to write two opening reason tiles before the board opens, or is the first tile free?`
+All four opening reason tiles, two from each player, are finished before the board opens; any reply may then hang off another tile [ruled Nathan 2026-08-29]. Designed, unbuilt: each player writes 2 starting reason tiles before play, Plus using "Yes, because" and Minus using "No, because" [unratified: GAME_MECHANICS.md]. Nothing in the code requires this.
 
 ## 4. A turn, and its timing
 
-**Turn order.** True today in the code: there is no turn order. No field, no check, no notion of whose turn it is anywhere in `lib/board/rules.ts`. Either player may place a tile at any time the board is open.
-
-`GAP: is Brain strictly alternating, or free-running with both players able to write at once? The code assumes free-running and no source doc rules either way.`
+**Turn order.** Brain is free-running, not strictly alternating: both players may write at once, and a visible indication shows when the other player has a tile in progress [ruled Nathan 2026-08-29]. The free-running half is true today in the code: there is no turn order, no field, no check, no notion of whose turn it is anywhere in `lib/board/rules.ts`, and either player may place a tile at any time the board is open. The mid-tile indication is designed, unbuilt: nothing in the repo shows one player that the other is writing.
 
 **Timers.** There are no turn timers in this edition [ruled Steve 2026-09-03]; the earlier 30-second speaker and 45-second summarize entry here was recorded in error and belongs to the Heart edition, not Brain. The print game's one-minute chat timer, flipped by hand when writing is not enough, is a Heart-edition mechanic [unratified: GAME_MECHANICS.md].
 
@@ -118,6 +114,8 @@ Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 
 Thread ceiling is 4 on the tile board, the four diagonals of the centre tile [ruled Steve 2026-09-05, BRAIN-T260905-33, lib/board/rules.ts:69]. Six belongs to compact mode, three a side, when it ships. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 4 at level 5.
 
+Nathan ruled a floor of 4 threads in live play and the level's own thread count in the Gym on 2026-08-29; Steve's 2026-09-01 removal of any floor is later and overtakes it.
+
 ## 5. Ending a thread
 
 A thread ends when **both** players put down the **same** token on the same tile. Not when one concedes, and not on a timer. If they put down different tokens, nothing is settled and the thread stays open, which is the correct outcome: the two of you do not yet agree about what you disagree about [unratified: app/how-to-play/page.tsx].
@@ -131,7 +129,7 @@ The shipped on-screen labels are "Agree to agree" for 👍 and "Agree to disagre
 
 Three further tokens have art and labels in the repo and cannot be placed by anything: 🔍 disagree on a fact, ⚖️ disagree on priorities, 🍷 disagree on personal taste [unratified: lib/board/rules.ts:53]. They are deferred behind progression. Treat the game as a two-token game.
 
-`GAP: BRAIN-T260425-33, still open: does level 1 ship with only 👍 and 👀, making it a two-emoji game above level 1 as well, or does the vocabulary widen and when?`
+Two tokens only, at every level [ruled Steve 2026-09-05, BRAIN-T260905-30, closes BRAIN-T260425-33]. The three-way split of 🔍, ⚖️, and 🍷 waits for level 6 and above. Nathan reached the same "widen later" ruling on 2026-08-29 without naming a level; Steve's ruling supplies the level.
 
 ## 6. Asking the other player for something
 
@@ -144,7 +142,9 @@ Some moves need both players. One sends the ask, the other accepts or declines, 
 - Hand a reading back, if their version of your side is wrong.
 - Propose new wording for the topic itself.
 
-`GAP: BRAIN-T260815-27, still open: how does a player ask for clarification? The definition ask and the reading ask both exist in the event log, and neither has been ruled to be the clarification move a player reaches for.`
+Nathan ruled clarification as a one-sided mark on 2026-08-29: a player flags a tile as wanting clarification and keeps writing, nothing on the board waits for an answer, and the tile's author is notified without being blocked before their next move. Steve disputes the mark itself, in GitHub issue #3 (`PointTakenGame/point-taken-2026#3`): the card exists to hand back a reading, two readings that both fit or one honestly wrong, not to transmit a bare "this was unclear," and a passive mark throws away the interaction that rung 2 of Steel Man is meant to reuse. Do not build the one-sided-mark wording. Both sides agree, and it is safe to build now, that the ask does not block the board: the asking player keeps writing other tiles while it is outstanding.
+
+`GAP: BRAIN-T260815-27, still open pending issue #3: does a clarification ask carry the asker's own reading of the tile, or is it a bare one-sided mark? Also open: where that reading displays, whether the original author can accept it, and whether acceptance is the scoring event.`
 
 ## 7. The four rule cards
 
@@ -234,7 +234,7 @@ The Gym is single-player practice against a scripted opponent whose lines are fi
 
 **You cannot fail a Gym level** [ruled BIZ-T260823-67, guide §2.10]. There is no failure state anywhere in levels 1 to 4: no move budget, no timer, no wrong-answer counter, no retry loop, no way to be sent back to the start.
 
-`GAP: BRAIN-T260815-21, still open: what does failing a level cost the player? The Gym guide answers this by ruling that failing is impossible in levels 1 to 4, which is a design decision, not an answer for level 5 and up.`
+There is no failure state at any level number: the levels 1 to 4 rule extends upward rather than level 5 and up being a different game [ruled Nathan 2026-08-29, closes BRAIN-T260815-21]. Designed, unbuilt above level 4, since no level past 4 is scripted yet.
 
 | Level | Teaches | Boss | Topic | Threads | Points scope | Fast-forward |
 |---|---|---|---|---|---|---|
@@ -279,9 +279,9 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 **How a level is passed:** by reaching the end of its beat script. Completion grants the level's rule card and its certificate; using fast-forward (available at levels 3 and 4 only) grants the card but not the certificate [unratified: guide §1.1 `fastForward.grantsCard: true, grantsCertificate: false`].
 
-`GAP: can a completed level be replayed, and if so does it award anything the second time? "No failure state" removes the need for a retry loop but does not rule on replay.`
+A completed level can be replayed, running the same script, and a replay awards nothing the second time [ruled Nathan 2026-08-29]. The replay half is true today in the code: clicking any level, cleared or not, starts a fresh game against the same script (see the no-lock ruling below). The "awards nothing twice" half is not: `grantLevelAwards` re-fires every beat's points, grants each badge again as a new occurrence, and re-appends `level_cleared` and `certificate_granted` on every clearing game, since its only guard is against a double award within the same game's own event log [unratified: lib/gym/awards.ts]. Designed, unbuilt: suppressing points, the level-cleared event, and the certificate on a repeat clear. See section 13, item 15.
 
-Finishing a level does not unlock the next one, because there is no lock: all four scripted levels are open regardless of cleared state [ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23].
+Finishing a level does not unlock the next one, because there is no lock: all four scripted levels are open regardless of cleared state [ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23]. Nathan ruled the opposite on 2026-08-29, that each level is gated by the one before it; Steve's later ruling overtakes it.
 
 True today in the code: all four Gym levels are fully scripted and playable end to end against their boss [unratified: lib/gym/levels/onboarding.ts and its three siblings; played and cleared in full by `docs/handoffs/2026-09-04_overnight-result.md`, tid BRAIN-T260904-20]. `app/gym/page.tsx` is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip (`components/account/progression/ladder-strip.tsx`) is the level select now [ruled Steve 2026-09-04, cited in app/gym/page.tsx's own doc comment].
 
@@ -303,7 +303,7 @@ True today in the code, and player-visible: seats and sides, the three-line sign
 
 Decided and unbuilt: the graded steps inside cards, streaks, badge display names (the taxonomy itself is still open), a certificate a player can export or that live play produces, and the coach's pre-post draft review. Turn timers are removed from this list: they are out of scope for this edition by ruling [ruled Steve 2026-09-03, BRAIN-T260903-01] and belong to the Heart edition, not Brain.
 
-Neither decided nor built, and therefore listed as a GAP above: turn order, the clarification move, level replay, the two opening tiles, and the emoji vocabulary above level 1. Level unlocks are no longer on this list: there is no lock, ruled Steve 2026-09-03 (see section 10).
+Neither decided nor built, and therefore listed as a GAP above: the mid-tile indication for free-running turns, and the clarification move pending GitHub issue #3. Level unlocks are no longer on this list: there is no lock, ruled Steve 2026-09-03 (see section 10). Turn order, level replay, the two opening tiles, and the emoji vocabulary above level 1 are also off this list now: each is ruled, above, though the replay ruling's "awards nothing twice" half is still designed, unbuilt (see section 13, item 15).
 
 ## 13. Contradictions a builder will hit
 
@@ -321,3 +321,4 @@ Neither decided nor built, and therefore listed as a GAP above: turn order, the 
 12. Resolved: the join code is 5 characters (`JOIN_CODE_LENGTH = 5`, `lib/games/joinCode.ts:17`), and `app/not-found.tsx` now tells the player it is five as well [unratified: app/not-found.tsx:42]. Kept here as a tombstone since this section's numbering is a builder-facing index.
 13. Resolved: `app/gym/page.tsx` no longer ships any topic string; it is a redirect to `/#ladder` (see section 10). Each level's topic now lives in its own script and matches section 10's table exactly: "Should we stop changing the clocks twice a year?" (`lib/gym/levels/ground-rules.ts`), "Should tipping be replaced by higher base wages?" (`lib/gym/levels/claim-size.ts`), "Should AI-generated content be clearly labeled?" (`lib/gym/levels/clarity.ts`) [unratified].
 14. Section 9's profile-stats list and `roadmap.md` section 3 describe a stat block that no longer exists as such. The profile hero shows three figures: Games played, Cooperation score, and Points [unratified: components/account/hero.tsx:195,201,208]. A player's match history shows a per-game outcome label instead of aggregate stats: "Threads resolved", "Topic revised", "Unfinished", "Ran out of time" [unratified: components/account/match-list.tsx:32-35]. No "Cards landed" or "Games ended" stat appears anywhere in the current profile. Whether a fuller stats page still exists elsewhere was not checked.
+15. Nathan's 2026-08-29 ruling that a Gym replay "awards nothing the second time" is not yet what the code does: `grantLevelAwards` (`lib/gym/awards.ts`) re-awards points, badges, `level_cleared`, and `certificate_granted` on every clearing game, guarding only against a double award inside one game's own log. See section 10.

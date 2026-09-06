@@ -80,8 +80,9 @@ otherwise is wrong. [ruled]
   nonprofits, private-equity firms, high schools, and with Army officers. [ruled]
 - **A solo learner in the Gym**, practicing before ever facing a person.
 
-GAP: which of these audiences is the first public release optimized for? Marketing
-material names several in parallel, the code favors none.
+Classrooms are the audience the first public release is optimized for, without the
+game being built for that audience alone: general public play stays fully opt-in
+and unrestricted [ruled Nathan 2026-08-29].
 
 Nobody is conscripted. The game is strictly opt-in and never asks a
 vulnerable person to defend their own existence to a hostile stranger. A player who
@@ -287,13 +288,13 @@ code enforces it:
 |---|---|---|
 | Session length target, 20 to 40 minutes | [vibecoded]; the printed paper instructions say 15 to 30 minutes and no web target was ever ruled | no file |
 
-GAP: is there a shared failure state for live play, distinct from "no adversarial
-punishment"? That no player punishes another is settled. Whether a live session can
-collectively end in a named "no resolution" outcome, ideally with a visible turn budget
-so failure is felt rather than announced, is open, and is the largest unanswered design
-question in the game. The Gym answer is settled (no failure); live play is not.
+There is no failure state in live play either [ruled Nathan 2026-08-29]. A game
+where the two players find no common ground still ends the ordinary way, four
+threads closed on 👀 rather than 👍. The only stop that carries no win condition
+is a player leaving.
 
-GAP: at what point, if any, does a player's history become a public profile? Badges and points exist in the levels design; nothing states what another player can see.
+A player's history is not public [ruled Nathan 2026-08-29]. Badges and points
+exist in the levels design; nothing shows one player another's.
 
 ## 11. Material that cannot be carried into this repo
 
