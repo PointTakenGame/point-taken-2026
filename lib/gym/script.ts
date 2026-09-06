@@ -481,7 +481,7 @@ export function currentBeat(level: Level, progress: LevelProgress): Beat | null 
  * certificate at all zeroes).
  */
 export function levelCleared(level: Level, board: BoardState): boolean {
-  if (board.awards.certificate) return true;
+  if (board.awards.certificate?.levelId === level.id) return true;
   const cooperative =
     board.winCondition === "threads_resolved" || board.winCondition === "topic_agreed";
   return cooperative && levelProgress(level, board, ALL_PAUSES_DISMISSED).complete;

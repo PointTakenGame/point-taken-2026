@@ -333,6 +333,17 @@ describe("levelCleared", () => {
     expect(levelCleared(ONBOARDING, l.board())).toBe(true);
   });
 
+  it("is false when the board's certificate was granted for a different level", () => {
+    const l = opened();
+    l.push(
+      "certificate_granted",
+      { level_id: "some-other-level", issued_at: "2026-09-05T00:00:00Z" },
+      PLAYER,
+    );
+    expect(l.board().awards.certificate?.levelId).not.toBe(ONBOARDING.id);
+    expect(levelCleared(ONBOARDING, l.board())).toBe(false);
+  });
+
   it("is true for a legacy game that finished the script cooperatively before certificate_granted existed", () => {
     const l = opened();
     const a = l.tile(
