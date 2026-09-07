@@ -80,9 +80,9 @@ otherwise is wrong. [ruled]
   nonprofits, private-equity firms, high schools, and with Army officers. [ruled]
 - **A solo learner in the Gym**, practicing before ever facing a person.
 
-Classrooms are the audience the first public release is optimized for, without the
-game being built for that audience alone: general public play stays fully opt-in
-and unrestricted [ruled Nathan 2026-08-29].
+The first public release aims at the **education sector** first [ruled Nathan 2026-08-29],
+and is not built for it alone. Point Taken is for the general public on an opt-in model, so
+no one audience gets a surface tailored to it at the expense of the others.
 
 Nobody is conscripted. The game is strictly opt-in and never asks a
 vulnerable person to defend their own existence to a hostile stranger. A player who
@@ -288,13 +288,23 @@ code enforces it:
 |---|---|---|
 | Session length target, 20 to 40 minutes | [vibecoded]; the printed paper instructions say 15 to 30 minutes and no web target was ever ruled | no file |
 
-There is no failure state in live play either [ruled Nathan 2026-08-29]. A game
-where the two players find no common ground still ends the ordinary way, four
-threads closed on 👀 rather than 👍. The only stop that carries no win condition
-is a player leaving.
+**There is no failure state in live play either** [ruled Nathan 2026-08-29]. No player
+punishes another, and no session collectively loses. Two people who genuinely found no
+common ground still finish the ordinary way, with every thread closed on 👀, saying they
+can now see why they disagree. That is an outcome, not a loss. There is no named "no
+resolution" ending and no visible turn budget. The only way a game stops without either
+win condition is a player leaving or disconnecting, which closes it as `abandoned`
+(`lib/games/abandon.ts`) and is scored against nobody. Nathan's wording said four threads
+closed; there is no thread floor, so it is every thread the game actually has [ruled Steve
+2026-09-01, BRAIN-T260901-06].
 
-A player's history is not public [ruled Nathan 2026-08-29]. Badges and points
-exist in the levels design; nothing shows one player another's.
+**A player's history is not a public profile** [ruled Nathan 2026-08-29]. Badges, points,
+and game history are personal and non-comparative, and nothing there is visible to another
+player. One exception postdates the ruling: cooperative measures may be ranked publicly,
+while a single blended competitive score and head-to-head records may not [ruled Steve
+2026-09-05, BRAIN-T260905-34], which is what the cooperation leaderboard shows
+(`app/leaderboard/page.tsx`). Opening more of a profile later stays possible, and nothing
+is designed on that assumption.
 
 ## 11. Material that cannot be carried into this repo
 
