@@ -28,7 +28,16 @@ export type CookedPlacement = {
   ownReplies: boolean;
   /** False draws no hover ghosts and no unpointed root diagonals. */
   ghosts: boolean;
-  /** True opens the draft read-only: Place or cancel, no typing. */
+  /**
+   * True means the script owns every word on this board, not the player.
+   * The draft opens read-only (Place or cancel, no typing) and a reason
+   * already on the board offers neither edit nor remove.
+   *
+   * Steve, 2026-09-07: a level teaches one rule against a board whose next
+   * move is known, and Stick to the Root has nothing left to be about if the
+   * player rewrites the root, or takes it off the board. Both doors close
+   * together for the same reason.
+   */
   lockedText: boolean;
 };
 

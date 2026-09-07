@@ -965,6 +965,12 @@ function TileNode({
   const [pending, startTransition] = useTransition();
 
   const mine = tile.placedBy === me.playerId;
+  // On a scripted Gym level the words on the board are the script's, not the
+  // player's (`lockedText` in components/gym/cooked-placement.ts). Edit and
+  // remove both close: a rule about the root cannot be taught on a board
+  // where the root can be rewritten or taken away mid-lesson. Unrestricted
+  // in a live game, where no Director is mounted.
+  const scriptOwnsText = useCookedPlacement().lockedText;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
   // lib/board/rules.ts's canRemoveTile has no children check (core lane, not
@@ -1250,7 +1256,7 @@ function TileNode({
                   and the stray "(yours)" tag above is gone, because a row
                   headed "yours" has already said it. */}
               <span className="flex flex-wrap items-center gap-3">
-                {mine && (
+                {mine && !scriptOwnsText && (
                   <>
                     <span className="text-p-sm text-gray">yours:</span>
                     <button
@@ -3359,8 +3365,12 @@ export function LiveBoard({
                 a tile click opens, already in edit mode, via pencilEditRef:
                 one edit entry point (TileNode's setEditing), reached from
                 either the tile or (still, for now) the card that opens under
-                it. */}
-              {mine && editVerdict?.ok && (
+                it.
+
+                Steve, 2026-09-07: and not at all on a scripted Gym level,
+                where the words belong to the script. Same flag the card's own
+                edit and remove links read. */}
+              {mine && editVerdict?.ok && !cookedPlacement.lockedText && (
                 <button
                   type="button"
                   aria-label="Edit this reason"
