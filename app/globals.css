@@ -533,6 +533,62 @@
     -1px -1px 0 rgb(0 0 0 / 0.2);
 }
 
+/*
+  The rule card, with Rannie's drawn panel across its head (her Rule Cards
+  frame `790:97607`, adopted 2026-09-07). Her card is a teal-outlined tile
+  whose top third is an illustration on a warm ground, with the level number
+  in a green octagon punched through the top-left corner. The octagon sits
+  outside the card's own rounding, which is why it is absolutely positioned
+  and given a white octagon behind it as the outline.
+*/
+.rule-card {
+  position: relative;
+  border: 2.5px solid var(--color-tile-plus-accent);
+  border-radius: 16px;
+  background-color: var(--color-card);
+  box-shadow: 0 2px 0 #cfc9c2;
+}
+
+.rule-card-art {
+  height: 118px;
+  overflow: hidden;
+  border-radius: 13px 13px 0 0;
+  background-color: var(--color-orange);
+}
+
+.rule-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Her figures sit high in the panel; centring cuts their heads off. */
+  object-position: center 38%;
+}
+
+/* The white layer is the outline: an octagon cannot take a border. */
+.rule-card-chip-ring {
+  position: absolute;
+  top: -13px;
+  left: -13px;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  background-color: var(--color-neutral-white);
+}
+
+.rule-card-chip {
+  position: absolute;
+  top: -11px;
+  left: -11px;
+  z-index: 3;
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-green);
+  color: var(--color-ink);
+}
+
 /* The badge chip: one dark ground for all of them, ringed in the good green. */
 .badge-chip {
   position: relative;

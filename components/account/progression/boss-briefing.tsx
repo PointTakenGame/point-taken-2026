@@ -1,6 +1,9 @@
+import Image from "next/image";
+
 import { coachCard } from "@/lib/coach/cards";
 import type { PlayerAwards } from "@/lib/db/awards";
 import { levelById } from "@/lib/gym/levels";
+import { bossArt } from "@/lib/progression/art";
 import type { Rung } from "@/lib/progression/sample";
 import { ArrowGlyph, BUTTON_PRIMARY, Chip } from "@/components/account/account-shell";
 import { StartLevelButton } from "@/components/gym/start-level-button";
@@ -34,8 +37,9 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * "Teaches {card}" line broke it. Before it is earned, the goals say what the
  * card will do for the player without naming it.
  *
- * The emoji is placeholder art; her frame has a drawn character with a
- * wordmark, and the art is on Rannie, not on this build.
+ * The figure is Rannie's drawing, pulled from her Boss Collection frame
+ * (Steve, 2026-09-07). A boss she has not drawn falls back to the emoji, so
+ * a level past 4 still renders.
  */
 export function BossBriefing({ rung, awards }: { rung: Rung; awards: PlayerAwards }) {
   const level = levelById(rung.id);
@@ -44,6 +48,7 @@ export function BossBriefing({ rung, awards }: { rung: Rung; awards: PlayerAward
   const card = coachCard(level.cardId);
   const holdsCard = awards.cardIds.includes(level.cardId);
   const nameLines = level.bossName.split(" ");
+  const art = rung.bossId ? bossArt(rung.bossId) : null;
 
   return (
     <div className="grid items-center gap-8 pb-8 md:grid-cols-[minmax(0,1.6fr)_minmax(200px,1fr)]">
@@ -93,9 +98,13 @@ export function BossBriefing({ rung, awards }: { rung: Rung; awards: PlayerAward
       <div className="flex flex-col items-center gap-3 text-center">
         <span
           aria-hidden
-          className="border-ink bg-paper flex h-32 w-32 items-center justify-center rounded-full border-[1.5px] text-7xl leading-none"
+          className="border-ink bg-paper flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-[1.5px] text-7xl leading-none"
         >
-          {level.bossEmoji}
+          {art ? (
+            <Image src={art} alt="" width={360} height={360} className="h-28 w-28" />
+          ) : (
+            level.bossEmoji
+          )}
         </span>
         <h3 className="font-primary text-ink text-4xl leading-[0.95] tracking-wide uppercase">
           {nameLines.map((line, i) => (

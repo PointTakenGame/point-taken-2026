@@ -1,3 +1,6 @@
+import Image from "next/image";
+
+import { badgeArt } from "@/lib/progression/art";
 import { BADGES, type Badge } from "@/lib/progression/sample";
 import { SampleTag } from "./sample-tag";
 
@@ -11,7 +14,8 @@ import { SampleTag } from "./sample-tag";
  *
  * The chip is Rannie's artwork from Badges Gallery `810:61120` (Steve,
  * 2026-09-07): a dark octagonal chip ringed in the good green, honeycombed,
- * with the icon and the badge's name inside it. Deliberately not the boss
+ * with her own drawn glyph and the badge's name inside it (the glyphs are her
+ * line art, keyed to our badge ids in lib/progression/art.ts). Deliberately not the boss
  * plaque and deliberately not a rule card, because on her three frames each
  * shelf is a different kind of object. Her chips carry no sentence, so the
  * condition sits under the chip as a caption.
@@ -30,6 +34,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
 
 function BadgeTile({ badge }: { badge: Badge }) {
   const earned = badge.earnedOn !== null;
+  const art = badgeArt(badge.id);
 
   return (
     <li className="flex flex-col items-center gap-2">
@@ -37,9 +42,19 @@ function BadgeTile({ badge }: { badge: Badge }) {
         className={`badge-chip octagon w-full ${earned ? "" : "opacity-45 grayscale"}`}
       >
         <div className="badge-chip-face octagon honeycomb">
-          <span aria-hidden className="text-2xl leading-none">
-            {badge.icon}
-          </span>
+          {art ? (
+            <Image
+              src={art}
+              alt=""
+              width={120}
+              height={120}
+              className="h-8 w-8 object-contain"
+            />
+          ) : (
+            <span aria-hidden className="text-2xl leading-none">
+              {badge.icon}
+            </span>
+          )}
           <h4 className="font-figure text-center text-xs leading-tight font-black tracking-wide uppercase">
             {badge.name}
           </h4>

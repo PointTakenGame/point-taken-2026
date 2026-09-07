@@ -1,3 +1,6 @@
+import Image from "next/image";
+
+import { bossArt, bossPlaqueInk } from "@/lib/progression/art";
 import { BOSSES } from "@/lib/progression/sample";
 import { SampleTag } from "./sample-tag";
 
@@ -16,12 +19,20 @@ import { SampleTag } from "./sample-tag";
  * 2026-09-07, "Ranny's Figma also had a suggestion for the artwork here"):
  * an octagonal plaque in that level's colour, a honeycomb wash over it, the
  * level chip in the top corner, a REFORMED band across the middle, and the
- * name in white under the band. Her figures are drawn illustrations we do not
- * have, so the boss emoji stands in for one, and the habit sentence her
- * plaques have no room for sits under the plaque instead.
+ * name in white under the band. Her drawn figure sits on the plaque as of
+ * 2026-09-07; a boss with no drawing falls back to the emoji. The habit
+ * sentence her plaques have no room for sits under the plaque instead.
  *
- * PLAQUE_INK is a spectrum walking level 1 to 8, which is her palette: the
- * hue tells you where in the ladder a boss lives before you read the chip.
+ * Her ladder is eight bosses in a different order, and the four she draws at
+ * the levels we have built are named exactly what ours are, so each portrait
+ * lands on the boss it was drawn for. Levels 5 to 8 stay anonymous: she has
+ * four more characters, but naming a boss for a rule nobody has written is a
+ * promise (Steve's own 2026-09-03 call on rule cards 5 to 11).
+ *
+ * A boss she drew wears the colour she drew them in (BOSS_PLAQUE_INK in
+ * lib/progression/art.ts), because her figures are single-hue and clash on
+ * any other ground. PLAQUE_INK below is the fallback for a boss with no
+ * drawing: a spectrum walking level 1 to 8, which is her palette.
  */
 
 const PLAQUE_INK = [
@@ -35,12 +46,13 @@ const PLAQUE_INK = [
   "#ec8f3c",
 ];
 
-function plaqueInk(level: number): string {
-  return PLAQUE_INK[(level - 1) % PLAQUE_INK.length];
+function plaqueInk(id: string, level: number): string {
+  return bossPlaqueInk(id) ?? PLAQUE_INK[(level - 1) % PLAQUE_INK.length];
 }
 
 function BossTile({ boss }: { boss: (typeof BOSSES)[number] }) {
   const locked = boss.status === "locked";
+  const art = locked ? null : bossArt(boss.id);
 
   return (
     <li className="flex flex-col items-center gap-2">
@@ -49,7 +61,7 @@ function BossTile({ boss }: { boss: (typeof BOSSES)[number] }) {
       >
         <div
           className="boss-plaque-face octagon honeycomb"
-          style={{ "--plaque": plaqueInk(boss.level) } as React.CSSProperties}
+          style={{ "--plaque": plaqueInk(boss.id, boss.level) } as React.CSSProperties}
         >
           {/* A locked plaque's name is already "Level 5", so no chip on those. */}
           {locked ? null : (
@@ -57,9 +69,19 @@ function BossTile({ boss }: { boss: (typeof BOSSES)[number] }) {
               L{boss.level}
             </span>
           )}
-          <span aria-hidden className="pt-3 text-5xl leading-none">
-            {locked ? "❔" : boss.emoji}
-          </span>
+          {art ? (
+            <Image
+              src={art}
+              alt=""
+              width={360}
+              height={360}
+              className="mt-1 h-24 w-24 object-contain"
+            />
+          ) : (
+            <span aria-hidden className="pt-3 text-5xl leading-none">
+              {locked ? "❔" : boss.emoji}
+            </span>
+          )}
           <span className="boss-plaque-band font-label mt-auto text-[10px] font-bold tracking-[0.25em] uppercase">
             {locked
               ? "Not yet met"
