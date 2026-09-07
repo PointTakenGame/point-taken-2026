@@ -168,11 +168,16 @@ export const ONBOARDING: Level = {
     {
       kind: "player",
       id: "player-token-a",
-      coach: "Put your 👍 down and the thread closes.",
-      nudge: "Bob's 👍 is on this thread, waiting for yours.",
+      // Steve, 2026-09-06: the prompt goes next to the emoji and points at
+      // it, and clicking the emoji is the whole move. It used to point at
+      // Bob's tile and open a picker on top of the board, which asked the
+      // question the badge had already asked.
+      coach:
+        "Click here to approve. That is Bob's 👍, and your click puts yours beside it and closes the thread.",
+      nudge: "Bob's 👍 is on this thread, waiting for yours. Click it.",
       badges: ["resolve-first-thread"],
       expect: { kind: "token", thread: "A", emoji: "👍" },
-      anchor: { tile: "A" },
+      anchor: { token: "A" },
     },
     {
       kind: "pause",

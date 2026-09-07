@@ -201,6 +201,14 @@ function resolveAnchor(
   if ("ui" in anchor) {
     return `[data-ui="${cssEscape(anchor.ui)}"]`;
   }
+  if ("token" in anchor) {
+    // The badge is drawn by live-board's `ThreadTokenBadge` and stamped with
+    // the thread root's own uuid, so a token anchor is a tile anchor pointed
+    // one level finer: at the token on the tile's edge rather than at the
+    // tile.
+    const rootId = keys[anchor.token];
+    return rootId ? `[data-token-badge="${cssEscape(rootId)}"]` : null;
+  }
   const parentValue =
     anchor.slot.parent === "topic" ? TOPIC_CELL_ID : keys[anchor.slot.parent];
   if (!parentValue) return null;
@@ -570,7 +578,13 @@ function Director({
   // DOM directly) but nothing brings the tile itself onto the screen, and a
   // resumed game's leftover camera position can leave it well off the pane.
   const pointedTileId: string | null = useMemo(() => {
-    if (!anchor || !("tile" in anchor)) return null;
+    if (!anchor) return null;
+    // A token anchor points at a badge on a tile's edge, so the tile to bring
+    // on screen is that badge's thread root. Without this the camera would
+    // leave the arrow pointing off the pane at exactly the beat that asks the
+    // player to click the thing.
+    if ("token" in anchor) return progress.keys[anchor.token] ?? null;
+    if (!("tile" in anchor)) return null;
     return progress.keys[anchor.tile] ?? null;
   }, [anchor, progress.keys]);
   useEffect(() => {

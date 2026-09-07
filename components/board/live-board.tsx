@@ -2568,12 +2568,28 @@ function ThreadTokenBadge({
   thread,
   me,
   onOpen,
+  onAgree,
 }: {
   thread: BoardThread | null;
   me: { playerId: string; role: Side };
   /** Opens this thread's root tile card. Only the pending badge uses this; a
    *  settled thread has nothing left to do. */
   onOpen?: () => void;
+  /**
+   * Matches the token they put down, closing the thread, without opening
+   * anything first. Passed only when that is legal right now, so when it is
+   * absent the badge falls back to opening the card.
+   *
+   * Steve, 2026-09-06, from his level 1 playthrough: "there should not be a
+   * modal after this, remove that. you either click the thumb to agree, or
+   * give it a little X". Clicking the token used to open the tile's card and
+   * ask the same question again with a picker in it, which is a dialog
+   * between the player and a decision they had already made. The other half
+   * of his note, the X that retracts a token, is BRAIN-T260906-08: until that
+   * is settled, taking a token back is still "take back your token" inside
+   * the card, which is what the badge opens while you are the one waiting.
+   */
+  onAgree?: () => void;
 }) {
   if (!thread) return null;
   const settled = thread.resolution?.emoji ?? null;
@@ -2591,7 +2607,9 @@ function ThreadTokenBadge({
   const words = settled
     ? `Thread resolved: ${tokenLabel(settled)}`
     : yours
-      ? `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
+      ? onAgree
+        ? `They suggested: ${tokenLabel(token)}. Click it to agree and close the thread.`
+        : `They suggested: ${tokenLabel(token)}. Click the reason to say whether you agree.`
       : `You suggested: ${tokenLabel(token)}. Waiting for them.`;
   // A settled thread and a thread waiting on somebody are two different
   // announcements, and they are drawn differently.
@@ -2615,6 +2633,7 @@ function ThreadTokenBadge({
   if (settled) {
     return (
       <span
+        data-token-badge={thread.rootId}
         style={{ left: "50%", bottom: 0 }}
         className="border-gray/40 absolute z-30 flex -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-2xl border-2 bg-white p-1.5 shadow-md"
         title={words}
@@ -2634,7 +2653,10 @@ function ThreadTokenBadge({
   return (
     <button
       type="button"
-      onClick={onOpen}
+      // The gym's `{ token }` beat anchor points its arrow here rather than at
+      // the tile this hangs off (lib/gym/script.ts).
+      data-token-badge={thread.rootId}
+      onClick={onAgree ?? onOpen}
       style={{ left: "50%", bottom: 0 }}
       className={`pointer-events-auto absolute z-20 flex -translate-x-1/2 translate-y-1/2 animate-pulse cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed p-1.5 shadow-md ${
         yours ? "border-gold bg-sand" : "border-gray/40 bg-offwhite opacity-70"
@@ -2643,7 +2665,7 @@ function ThreadTokenBadge({
     >
       <TokenGlyph token={token} size={64} />
       <span className="font-secondary text-p-sm text-neutral-black">
-        {yours ? "Your move" : "Waiting on them"}
+        {yours ? (onAgree ? "Click to agree" : "Your move") : "Waiting on them"}
       </span>
       <span className="sr-only">{words}</span>
     </button>
@@ -2844,6 +2866,31 @@ export function LiveBoard({
   const [movingTileId, setMovingTileId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [movePending, startMove] = useTransition();
+  // Matching a token the other side put down, straight off the badge on the
+  // board. Steve, 2026-09-06: "you either click the thumb to agree". The card
+  // that used to open first asked the same question the badge had already
+  // asked, with the answer sitting in a picker behind one more click.
+  //
+  // Only ever the token already on the thread: this closes an agreement, it
+  // never opens one. Choosing a token nobody has proposed yet is still the
+  // picker's job, inside the tile's own card.
+  const [, startAgree] = useTransition();
+  const agreeToToken = useCallback(
+    (threadRootId: string, emoji: string) => {
+      startAgree(async () => {
+        const result = await placeResolutionToken(gameId, { threadRootId, emoji });
+        // The badge only offers this click when the rules already say yes, so
+        // a refusal here means the board moved under the player between the
+        // render and the click. Open the thread's card, which is where the
+        // refusal is written out in words.
+        if (!result.ok) {
+          setPencilEditTileId(null);
+          setSelectedTileId(threadRootId);
+        }
+      });
+    },
+    [gameId],
+  );
   const deck = cardsInPlay(board);
   const cardCounts = useMemo(() => {
     const tally: Record<string, number> = {};
@@ -3222,16 +3269,38 @@ export function LiveBoard({
         // meant to hang half off the tile's own bottom edge (matching the
         // onboarding video), and the tile wrapper above is clipped to the
         // octagon for hit-testing, which would cut the hanging half away.
-        renderOverlay={(tile) => (
-          <ThreadTokenBadge
-            thread={threadByRoot.get(tile.id) ?? null}
-            me={me}
-            onOpen={() => {
-              setPencilEditTileId(null);
-              setSelectedTileId(tile.id);
-            }}
-          />
-        )}
+        renderOverlay={(tile) => {
+          const thread = threadByRoot.get(tile.id) ?? null;
+          // The one token the badge may place with a single click: the one
+          // they proposed and you have not answered, and only while the rules
+          // still allow you to match it. Anything else (no proposal, your own
+          // token already down, a thread that cannot take one) leaves the
+          // badge opening the card as before.
+          const theirs = thread ? thread.pending[OTHER_SIDE[me.role]] : null;
+          const matchable =
+            thread &&
+            !thread.resolution?.emoji &&
+            theirs !== null &&
+            thread.pending[me.role] === null &&
+            canPlaceResolutionToken(board, thread.rootId, theirs).ok
+              ? theirs
+              : null;
+          return (
+            <ThreadTokenBadge
+              thread={thread}
+              me={me}
+              onOpen={() => {
+                setPencilEditTileId(null);
+                setSelectedTileId(tile.id);
+              }}
+              onAgree={
+                thread && matchable
+                  ? () => agreeToToken(thread.rootId, matchable)
+                  : undefined
+              }
+            />
+          );
+        }}
       />
 
       {/* Top left: the way out, and which game this is. Ported from the

@@ -539,7 +539,9 @@ describe("LiveBoard: whose move a resolution token is", () => {
 
     const badge = screen.getByText(/They suggested/).parentElement;
     expect(badge?.className).toContain("border-gold");
-    expect(screen.getByText(/Click the reason to say whether you agree/)).toBeTruthy();
+    // Steve, 2026-09-06: the badge itself is the control now, so the words
+    // say so. The old line sent the player to the tile's card and a picker.
+    expect(screen.getByText(/Click it to agree and close the thread/)).toBeTruthy();
     expect(container.querySelectorAll(".border-gold").length).toBe(1);
   });
 

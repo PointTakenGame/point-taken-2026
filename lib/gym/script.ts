@@ -95,7 +95,22 @@ export type BoardSurface = "ways-to-win" | "card-tray" | "nav-controls";
 export type BeatAnchor =
   | { tile: TileKey }
   | { slot: { parent: TileKey | "topic"; corner: TileCorner } }
-  | { ui: BoardSurface };
+  | { ui: BoardSurface }
+  /**
+   * The resolution token badge hanging off a thread root's bottom edge, named
+   * by that root's tile key. Points at the token itself rather than at the
+   * whole tile it sits on.
+   *
+   * Steve, 2026-09-06, from his level 1 playthrough: "thumbs-up emoji 'click
+   * here to approve' needs to be next to the emoji and point to it." A `tile`
+   * anchor pointed at the middle of a 200px card while the thing to click was
+   * a badge on its edge, and the arrow read as pointing at the reason's text.
+   *
+   * Resolves to nothing until a token is actually on that thread, which is
+   * the same rule the badge itself follows, so a beat using this has to run
+   * after the beat that puts the token down.
+   */
+  | { token: TileKey };
 
 interface BeatBase {
   id: string;
