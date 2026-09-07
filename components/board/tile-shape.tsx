@@ -73,6 +73,30 @@ const SIDE_BORDER: Record<TileSide, string> = {
   neutral: "border-[color:var(--color-tile-topic-border)]",
 };
 
+/**
+ * The root tile's border colour, and why it is not `SIDE_BORDER`.
+ *
+ * Steve, 2026-09-07: "the thread starter tile line thickness request was not
+ * acted on". It had been: a root has worn a 9px border against a reply's 3px
+ * since 2026-09-05, and both draw all the way around. What it had not done is
+ * *read* as a thicker line, because `--color-tile-plus-border` is #6ed59e on an
+ * off-white tile. At 3px that pale green is a line; at 9px it is a halo. The
+ * eye sees a glow around the tile and no more outline than before, which is
+ * exactly the report.
+ *
+ * So a root also steps up to the accent tone, the most saturated of the three
+ * per side (#3abaaa and #f48625), which is the one already used for the corner
+ * watermark's stroke. Weight plus contrast, rather than weight alone.
+ *
+ * The topic tile is unchanged: its border is already the dark neutral, so it
+ * never had this problem.
+ */
+const SIDE_BORDER_ROOT: Record<TileSide, string> = {
+  plus: "border-[color:var(--color-tile-plus-accent)]",
+  minus: "border-[color:var(--color-tile-minus-accent)]",
+  neutral: "border-[color:var(--color-tile-topic-border)]",
+};
+
 /** The `-webkit-text-stroke` colour behind the corner watermark and the
  *  small glyph row: the third, most saturated tone per side. */
 const STROKE_COLOR: Record<TileSide, string> = {
@@ -235,7 +259,7 @@ export function TileShape({
             weight === "root"
               ? "border-[9px] before:[inset:-9px]"
               : "border-[3px] before:[inset:-3px]"
-          } ${SIDE_BORDER[side]}`}
+          } ${weight === "root" ? SIDE_BORDER_ROOT[side] : SIDE_BORDER[side]}`}
         />
       </div>
       <div
