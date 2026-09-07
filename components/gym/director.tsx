@@ -676,6 +676,13 @@ function Director({
     if (beat.expect.kind !== "tile" && beat.expect.kind !== "propose") return true;
     return (beat.expect.suggestions ?? []).length > 0;
   }, [beat]);
+  // A beat that asks the player to rewrite their own tile has to be able to
+  // open it. Level 3's last rung is exactly that: send an oversized claim,
+  // then pull it back. The lock stays on for every other tile on the board.
+  const editableTileId = useMemo(() => {
+    if (beat?.kind !== "player" || beat.expect.kind !== "edit") return null;
+    return progress.keys[beat.expect.tile] ?? null;
+  }, [beat, progress.keys]);
   const cookedPlacement = useMemo(
     () =>
       level.cooked
@@ -684,9 +691,16 @@ function Director({
             ownReplies: false,
             ghosts: false,
             lockedText,
+            editableTileId,
           }
-        : { onlySlot: null, ownReplies: true, ghosts: true, lockedText },
-    [level.cooked, pointedSlot, lockedText],
+        : {
+            onlySlot: null,
+            ownReplies: true,
+            ghosts: true,
+            lockedText,
+            editableTileId,
+          },
+    [level.cooked, pointedSlot, lockedText, editableTileId],
   );
   useEffect(() => {
     publishCookedPlacement(cookedPlacement);

@@ -160,6 +160,7 @@ const UNRESTRICTED_PLACEMENT = Object.freeze({
   ownReplies: true,
   ghosts: true,
   lockedText: false,
+  editableTileId: null,
 });
 const MAX_ZOOM = 2;
 

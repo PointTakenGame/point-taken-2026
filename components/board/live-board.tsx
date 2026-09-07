@@ -1037,7 +1037,8 @@ function TileNode({
   // remove both close: a rule about the root cannot be taught on a board
   // where the root can be rewritten or taken away mid-lesson. Unrestricted
   // in a live game, where no Director is mounted.
-  const scriptOwnsText = useCookedPlacement().lockedText;
+  const cookedText = useCookedPlacement();
+  const scriptOwnsText = cookedText.lockedText && cookedText.editableTileId !== tile.id;
   const editVerdict = canEditTile(board, tile.id, me.playerId, draft);
   const removeVerdict = canRemoveTile(board, tile.id, me.playerId);
   // lib/board/rules.ts's canRemoveTile has no children check (core lane, not
@@ -3549,27 +3550,30 @@ export function LiveBoard({
                 Steve, 2026-09-07: and not at all on a scripted Gym level,
                 where the words belong to the script. Same flag the card's own
                 edit and remove links read. */}
-              {mine && editVerdict?.ok && !cookedPlacement.lockedText && (
-                <button
-                  type="button"
-                  aria-label="Edit this reason"
-                  title="Edit this reason"
-                  // Matches TileProposalBadge's corner vocabulary (the board's
-                  // own neutral-black/offwhite, not the account flow's
-                  // ink/card tokens -- see the note on --color-ink in
-                  // globals.css), mirrored to the opposite corner and centred
-                  // on the inset point the same way that badge is.
-                  className="border-gray/30 bg-offwhite text-neutral-black absolute z-20 flex size-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1.5 shadow-sm transition-transform hover:-translate-y-1 active:translate-y-0"
-                  style={{ right: CORNER_INSET, top: CORNER_INSET }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPencilEditTileId(tile.id);
-                    setSelectedTileId(tile.id);
-                  }}
-                >
-                  <PencilGlyph className="size-full" />
-                </button>
-              )}
+              {mine &&
+                editVerdict?.ok &&
+                (!cookedPlacement.lockedText ||
+                  cookedPlacement.editableTileId === tile.id) && (
+                  <button
+                    type="button"
+                    aria-label="Edit this reason"
+                    title="Edit this reason"
+                    // Matches TileProposalBadge's corner vocabulary (the board's
+                    // own neutral-black/offwhite, not the account flow's
+                    // ink/card tokens -- see the note on --color-ink in
+                    // globals.css), mirrored to the opposite corner and centred
+                    // on the inset point the same way that badge is.
+                    className="border-gray/30 bg-offwhite text-neutral-black absolute z-20 flex size-7 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border p-1.5 shadow-sm transition-transform hover:-translate-y-1 active:translate-y-0"
+                    style={{ right: CORNER_INSET, top: CORNER_INSET }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPencilEditTileId(tile.id);
+                      setSelectedTileId(tile.id);
+                    }}
+                  >
+                    <PencilGlyph className="size-full" />
+                  </button>
+                )}
             </div>
           );
         }}

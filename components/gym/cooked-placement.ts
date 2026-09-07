@@ -39,6 +39,14 @@ export type CookedPlacement = {
    * together for the same reason.
    */
   lockedText: boolean;
+  /**
+   * The one tile the current beat asks the player to rewrite, exempt from
+   * `lockedText` for as long as that beat is up. Level 3's third rung is the
+   * player pulling back their own oversized claim, which cannot happen on a
+   * board where every tile is read-only, and the tile-level exemption is what
+   * keeps the rest of the board the script's.
+   */
+  editableTileId: string | null;
 };
 
 const NONE: CookedPlacement = Object.freeze({
@@ -46,6 +54,7 @@ const NONE: CookedPlacement = Object.freeze({
   ownReplies: true,
   ghosts: true,
   lockedText: false,
+  editableTileId: null,
 });
 
 let current: CookedPlacement = NONE;
@@ -78,7 +87,8 @@ export function publishCookedPlacement(next: CookedPlacement): void {
     (sameSlot(next.onlySlot, current.onlySlot) &&
       next.ownReplies === current.ownReplies &&
       next.ghosts === current.ghosts &&
-      next.lockedText === current.lockedText)
+      next.lockedText === current.lockedText &&
+      next.editableTileId === current.editableTileId)
   ) {
     return;
   }
