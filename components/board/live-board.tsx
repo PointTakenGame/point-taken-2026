@@ -73,12 +73,7 @@ import {
   rootTarget,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
-import {
-  INNER_FRAME_RATIO,
-  OUTER_FRAME_REM,
-  TILE_BODY_PX,
-  TILE_LEAD_PX,
-} from "@/components/board/geometry";
+import { OUTER_FRAME_REM, TILE_BODY_PX, TILE_LEAD_PX } from "@/components/board/geometry";
 import { coachCard } from "@/lib/coach/cards";
 import { useGameFeed } from "./use-game-feed";
 import { usePeerNotices } from "./peer-notices";
@@ -211,11 +206,14 @@ function cssEscape(value: string): string {
  * the tray raises when you arm one, dropped across the tile's lower edge at
  * about six times the old height.
  *
- * Only a **standing** card gets that treatment. Once the throw is settled the
- * question it asked has been answered, so it shrinks back to the small stamp,
- * which is the record of what was played rather than a demand for a reply. The
- * card stays visible either way: it is laid on the reason for the rest of the
- * game (BRAIN-T260907-13).
+ * **It stays at that size after the throw settles** (BRAIN-T260907-13). The
+ * first pass shrank a settled throw back to a stamp, which read well in
+ * principle and failed in practice: in the level 1 script the boss rewrites
+ * his tile about two seconds after the card lands, so the card the level is
+ * built to teach was on screen for a blink. A card played on a reason is part
+ * of that reason's history for the rest of the game, so it stays laid on it.
+ * What changes on settling is only the emphasis: the gold mat under a card
+ * that is somebody's move to answer comes off, and the card fades back.
  *
  * The card does not take the mouse. Answering one means clicking the reason
  * underneath it, so the whole stack stays `pointer-events-none` and the tile
@@ -233,72 +231,65 @@ function TileThrowBadges({
   const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
   if (here.length === 0) return null;
 
-  const standing = here.filter((thrown) => thrown.status === "standing");
-  const settled = here.filter((thrown) => thrown.status !== "standing");
-
   return (
     <>
-      {standing.map((thrown, index) => {
+      {here.map((thrown, index) => {
         const card = coachCard(thrown.cardId);
         const name = card ? card.name : thrown.cardId;
+        const standing = thrown.status === "standing";
         // A card the other side played is yours to answer. A card the coach
         // played is too, which is why this asks who it was not rather than
         // who it was.
-        const yours = thrown.thrownByRole !== me.role;
+        const yours = standing && thrown.thrownByRole !== me.role;
         return (
           <span
             key={thrown.seq}
             data-thrown-card={thrown.cardId}
-            // Fanned, so a second standing card on one reason is visible
-            // behind the first rather than exactly underneath it.
+            // Fanned, so a second card on one reason is visible behind the
+            // first rather than exactly underneath it.
+            //
+            // **Inside the silhouette, not hanging off it.** The slot this
+            // tile is drawn in is clipped to the octagon (`OCTAGON_CLIP`,
+            // components/board/geometry.ts), so a card straddling the bottom
+            // edge is not drawn faint or half: the clip takes it. The first
+            // pass sat at `bottom: 0` with a 30% overhang and measured a
+            // correct 106x138 in the DOM while showing a sliver on screen,
+            // which is the clip-path trap this file already warns about once
+            // above `EDGE_INSET`. At `bottom: 6%` the whole card falls inside
+            // the drawable region: the octagon's lower diagonals leave the
+            // middle 54% of the width at that height, and the card is 45%.
             style={{
               left: "50%",
-              bottom: 0,
-              transform: `translate(-50%, 30%) rotate(${-6 + index * 7}deg) scale(0.62)`,
+              bottom: "6%",
+              transform: `translate(-50%, 0) rotate(${-4 + index * 6}deg) scale(0.62)`,
             }}
-            // The gold mat under the card is the same "this one is yours to
-            // answer" colour an unanswered ask wears everywhere else on the
-            // board. It is a mat rather than a tint because the card face is
-            // opaque, so the only place the colour can show is around it.
+            // The gold mat is the same "this one is yours to answer" colour an
+            // unanswered ask wears everywhere else on the board. It is a mat
+            // rather than a tint because the card face is opaque, so the only
+            // place the colour can show is around it.
             className={`pointer-events-none absolute z-20 origin-bottom rounded-2xl p-1 drop-shadow-lg ${
               yours ? "border-gold bg-sand border-[1.5px]" : ""
-            }`}
+            } ${standing ? "" : "opacity-70"}`}
             title={
-              yours
-                ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
-                : `${name}. You played this. Waiting for their rewrite.`
+              standing
+                ? yours
+                  ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
+                  : `${name}. You played this. Waiting for their rewrite.`
+                : `${name}. ${card ? card.plain : ""} Answered.`
             }
           >
             <RuleCardFace cardId={thrown.cardId} />
             <span className="sr-only">
               {name}
-              {yours ? ", waiting for your answer" : ", waiting for their answer"}
+              {standing
+                ? yours
+                  ? ", waiting for your answer"
+                  : ", waiting for their answer"
+                : ", answered"}
             </span>
           </span>
         );
       })}
-
-      {settled.length > 0 ? (
-        <div
-          style={{ bottom: EDGE_INSET }}
-          className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1"
-        >
-          {settled.map((thrown) => {
-            const card = coachCard(thrown.cardId);
-            const name = card ? card.name : thrown.cardId;
-            return (
-              <span
-                key={thrown.seq}
-                title={`${name}. ${card ? card.plain : ""}`}
-                className="border-neutral-black/30 bg-offwhite flex size-6 items-center justify-center rounded-full border text-xs opacity-50 shadow-sm"
-              >
-                <span aria-hidden="true">{card ? card.icon : "?"}</span>
-                <span className="sr-only">{name}, settled</span>
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
     </>
   );
 }
@@ -462,7 +453,11 @@ const FIELD =
   "border-gray/30 bg-neutral-white text-p-sm focus:border-neutral-black w-full rounded-xl border p-2 outline-none transition-colors";
 
 /**
- * How far the drawn octagon sits inside the box a tile is positioned by.
+ * The clip-path trap, kept in words because it keeps costing afternoons.
+ *
+ * There is no constant here any more: every badge that used to need one now
+ * sits inside the silhouette by construction. The lesson is what is load
+ * bearing, so it stays.
  *
  * A tile's declared box is the outer ring; the octagon people see is the
  * inner frame, centred in it. So `left-0` is not the tile's left edge, it is
@@ -480,9 +475,9 @@ const FIELD =
  *
  * So badges sit fully inside the edge now, hugging it, instead of straddling
  * it. `docs/` calls this the clip-path trap and this is the third time it has
- * cost an afternoon.
+ * cost an afternoon; the rule card laid on a tile was the fourth, on
+ * 2026-09-07 (see TileThrowBadges above).
  */
-const EDGE_INSET = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
 
 /**
  * The upper corners of a tile, where a badge can sit without covering words.
