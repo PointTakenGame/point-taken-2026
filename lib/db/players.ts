@@ -34,8 +34,32 @@ export async function getPlayer(playerId: Uuid): Promise<PlayerRow | null> {
   return (data as PlayerRow) ?? null;
 }
 
-/** How many names to try before giving up. The last two carry a numeric tail. */
+/** How many names to try before giving up. See `nameForAttempt` for what each
+ *  rung of that ladder draws. */
 export const NAME_ATTEMPTS = 6;
+
+/**
+ * The name to try on attempt `n`, shortest first.
+ *
+ * Steve, 2026-09-07: "we could stick to two for now ... if we run out of
+ * names, then the people that started first get to have their cool two-word
+ * name and everybody else gets a three-word name". This is where that
+ * happens. Nobody counts how many names are taken; the ladder just asks for
+ * two words, and only reaches for a longer shape after the database has
+ * already said that one is taken. So the two-word pool (74 * 117 = 8,658)
+ * drains naturally to the early players, and the crowding shows up as later
+ * players quietly getting three words.
+ *
+ * Rungs 0 and 1 are two words, 2 and 3 are three, 4 and 5 are three plus a
+ * numeric tail. Two tries at each shape rather than one because a collision
+ * on the short pool is a coin toss about that one draw, not proof the pool is
+ * finished.
+ */
+export function nameForAttempt(attempt: number): string {
+  if (attempt < 2) return generateDisplayName(undefined, 2);
+  if (attempt < NAME_ATTEMPTS - 2) return generateDisplayName(undefined, 3);
+  return `${generateDisplayName(undefined, 3)} ${numericTail()}`;
+}
 
 const UNIQUE_VIOLATION = "23505";
 
@@ -51,10 +75,7 @@ export async function ensureDisplayName(playerId: Uuid): Promise<PlayerRow> {
   if (existing.display_name) return existing;
 
   for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
-    const candidate =
-      attempt < NAME_ATTEMPTS - 2
-        ? generateDisplayName()
-        : `${generateDisplayName()} ${numericTail()}`;
+    const candidate = nameForAttempt(attempt);
 
     const { data, error } = await serviceClient()
       .from("players")
@@ -92,10 +113,7 @@ export async function ensureDisplayName(playerId: Uuid): Promise<PlayerRow> {
  */
 export async function rerollDisplayName(playerId: Uuid): Promise<PlayerRow> {
   for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
-    const candidate =
-      attempt < NAME_ATTEMPTS - 2
-        ? generateDisplayName()
-        : `${generateDisplayName()} ${numericTail()}`;
+    const candidate = nameForAttempt(attempt);
 
     const { data, error } = await serviceClient()
       .from("players")

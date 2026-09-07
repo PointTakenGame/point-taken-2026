@@ -2619,6 +2619,19 @@ function LeaveButton({ gameId }: { gameId: string }) {
   );
 }
 
+/** A display name broken onto exactly two lines, with the break after the
+ *  second word: "Witty Zesty / Quartz", "Bashful / Bob". Steve, 2026-09-07.
+ *
+ *  Two lines for every name is what keeps the two faces level with each other,
+ *  so a one-word name still gets an empty second line rather than riding
+ *  higher than the person across from it. */
+function nameLines(name: string): string[] {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return [words[0] ?? name, "\u00a0"];
+  const cut = Math.min(2, words.length - 1);
+  return [words.slice(0, cut).join(" "), words.slice(cut).join(" ")];
+}
+
 /** One person's seat on the board: their name, their face, their side, and the
  *  space where whatever they are doing right now shows up.
  *
@@ -2639,6 +2652,15 @@ function LeaveButton({ gameId }: { gameId: string }) {
  *  it's on the left, for a little bit of a thought bubble, so if they're
  *  thinking or typing or speaking or something like that then that is the area
  *  where that happens."
+ *
+ *  **Two lines of name, and no "You", Steve 2026-09-07.** Both names are
+ *  broken onto exactly two lines, with the break after the second word, so the
+ *  two badges are the same height and the two faces line up across the top of
+ *  the board. A name that sets its own line count moves its own face, which is
+ *  the one thing a pair of seats must not do. The "You" label under the
+ *  player's name is gone: by the time somebody is on a board they know which
+ *  avatar is theirs, and the label was a third line under one name only, which
+ *  was also what knocked the two faces out of line.
  *
  *  So the column reads name then face, and the inward half of the badge is
  *  held open whether or not anything is in it. It is a fixed width rather than
@@ -2668,7 +2690,7 @@ function SeatBadge({
     >
       {/* The name and the face, in that order, hugging the outer edge on both
           sides so the two people sit at the far corners of the screen. */}
-      <div className="flex w-24 shrink-0 flex-col items-center gap-1">
+      <div className="flex w-32 shrink-0 flex-col items-center gap-1">
         <h3
           className="font-primary text-p-md text-center leading-tight tracking-wide uppercase"
           style={{
@@ -2677,13 +2699,12 @@ function SeatBadge({
               "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
           }}
         >
-          {seat.name}
+          {nameLines(seat.name).map((line) => (
+            <span key={line} className="block whitespace-nowrap">
+              {line}
+            </span>
+          ))}
         </h3>
-        {seat.you ? (
-          <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
-            You
-          </span>
-        ) : null}
         <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
           {seat.emoji ? (
             <span
