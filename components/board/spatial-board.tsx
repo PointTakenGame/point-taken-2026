@@ -225,8 +225,12 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * buttons. Drawn in its own pass after every placed tile, so an overlay
    * always paints above every tile's clipped wrapper regardless of board
    * position.
+   *
+   * `hovered` is the same flag `renderTile` gets, so an overlay can offer
+   * something on hover that has to hang outside the octagon: the pair of
+   * closing tokens flanking a thread's root tile.
    */
-  renderOverlay?: (tile: T) => ReactNode;
+  renderOverlay?: (tile: T, state: { hovered: boolean }) => ReactNode;
   /**
    * Called when a player clicks an open diagonal slot. The argument is the id
    * of the tile the new one would hang off, which is what the retired
@@ -1700,7 +1704,7 @@ export function SpatialBoard<T extends SpatialTile>({
               className="pointer-events-none"
               style={{ ...pixelStyle(pos, layout, size), clipPath: undefined }}
             >
-              {renderOverlay(tile)}
+              {renderOverlay(tile, { hovered: hoveredId === tile.id })}
             </div>
           ))}
 

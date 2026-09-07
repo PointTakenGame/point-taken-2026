@@ -22,7 +22,6 @@ import type {
 import { REDACTED_TEXT, agreedDefinitions, liveThreads } from "@/lib/board/project";
 import { TokenGlyph, tokenLabel } from "@/components/board/token-glyph";
 import { TileShape, SideAvatar, SideGlyph } from "@/components/board/tile-shape";
-import { ResolutionPicker } from "@/components/board/resolution-picker";
 import { TopicCell, pendingTopicRevision } from "@/components/board/topic-cell";
 import { SpatialBoard, cornerFromOffset } from "@/components/board/spatial-board";
 import { TOPIC_CELL_ID, topicRootedLayout } from "@/components/board/layout";
@@ -70,7 +69,6 @@ import {
   canReviseTile,
   canThrowCard,
   cardsInPlay,
-  isResolved,
   rootTarget,
   topicAgreementEndsGame,
 } from "@/lib/board/rules";
@@ -1752,128 +1750,6 @@ function proposalSentence(proposal: BoardProposal, board: BoardState): string {
   }
 }
 
-function ResolutionRow({
-  gameId,
-  thread,
-  me,
-  board,
-}: {
-  gameId: string;
-  thread: BoardThread;
-  me: { playerId: string; role: Side };
-  board: BoardState;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const taught = useTaughtMoves();
-
-  if (isResolved(thread)) {
-    return (
-      <p className="text-p-sm flex items-center gap-2">
-        <TokenGlyph token={thread.resolution!.emoji} size={22} />
-        <span className="text-gray">{tokenLabel(thread.resolution!.emoji)}</span>
-        {thread.resolution!.note && (
-          <span className="text-gray italic">{thread.resolution!.note}</span>
-        )}
-      </p>
-    );
-  }
-
-  const myToken = thread.pending[me.role];
-  const otherToken = thread.pending[OTHER_SIDE[me.role]];
-
-  const place = (emoji: string) => {
-    setError(null);
-    startTransition(async () => {
-      const result = await placeResolutionToken(gameId, {
-        threadRootId: thread.rootId,
-        emoji,
-      });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  const clear = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await clearResolutionToken(gameId, { threadRootId: thread.rootId });
-      if (!result.ok) setError(result.error);
-    });
-  };
-
-  // Every token in the row is refused for the same reason when it is refused at
-  // all, so the reason goes under the row once rather than into six tooltips.
-  // Steve, 2026-09-06, from his level 1 playthrough: "I'm only halfway through
-  // the level with Bob and I'm allowed to propose a side-eye on the left
-  // thread that shouldn't be available to me right now because it doesn't make
-  // any sense." A token the ladder has not reached yet is not offered, and
-  // when it has reached none of them there is nothing here to show at all: no
-  // picker, and no "You: no token" line explaining a mechanic that has not
-  // been introduced. Level 1 teaches 👍 at `player-token-a` and 👀 at
-  // `player-token-b`, so the row arrives in two pieces, each as its own beat
-  // asks for it. Off the ladder `taught` is null and both are offered, which
-  // is live play and free play unchanged.
-  const offeredTokens = RESOLUTION_TOKENS.filter((token) => taughtToken(taught, token));
-  if (offeredTokens.length === 0 && !myToken) return null;
-
-  const tokenVerdicts = offeredTokens.map((token) =>
-    canPlaceResolutionToken(board, thread.rootId, token),
-  );
-
-  const disabledTokens = offeredTokens.filter((_, index) => !tokenVerdicts[index].ok);
-
-  return (
-    // Question, then the answer to give, then who has answered. The standing
-    // line used to come first, so a card that had just asked "where do you two
-    // disagree?" answered itself with "You: no token. Them: no token" before
-    // offering anything to press.
-    <div className="flex flex-col items-center gap-2 text-p-sm">
-      {myToken ? (
-        <button
-          type="button"
-          className={SECONDARY_BUTTON}
-          disabled={pending}
-          onClick={clear}
-        >
-          take back your token
-        </button>
-      ) : (
-        <ResolutionPicker
-          tokens={offeredTokens}
-          disabledTokens={disabledTokens}
-          theirs={otherToken}
-          onPick={place}
-        />
-      )}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <Placed who="You" token={myToken} />
-        <Placed who="Them" token={otherToken} />
-      </div>
-      {myToken ? null : <WhyNotAll verdicts={tokenVerdicts} />}
-      <ErrorLine error={error} />
-    </div>
-  );
-}
-
-/**
- * One side's token on a thread, or the fact that they have not placed one.
- *
- * The token reads as art plus its meaning in words, because a drawing of a pair
- * of eyes does not say "agree to disagree" to anyone who has not been told.
- */
-function Placed({ who, token }: { who: string; token: string | null | undefined }) {
-  if (!token) {
-    return <span className="opacity-60">{who}: no token</span>;
-  }
-  return (
-    <span className="flex items-center gap-1.5 opacity-80">
-      <span className="opacity-60">{who}:</span>
-      <TokenGlyph token={token} size={20} />
-      <span>{tokenLabel(token)}</span>
-    </span>
-  );
-}
-
 /**
  * Writing the reason on the board, in the cell it will occupy.
  *
@@ -2911,6 +2787,136 @@ function ThreadTokenBadge({
   );
 }
 
+/**
+ * The two ways to close a thread, offered on the thread's own root tile.
+ *
+ * Steve, 2026-09-07: "I want the hover on a root tile to surface agree to
+ * agree on the left or agree to disagree on the right, and the user can just
+ * click them there. There's no reason to bring up another modal." Choosing a
+ * token used to mean clicking the reason, waiting for its card to open, and
+ * finding a picker inside that card: a dialog box asking a question the board
+ * was already standing in front of.
+ *
+ * Left is always Agree to agree and right is always Agree to disagree, whether
+ * or not both are on offer, so the gesture is in the same place every time. In
+ * the Gym a level teaches the two tokens on separate beats, so early in level 1
+ * only one of the two sides is filled (`taughtToken`), and the empty side stays
+ * empty rather than sliding the other one across.
+ *
+ * Once your own token is down there is nothing left to choose, so the pair is
+ * replaced by the one move still available: taking it back. That used to be a
+ * button inside the card this replaces.
+ *
+ * Hover is a mouse idea. The buttons are in the DOM either way and reveal
+ * themselves to the keyboard on focus, which is also why the wrapper turns
+ * pointer events off rather than not rendering: an invisible button that still
+ * catches clicks is worse than no button.
+ */
+function ThreadTokenChoices({
+  thread,
+  me,
+  board,
+  hovered,
+  pending,
+  onPick,
+  onClear,
+}: {
+  thread: BoardThread | null;
+  me: { playerId: string; role: Side };
+  board: BoardState;
+  /** True while the cursor is on this tile. */
+  hovered: boolean;
+  pending: boolean;
+  onPick: (token: string) => void;
+  onClear: () => void;
+}) {
+  const taught = useTaughtMoves();
+  if (!thread || thread.resolution?.emoji) return null;
+
+  const revealed = hovered
+    ? "pointer-events-auto opacity-100"
+    : "pointer-events-none opacity-0";
+  const wrapper = `absolute z-30 transition-opacity duration-150 focus-within:pointer-events-auto focus-within:opacity-100 ${revealed}`;
+
+  const mine = thread.pending[me.role];
+  if (mine) {
+    return (
+      <div
+        className={wrapper}
+        style={{
+          left: "50%",
+          bottom: "calc(100% + 0.25rem)",
+          transform: "translateX(-50%)",
+        }}
+      >
+        <button
+          type="button"
+          data-thread-token-clear={thread.rootId}
+          className={CHOICE_BUTTON}
+          disabled={pending}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClear();
+          }}
+        >
+          <span aria-hidden="true" className="text-p-md leading-none">
+            &#10005;
+          </span>
+          <span className={CHOICE_LABEL}>Take it back</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Off the ladder `taught` is null and both are offered, which is live play
+  // and free play unchanged.
+  return (
+    <>
+      {RESOLUTION_TOKENS.map((token, index) => {
+        if (!taughtToken(taught, token)) return null;
+        const verdict = canPlaceResolutionToken(board, thread.rootId, token);
+        // Index 0 is the thumb and index 1 the eyes, which is the order Steve
+        // asked for left to right.
+        const side =
+          index === 0
+            ? { right: "calc(100% + 0.25rem)" }
+            : { left: "calc(100% + 0.25rem)" };
+        return (
+          <div
+            key={token}
+            className={wrapper}
+            style={{ ...side, top: "50%", transform: "translateY(-50%)" }}
+          >
+            <button
+              type="button"
+              data-thread-token-choice={token}
+              className={CHOICE_BUTTON}
+              disabled={pending || !verdict.ok}
+              title={verdict.ok ? undefined : verdict.error}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPick(token);
+              }}
+            >
+              <TokenGlyph token={token} size={44} />
+              <span className={CHOICE_LABEL}>{tokenLabel(token)}</span>
+            </button>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/** One closing token, drawn as something to press. Shares the pending badge's
+ *  vocabulary (a bordered, shadowed pill on offwhite) because it is the same
+ *  decision at an earlier moment. */
+const CHOICE_BUTTON =
+  "border-gray/40 bg-offwhite flex w-24 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl border-2 p-1.5 shadow-md transition-transform hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0";
+
+const CHOICE_LABEL =
+  "font-secondary text-p-sm text-neutral-black text-center leading-tight";
+
 export function LiveBoard({
   gameId,
   board,
@@ -3148,19 +3154,30 @@ export function LiveBoard({
   // Only ever the token already on the thread: this closes an agreement, it
   // never opens one. Choosing a token nobody has proposed yet is still the
   // picker's job, inside the tile's own card.
-  const [, startAgree] = useTransition();
+  const [tokenPending, startAgree] = useTransition();
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const agreeToToken = useCallback(
     (threadRootId: string, emoji: string) => {
+      setTokenError(null);
       startAgree(async () => {
         const result = await placeResolutionToken(gameId, { threadRootId, emoji });
-        // The badge only offers this click when the rules already say yes, so
-        // a refusal here means the board moved under the player between the
-        // render and the click. Open the thread's card, which is where the
-        // refusal is written out in words.
-        if (!result.ok) {
-          setPencilEditTileId(null);
-          setSelectedTileId(threadRootId);
-        }
+        // Every surface that offers this click offers it only when the rules
+        // already say yes, so a refusal here means the board moved under the
+        // player between the render and the click. Say so in words rather than
+        // letting the click look like it did nothing.
+        if (!result.ok) setTokenError(result.error);
+      });
+    },
+    [gameId],
+  );
+  // The other half of choosing a token. Steve, 2026-09-06: "you either click
+  // the thumb to agree, or give it a little X."
+  const clearToken = useCallback(
+    (threadRootId: string) => {
+      setTokenError(null);
+      startAgree(async () => {
+        const result = await clearResolutionToken(gameId, { threadRootId });
+        if (!result.ok) setTokenError(result.error);
       });
     },
     [gameId],
@@ -3564,7 +3581,7 @@ export function LiveBoard({
         // meant to hang half off the tile's own bottom edge (matching the
         // onboarding video), and the tile wrapper above is clipped to the
         // octagon for hit-testing, which would cut the hanging half away.
-        renderOverlay={(tile) => {
+        renderOverlay={(tile, { hovered }) => {
           const thread = threadByRoot.get(tile.id) ?? null;
           // The one token the badge may place with a single click: the one
           // they proposed and you have not answered, and only while the rules
@@ -3581,19 +3598,30 @@ export function LiveBoard({
               ? theirs
               : null;
           return (
-            <ThreadTokenBadge
-              thread={thread}
-              me={me}
-              onOpen={() => {
-                setPencilEditTileId(null);
-                setSelectedTileId(tile.id);
-              }}
-              onAgree={
-                thread && matchable
-                  ? () => agreeToToken(thread.rootId, matchable)
-                  : undefined
-              }
-            />
+            <>
+              <ThreadTokenBadge
+                thread={thread}
+                me={me}
+                onOpen={() => {
+                  setPencilEditTileId(null);
+                  setSelectedTileId(tile.id);
+                }}
+                onAgree={
+                  thread && matchable
+                    ? () => agreeToToken(thread.rootId, matchable)
+                    : undefined
+                }
+              />
+              <ThreadTokenChoices
+                thread={thread}
+                me={me}
+                board={board}
+                hovered={hovered}
+                pending={tokenPending}
+                onPick={(token) => thread && agreeToToken(thread.rootId, token)}
+                onClear={() => thread && clearToken(thread.rootId)}
+              />
+            </>
           );
         }}
       />
@@ -3844,6 +3872,22 @@ export function LiveBoard({
         </div>
       )}
 
+      {/* A refused token. The tile only offers a choice the rules already
+          allow, so this is a race: the board moved between the render and the
+          click. It still has to say so somewhere, because the alternative is a
+          click that looks like it did nothing. */}
+      {tokenError && (
+        <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-1/2 z-50 -translate-x-1/2">
+          <button
+            type="button"
+            className="border-gold bg-sand font-secondary text-p-sm text-neutral-black cursor-pointer rounded-lg border-2 px-3 py-2 shadow-md"
+            onClick={() => setTokenError(null)}
+          >
+            {tokenError}
+          </button>
+        </div>
+      )}
+
       {/* The board says out loud that it is holding a reason, because the
           board itself changed underneath the player: the empty spots are
           suddenly answering a different question and are wearing somebody
@@ -3931,28 +3975,12 @@ export function LiveBoard({
               }}
             />
           </ul>
-          {/* Resolving belongs to the reason a thread started from, so it is
-              offered on that tile and nowhere else. It used to live only in
-              the folded thread drawer, which meant the game's first win
-              condition was two clicks and a scroll away from the board it is
-              played on. */}
-          {threadByRoot.has(selectedTile.id) && (
-            <div className="border-neutral-black/15 mt-3 flex flex-col gap-2 border-t pt-3">
-              {/* An action heading, not a question. "Where do you two
-                  disagree?" read as a prompt with no action attached to it;
-                  the tokens below it are the action, so the heading now
-                  names the thing pressing them does. */}
-              <h4 className="font-primary text-p-md text-neutral-black">
-                Close this thread
-              </h4>
-              <ResolutionRow
-                gameId={gameId}
-                thread={threadByRoot.get(selectedTile.id)!}
-                me={me}
-                board={board}
-              />
-            </div>
-          )}
+          {/* Closing a thread used to be offered here, as a heading and a
+              picker inside this card. It is on the root tile itself now:
+              hover it and the two tokens flank it, Agree to agree on the
+              left and Agree to disagree on the right (ThreadTokenChoices).
+              Steve, 2026-09-07: "there's no reason to bring up another
+              modal." */}
         </AnchoredCard>
       )}
 
