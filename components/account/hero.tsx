@@ -6,6 +6,7 @@ import type { PlayerRow } from "@/lib/db/types";
 import { levelById } from "@/lib/gym/levels";
 import { ladderFor } from "@/lib/progression/state";
 import { AvatarPicker } from "@/components/account/avatar-picker";
+import { NameReroll } from "@/components/account/name-reroll";
 import { ArrowGlyph, BUTTON_PRIMARY } from "@/components/account/account-shell";
 import { LocalDay } from "@/components/local-day";
 import { JoinRoomInline } from "@/components/rooms/room-entry";
@@ -143,13 +144,21 @@ export function ProfileHero({
             no reason to know it is theirs. Two words above the name answer it,
             in the same micro-label type the stat tiles use, and they answer it
             for the avatar too since the avatar sits directly above. */}
+        {/* Steve, 2026-09-07: the reroll button moved here from Settings, so
+            the way to change the name sits beside the name itself. See
+            components/account/name-reroll.tsx for the one-warning rule. */}
         <div className="flex flex-col items-center gap-1 pt-2">
           <span className="font-label text-ink-soft text-[11px] font-bold tracking-widest uppercase">
             You are
           </span>
-          <h1 className="font-primary text-ink text-3xl tracking-wide uppercase">
-            {player?.display_name ?? "Your account"}
-          </h1>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <h1 className="font-primary text-ink text-3xl tracking-wide uppercase">
+              {player?.display_name ?? "Your account"}
+            </h1>
+            {player?.display_name ? (
+              <NameReroll current={player.display_name} playerId={playerId} />
+            ) : null}
+          </div>
         </div>
         <p className="font-label text-ink-soft text-sm">
           {player?.claimed_at ? (

@@ -3,16 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { claimAccount, rerollName, setCoach, type SettingsResult } from "./actions";
+import { claimAccount, setCoach, type SettingsResult } from "./actions";
 import { CoachPersonaPicker } from "./coach-persona-picker";
 
 /**
- * The three settings forms, each its own card.
+ * The settings cards, each its own form.
  *
  * They are separate components rather than one form with three fields because
- * they are three unrelated commitments: renaming is instant, the coach toggle
- * is a preference, and attaching an email starts something that finishes in a
- * mail client. A single Save button would imply they land together.
+ * they are unrelated commitments: the coach toggle is a preference, attaching
+ * an email starts something that finishes in a mail client, and signing out
+ * ends a session. A single Save button would imply they land together.
  *
  * Every one of them reports back in words rather than by silently succeeding.
  * A settings page that changes nothing visible when you press the button is a
@@ -66,66 +66,6 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-/** The recycle glyph on the reroll button: two curved arrows chasing a loop. */
-function RerollIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width={14}
-      height={14}
-      aria-hidden
-      className="shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M13.5 8a5.5 5.5 0 0 0-9.9-3.3M2.5 8a5.5 5.5 0 0 0 9.9 3.3" />
-      <path d="M3.2 2.6v2.6h2.6M12.8 13.4v-2.6h-2.6" />
-    </svg>
-  );
-}
-
-/**
- * The name, read only, with one way to change it: draw a fresh one.
- *
- * Steve, 2026-09-05: nobody types their own name here any more, they just get
- * a recycle button. The name is still the free display name a player is known
- * by, it just no longer comes from a text field.
- */
-function Rename({ current }: { current: string }) {
-  const router = useRouter();
-  const [result, setResult] = useState<SettingsResult | null>(null);
-  const [pending, start] = useTransition();
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-secondary text-ink text-lg" aria-live="polite">
-          {current}
-        </span>
-        <button
-          type="button"
-          className={`${BUTTON} inline-flex items-center gap-2`}
-          disabled={pending}
-          onClick={() =>
-            start(async () => {
-              const outcome = await rerollName();
-              setResult(outcome);
-              if (outcome.ok) router.refresh();
-            })
-          }
-        >
-          <RerollIcon />
-          {pending ? "Rolling..." : "New name"}
-        </button>
-      </div>
-      <Note result={result} />
-    </div>
   );
 }
 
@@ -276,31 +216,19 @@ function SignOut({ claimed }: { claimed: boolean }) {
 }
 
 export function SettingsForm({
-  displayName,
   coachEnabled,
   claimed,
 }: {
-  displayName: string;
   coachEnabled: boolean;
   claimed: boolean;
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <Section
-        title="Your name"
-        hint="This is what your opponent sees. You were given one; change it if you want a different one."
-      >
-        <Rename current={displayName} />
-      </Section>
-
-      <Section
-        title="The coach"
-        hint="Off by default. When it is on, the coach reads each reason as you place it and can offer a rule card or a rewrite. Only you see what it says about your own reasons."
-      >
-        <CoachToggle enabled={coachEnabled} />
-        <CoachPersonaPicker />
-      </Section>
-
+      {/* Order is Steve's, 2026-09-07: keeping the account first because it is
+          the only thing on this page a player can lose by not doing, then the
+          coach, then this browser, and the FAQ last (rendered by page.tsx).
+          "Your name" is gone entirely: the reroll now lives beside the name on
+          the profile, in components/account/name-reroll.tsx. */}
       <Section
         title="Keeping this account"
         hint={
@@ -310,6 +238,14 @@ export function SettingsForm({
         }
       >
         <ClaimAccount />
+      </Section>
+
+      <Section
+        title="The coach"
+        hint="On by default. The coach reads each reason as you place it and can offer a rule card or a rewrite. Only you see what it says about your own reasons."
+      >
+        <CoachToggle enabled={coachEnabled} />
+        <CoachPersonaPicker />
       </Section>
 
       <Section

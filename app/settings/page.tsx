@@ -52,7 +52,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Who can see what the coach says about me?",
-    a: "Only you. The coach reads your own reasons and its notes never reach the other player. It is off until you turn it on, and while it is off nothing you write is sent anywhere.",
+    a: "Only you. The coach reads your own reasons and its notes never reach the other player. It is on to begin with, and turning it off in Settings stops anything you write being sent anywhere.",
   },
   {
     q: "What is the Gym?",
@@ -130,7 +130,6 @@ export default async function SettingsPage() {
 
       <div className="max-w-3xl">
         <SettingsForm
-          displayName={player.display_name ?? ""}
           coachEnabled={player.coach_enabled}
           claimed={player.claimed_at !== null}
         />
