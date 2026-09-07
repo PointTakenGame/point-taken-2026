@@ -111,8 +111,13 @@ export const ONBOARDING: Level = {
       // where the spot is. The sample is typed into the box after the click,
       // never drawn in the slot beforehand, so there is nothing to "pick"
       // here.
+      //
+      // No "click here" in this line, Steve 2026-09-07: the slot the coach is
+      // pointing at pulses on a slow sine, so the board already says where.
+      // Saying it in words as well is the coach reading out what the player
+      // can see.
       coach:
-        "Start your first thread by putting your best reason why a hot dog isn't a sandwich.\n\nClick here, and I'll write one for you to get you started.",
+        "Start your first thread by putting your best reason why a hot dog isn't a sandwich.\n\nI'll write one for you to get you started.",
       nudge: "That one goes here, under the topic.",
       expect: {
         kind: "tile",
@@ -128,7 +133,7 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-answers-a",
       coach:
-        "Once both players have their main reasons on the board, then they reply to each other's reasons.\n\nClick here, and I'll help you reply to Bob's reason.",
+        "Once both players have their main reasons on the board, then they reply to each other's reasons.\n\nI'll help you reply to Bob's reason.",
       nudge: "Here, under Bob's tile, the one at the top of his thread.",
       expect: {
         kind: "tile",
