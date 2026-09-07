@@ -1,5 +1,6 @@
 import type { BoardState } from "@/lib/board/project";
 import type { ProposalKind } from "@/lib/events/types";
+import { taughtProposal, type TaughtMoves } from "@/lib/gym/taught";
 
 /**
  * The gate for the six "ask the other player for something" moves, held back
@@ -44,9 +45,34 @@ const TAUGHT_IN_THE_GYM: readonly ProposalKind[] = [
   "definition",
 ];
 
-export function canStartLaterMove(board: BoardState, kind: ProposalKind): boolean {
-  if (TAUGHT_IN_THE_GYM.includes(kind)) return board.mode !== "live";
-  return false;
+/**
+ * May the player reach for this move right now?
+ *
+ * Two gates in sequence. The release gate above: is this one of the three the
+ * Gym teaches at all. Then the ladder gate: has the level they are standing in
+ * actually taught it yet.
+ *
+ * The second one is Steve, 2026-09-06, from his level 1 playthrough: "don't
+ * let people take actions that aren't relevant given the onboarding training
+ * ... Only introduce these options as the game moves on and they are
+ * explained." Level 1 was offering "Say it back", "Pin down a word" and "move"
+ * from its first beat and teaches none of the three, so the gate had to learn
+ * about levels, not just about modes.
+ *
+ * `taught` comes from `useTaughtMoves()`, which is `null` on any board with no
+ * Gym Director mounted and on a level whose script has run out. `null` means
+ * nothing is withheld, so live play and free play behave exactly as they did
+ * before the ladder gate existed. It is a required argument rather than an
+ * optional one on purpose: every call site should have to say which it is.
+ */
+export function canStartLaterMove(
+  board: BoardState,
+  kind: ProposalKind,
+  taught: TaughtMoves | null,
+): boolean {
+  if (!TAUGHT_IN_THE_GYM.includes(kind)) return false;
+  if (board.mode === "live") return false;
+  return taughtProposal(taught, kind);
 }
 
 /** The six moves this gate covers, named once so callers (and tests, and the

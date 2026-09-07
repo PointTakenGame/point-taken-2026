@@ -69,15 +69,15 @@ describe("canStartLaterMove", () => {
 
   it("refuses every move no level teaches yet, live or not", () => {
     for (const kind of NOT_TAUGHT_YET) {
-      expect(canStartLaterMove(makeBoard({ mode: "live" }), kind)).toBe(false);
-      expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind)).toBe(false);
-      expect(canStartLaterMove(makeBoard({ mode: null }), kind)).toBe(false);
+      expect(canStartLaterMove(makeBoard({ mode: "live" }), kind, null)).toBe(false);
+      expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind, null)).toBe(false);
+      expect(canStartLaterMove(makeBoard({ mode: null }), kind, null)).toBe(false);
     }
   });
 
   it("refuses all three taught moves in live play", () => {
     for (const kind of TAUGHT) {
-      expect(canStartLaterMove(makeBoard({ mode: "live" }), kind)).toBe(false);
+      expect(canStartLaterMove(makeBoard({ mode: "live" }), kind, null)).toBe(false);
     }
   });
 
@@ -86,13 +86,43 @@ describe("canStartLaterMove", () => {
   // board will not let the player start.
   it("offers all three taught moves in the Gym", () => {
     for (const kind of TAUGHT) {
-      expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind)).toBe(true);
+      expect(canStartLaterMove(makeBoard({ mode: "gym" }), kind, null)).toBe(true);
     }
   });
 
   it("offers them when the board has no mode at all", () => {
     for (const kind of TAUGHT) {
-      expect(canStartLaterMove(makeBoard({ mode: null }), kind)).toBe(true);
+      expect(canStartLaterMove(makeBoard({ mode: null }), kind, null)).toBe(true);
     }
+  });
+});
+
+/**
+ * The second gate, added 2026-09-06: a move the level has not taught yet is
+ * not offered even in the Gym. `null` above is the unrestricted ladder, which
+ * is why every case there still reads as it did before this gate existed.
+ */
+describe("canStartLaterMove, against what the level has taught", () => {
+  const board = makeBoard({ mode: "gym" });
+  const nothing = { proposals: [], tokens: [] };
+
+  it("refuses a taught-in-the-Gym move the ladder has not reached", () => {
+    for (const kind of TAUGHT) {
+      expect(canStartLaterMove(board, kind, nothing)).toBe(false);
+    }
+  });
+
+  it("offers one the ladder has reached, and only that one", () => {
+    const taught = { proposals: ["tile_relocation" as const], tokens: [] };
+    expect(canStartLaterMove(board, "tile_relocation", taught)).toBe(true);
+    expect(canStartLaterMove(board, "definition", taught)).toBe(false);
+    expect(canStartLaterMove(board, "reading_handback", taught)).toBe(false);
+  });
+
+  it("still refuses a level 5+ move the ladder somehow names", () => {
+    // The release gate runs first, so a script that named one of the three
+    // held-back moves could not smuggle it onto the board.
+    const taught = { proposals: ["steelman_reading" as const], tokens: [] };
+    expect(canStartLaterMove(board, "steelman_reading", taught)).toBe(false);
   });
 });

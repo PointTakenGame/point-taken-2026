@@ -21,6 +21,7 @@ import {
   clearHiddenSurfaces,
   publishHiddenSurfaces,
 } from "@/components/gym/hidden-surfaces";
+import { clearTaughtMoves, publishTaughtMoves } from "@/components/gym/taught-moves";
 import {
   clearSampleAnswers,
   publishSampleAnswers,
@@ -58,6 +59,7 @@ import {
   type PlayerExpect,
   type TileKey,
 } from "@/lib/gym/script";
+import { taughtMoves } from "@/lib/gym/taught";
 
 /**
  * The Gym director: the coach at the top centre of the board and the pauses
@@ -599,6 +601,22 @@ function Director({
     publishHiddenSurfaces(hidden);
     return () => clearHiddenSurfaces();
   }, [hidden]);
+
+  // What the ladder has taught by this beat, so the board can withhold the
+  // moves the player has never been shown (lib/gym/taught.ts). Level 1 was
+  // offering "Say it back", "Pin down a word", "move", and both resolution
+  // tokens from its first beat, and teaches none of them until it does.
+  // `progress.index` is the current beat and runs one past the last beat
+  // when the level is complete, which `taughtMoves` reads as "all of them",
+  // so nothing stays withheld once the script is finished.
+  const taught = useMemo(
+    () => taughtMoves(level, progress.index),
+    [level, progress.index],
+  );
+  useEffect(() => {
+    publishTaughtMoves(taught);
+    return () => clearTaughtMoves();
+  }, [taught]);
 
   // A cooked level (level 1 today) narrows placement down to one choice:
   // the slot the beat already points at, nothing under the player's own

@@ -56,6 +56,7 @@ import { AnchoredCard } from "@/components/ui/anchored-card";
 import { TilePopover } from "@/components/ui/tile-popover";
 import { canProposeTopicRevision } from "@/lib/board/rules";
 import { canStartLaterMove } from "@/components/board/later-moves";
+import { useTaughtMoves } from "@/components/gym/taught-moves";
 import type { BoardProposal, BoardState } from "@/lib/board/project";
 import type { Side } from "@/lib/events/types";
 import {
@@ -162,6 +163,9 @@ export function TopicCell({
    *  again instead of being swallowed by an earlier dismissal. */
   const [dismissedRejection, setDismissedRejection] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  // What the level has taught by this beat. Null in a live game, which
+  // withholds nothing; topic revision is a level 5+ move either way today.
+  const taught = useTaughtMoves();
   const anchorRef = useRef<HTMLDivElement>(null);
 
   const proposal = pendingTopicRevision(board);
@@ -194,7 +198,7 @@ export function TopicCell({
   const canOpen =
     proposal === null &&
     canProposeTopicRevision(board, "a revised topic").ok &&
-    canStartLaterMove(board, "topic_revision");
+    canStartLaterMove(board, "topic_revision", taught);
 
   const close = () => {
     setDraft("");

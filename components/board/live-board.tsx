@@ -107,6 +107,8 @@ import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher"
 import { useBossDraft } from "@/components/gym/boss-draft";
 import { useCookedPlacement } from "@/components/gym/cooked-placement";
 import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
+import { useTaughtMoves } from "@/components/gym/taught-moves";
+import { taughtToken } from "@/lib/gym/taught";
 import { publishMovingTile } from "@/components/gym/moving-tile";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
 import { usePointedTile } from "@/components/gym/pointed-tile";
@@ -500,11 +502,18 @@ function CardHand({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const hiddenSurfaces = useHiddenSurfaces();
 
   const show = (next: boolean) => {
     setOpen(next);
     onOpenChange?.(next);
   };
+
+  // Steve, 2026-09-06: the player may not reach for a move the level has not
+  // taught. A level that hides the rule-card tray has not taught rule cards,
+  // so "Play a card" on a tile is the same affordance by another door and
+  // goes away with it. Level 1 reveals both at `p5-first-card`.
+  if (hiddenSurfaces.includes("card-tray")) return null;
 
   // Steve, 2026-09-04 (playtest): a Gym root tile answers the topic itself,
   // not another reason, so "Play a card" (a rule card rewrites the reason it
@@ -986,11 +995,14 @@ function TileNode({
   // board.mode === "live". A non-root tile, including level 1's scripted
   // card-throw target A3 (parent "A1"), is unaffected.
   const hideOnGymRoot = board.mode === "gym" && tile.parentId === null;
+  // What the level has taught by this beat (components/gym/taught-moves.ts).
+  // Null off the ladder, which withholds nothing.
+  const taught = useTaughtMoves();
   const moveOffered =
     onMove !== undefined &&
     !tile.removed &&
     !hideOnGymRoot &&
-    canStartLaterMove(board, "tile_relocation");
+    canStartLaterMove(board, "tile_relocation", taught);
   // Saying a reason back only makes sense for a reason that is not yours to
   // begin with; the rules say so too, and this keeps the card from offering a
   // move it would then refuse.
@@ -1192,7 +1204,7 @@ function TileNode({
                     canStartLaterMove (BRAIN-T260903-06). */}
                 {!hideOnGymRoot &&
                   readingVerdict &&
-                  canStartLaterMove(board, "reading_handback") && (
+                  canStartLaterMove(board, "reading_handback", taught) && (
                     <ActionItem
                       label="Say it back"
                       hint="Write what you think they meant. They tell you whether you have it."
@@ -1201,7 +1213,7 @@ function TileNode({
                       onClick={() => setProposing("reading")}
                     />
                   )}
-                {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile") && (
+                {!hideOnGymRoot && canStartLaterMove(board, "steelman_tile", taught) && (
                   <ActionItem
                     label="Write one for them"
                     hint="Put their point better than they did, and offer it as their reason."
@@ -1210,7 +1222,7 @@ function TileNode({
                     onClick={() => setProposing("steelman")}
                   />
                 )}
-                {!hideOnGymRoot && canStartLaterMove(board, "definition") && (
+                {!hideOnGymRoot && canStartLaterMove(board, "definition", taught) && (
                   <ActionItem
                     label="Pin down a word"
                     hint="Ask what one word in here is doing, and agree on what it means."
@@ -1282,18 +1294,19 @@ function TileNode({
                     Steve's call: none of these is writing in a tile, it is
                     writing in a little dialog beside one.
                     BRAIN-T260903-06: Gym level 5+, hidden for now. */}
-                {readingVerdict && canStartLaterMove(board, "reading_handback") && (
-                  <button
-                    type="button"
-                    className="text-p-sm underline text-gray disabled:opacity-30"
-                    disabled={pending || proposing !== null || !readingVerdict.ok}
-                    title={!readingVerdict.ok ? readingVerdict.error : undefined}
-                    onClick={() => setProposing("reading")}
-                  >
-                    say it back
-                  </button>
-                )}
-                {canStartLaterMove(board, "steelman_tile") && (
+                {readingVerdict &&
+                  canStartLaterMove(board, "reading_handback", taught) && (
+                    <button
+                      type="button"
+                      className="text-p-sm underline text-gray disabled:opacity-30"
+                      disabled={pending || proposing !== null || !readingVerdict.ok}
+                      title={!readingVerdict.ok ? readingVerdict.error : undefined}
+                      onClick={() => setProposing("reading")}
+                    >
+                      say it back
+                    </button>
+                  )}
+                {canStartLaterMove(board, "steelman_tile", taught) && (
                   <button
                     type="button"
                     className="text-p-sm underline text-gray disabled:opacity-30"
@@ -1309,7 +1322,7 @@ function TileNode({
                     words in it is doing. It opens here because a word is
                     always a word in something, and this is the something.
                     BRAIN-T260903-06: Gym level 5+, hidden for now. */}
-                {canStartLaterMove(board, "definition") && (
+                {canStartLaterMove(board, "definition", taught) && (
                   <button
                     type="button"
                     className="text-p-sm underline text-gray disabled:opacity-30"
@@ -1675,6 +1688,7 @@ function ResolutionRow({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const taught = useTaughtMoves();
 
   if (isResolved(thread)) {
     return (
@@ -1712,11 +1726,24 @@ function ResolutionRow({
 
   // Every token in the row is refused for the same reason when it is refused at
   // all, so the reason goes under the row once rather than into six tooltips.
-  const tokenVerdicts = RESOLUTION_TOKENS.map((token) =>
+  // Steve, 2026-09-06, from his level 1 playthrough: "I'm only halfway through
+  // the level with Bob and I'm allowed to propose a side-eye on the left
+  // thread that shouldn't be available to me right now because it doesn't make
+  // any sense." A token the ladder has not reached yet is not offered, and
+  // when it has reached none of them there is nothing here to show at all: no
+  // picker, and no "You: no token" line explaining a mechanic that has not
+  // been introduced. Level 1 teaches 👍 at `player-token-a` and 👀 at
+  // `player-token-b`, so the row arrives in two pieces, each as its own beat
+  // asks for it. Off the ladder `taught` is null and both are offered, which
+  // is live play and free play unchanged.
+  const offeredTokens = RESOLUTION_TOKENS.filter((token) => taughtToken(taught, token));
+  if (offeredTokens.length === 0 && !myToken) return null;
+
+  const tokenVerdicts = offeredTokens.map((token) =>
     canPlaceResolutionToken(board, thread.rootId, token),
   );
 
-  const disabledTokens = RESOLUTION_TOKENS.filter((_, index) => !tokenVerdicts[index].ok);
+  const disabledTokens = offeredTokens.filter((_, index) => !tokenVerdicts[index].ok);
 
   return (
     // Question, then the answer to give, then who has answered. The standing
@@ -1735,7 +1762,7 @@ function ResolutionRow({
         </button>
       ) : (
         <ResolutionPicker
-          tokens={RESOLUTION_TOKENS}
+          tokens={offeredTokens}
           disabledTokens={disabledTokens}
           theirs={otherToken}
           onPick={place}
@@ -2849,6 +2876,9 @@ export function LiveBoard({
   // Board chrome level 1 keeps off screen until the Director's script says
   // otherwise (components/gym/hidden-surfaces.ts). Empty in a live game.
   const hiddenSurfaces = useHiddenSurfaces();
+  // What the level has taught by this beat (components/gym/taught-moves.ts).
+  // Null in a live game, which withholds nothing.
+  const taught = useTaughtMoves();
   // How tightly a cooked level narrows placement down to one choice
   // (components/gym/cooked-placement.ts). Unrestricted in a live game.
   const cookedPlacement = useCookedPlacement();
@@ -3433,23 +3463,23 @@ export function LiveBoard({
             // that same "no hint, no handler" shape is how it stays quiet
             // while the move is held back from the live game too.
             onRevise={
-              canStartLaterMove(board, "topic_revision")
+              canStartLaterMove(board, "topic_revision", taught)
                 ? () => setTopicEditing(true)
                 : undefined
             }
             reviseHint={
-              endsOnTopic && canStartLaterMove(board, "topic_revision")
+              endsOnTopic && canStartLaterMove(board, "topic_revision", taught)
                 ? "Write the version you would both sign."
                 : null
             }
             ceilingNote={ceilingNote}
-            showRevise={canStartLaterMove(board, "topic_revision")}
+            showRevise={canStartLaterMove(board, "topic_revision", taught)}
             // BRAIN-T260903-06: the footer names the topic-revision ending as
             // something you can go do right now, so it is gated the same way
             // the pencil is, rather than describing a door the card itself has
             // just closed.
             footer={
-              endsOnTopic && canStartLaterMove(board, "topic_revision")
+              endsOnTopic && canStartLaterMove(board, "topic_revision", taught)
                 ? "Either ending is a win, and it is the same win for both of you."
                 : null
             }
