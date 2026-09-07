@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { setAvatar } from "@/app/settings/actions";
 import { PLAYER_EMOJIS } from "@/lib/avatar";
 import { Avatar } from "@/components/avatar";
+import { PencilGlyph } from "@/components/ui/pencil-glyph";
 
 /**
  * The hero avatar, made clickable.
@@ -83,17 +84,29 @@ export function AvatarPicker({
 
   return (
     <div ref={rootRef} className="relative flex flex-col items-center gap-1">
+      {/* Steve, 2026-09-06: the words "Click to change" become the pencil the
+          rest of the app already uses for edit. The badge is a span, not a
+          second button: the whole avatar is the click target, so a nested
+          button would be invalid markup and a second tab stop for the one
+          action. It sits on the lower-right corner in the same vocabulary as
+          the on-tile pencil (round, bordered, its own ground, lifting on
+          hover), in the account flow's ink/card tokens rather than the
+          board's neutral-black/offwhite. `group-hover` on the parent button
+          means hovering anywhere on the avatar lifts the pencil too, so the
+          two read as one control. */}
       <button
         type="button"
         aria-label="Choose your avatar"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
-        className="rounded-2xl transition-transform hover:-translate-y-0.5 active:translate-y-0"
+        className="group relative rounded-2xl transition-transform hover:-translate-y-0.5 active:translate-y-0"
       >
         <Avatar playerId={playerId} name={name} size="hero" emoji={currentEmoji} />
+        <span className="border-ink/30 bg-card text-ink shadow-sticker absolute -right-1 -bottom-1 flex size-8 items-center justify-center rounded-full border-[1.5px] p-1.5 transition-transform group-hover:-translate-y-0.5">
+          <PencilGlyph className="size-full" />
+        </span>
       </button>
-      <span className="font-label text-ink-soft text-xs">Click to change</span>
 
       {open ? (
         <div

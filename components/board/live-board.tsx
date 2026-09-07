@@ -41,6 +41,7 @@ import {
 } from "@/components/onboarding/onboarding-overlay";
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { AnchoredCard } from "@/components/ui/anchored-card";
+import { PencilGlyph } from "@/components/ui/pencil-glyph";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
 import { canStartLaterMove } from "@/components/board/later-moves";
 import {
@@ -425,28 +426,6 @@ const EDGE_INSET = `${((1 - INNER_FRAME_RATIO) / 2) * 100}%`;
  * across the bottom, so 24% in from each upper corner clears all three.
  */
 const CORNER_INSET = "24%";
-
-/**
- * The pencil that sits on a player's own tile, out on the board.
- *
- * Steve, 2026-09-05, ruling on the tile card: Edit should read as "a standard
- * pencil icon on top of the tile" rather than a line in the card's menu. No
- * icon package is installed in this project, so this is a small inline glyph
- * rather than a new dependency or a new `public/icons/` asset for one shape.
- */
-function PencilGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={className}>
-      <path
-        d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 /**
  * One move on a reason, in a card that has room to say what it is.
