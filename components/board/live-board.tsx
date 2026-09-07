@@ -44,7 +44,7 @@ import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { PencilGlyph } from "@/components/ui/pencil-glyph";
 import { useSeatSpeech } from "@/components/board/seat-speech";
-import { RuleCardFace } from "@/components/board/rule-card-face";
+import { RuleCardChip } from "@/components/board/rule-card-face";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
 import { canStartLaterMove } from "@/components/board/later-moves";
 import {
@@ -198,14 +198,22 @@ function cssEscape(value: string): string {
 /**
  * The rule cards played on this reason, laid on the tile.
  *
- * Steve, 2026-09-06 and again 2026-09-07: "The rule card laid on the tile is
- * still way too small. It needs to be as big as the emoji or side eye. It
- * needs to be like six times as tall as it is now." It was a 24px circle
+ * Steve, 2026-09-06: "The rule card laid on the tile is still way too small.
+ * It needs to be as big as the emoji or side eye." It was a 24px circle
  * carrying the card's glyph, which is a status dot, not a card. A card thrown
  * at your reason is the loudest thing that can happen to it and the whole of
- * the next move, so it is now the card itself, `RuleCardFace`, the same object
- * the tray raises when you arm one, dropped across the tile's lower edge at
- * about six times the old height.
+ * the next move, so it needs the weight of the token badge beside it.
+ *
+ * **Sized against the token, not blown up, Steve 2026-09-07.** The first pass
+ * read his "six times as tall" literally and laid the whole 180x226
+ * `RuleCardFace` on the tile. He walked that back: "okay maybe not six times
+ * taller. the same height as the emoji thumb or side eye icons. it should just
+ * be a little maybe 50% bigger than it is on the rule card thing on the
+ * bottom." So it is `RuleCardChip`, 72 square, which is both the height of a
+ * settled token badge and half again the tray's `size-12` card button. Same
+ * art, same frame, no type: at that size the card's name would have been four
+ * pixels tall. The name is still in the tooltip and the screen-reader line,
+ * and the full card is one click away in the tray.
  *
  * **It stays at that size after the throw settles** (BRAIN-T260907-13). The
  * first pass shrank a settled throw back to a stamp, which read well in
@@ -252,17 +260,18 @@ function TileThrowBadges({
             // **Inside the silhouette, not hanging off it.** The slot this
             // tile is drawn in is clipped to the octagon (`OCTAGON_CLIP`,
             // components/board/geometry.ts), so a card straddling the bottom
-            // edge is not drawn faint or half: the clip takes it. The first
+            // edge is not drawn faint or half: the clip takes it. An earlier
             // pass sat at `bottom: 0` with a 30% overhang and measured a
             // correct 106x138 in the DOM while showing a sliver on screen,
             // which is the clip-path trap this file already warns about once
-            // above `EDGE_INSET`. At `bottom: 6%` the whole card falls inside
+            // above `EDGE_INSET`. At `bottom: 6%` the whole chip falls inside
             // the drawable region: the octagon's lower diagonals leave the
-            // middle 54% of the width at that height, and the card is 45%.
+            // middle 54% of the width at that height, and the 72px chip is
+            // under a third of it.
             style={{
               left: "50%",
               bottom: "6%",
-              transform: `translate(-50%, 0) rotate(${-4 + index * 6}deg) scale(0.62)`,
+              transform: `translate(-50%, 0) rotate(${-4 + index * 6}deg)`,
             }}
             // The gold mat is the same "this one is yours to answer" colour an
             // unanswered ask wears everywhere else on the board. It is a mat
@@ -279,7 +288,7 @@ function TileThrowBadges({
                 : `${name}. ${card ? card.plain : ""} Answered.`
             }
           >
-            <RuleCardFace cardId={thrown.cardId} />
+            <RuleCardChip cardId={thrown.cardId} />
             <span className="sr-only">
               {name}
               {standing

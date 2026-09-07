@@ -29,6 +29,73 @@ import { coachCard } from "@/lib/coach/cards";
  * get a card sitting in the flow instead. A caller that wants this somewhere
  * particular positions a wrapper around it.
  */
+/**
+ * The same card at the size of a token, for laying on a tile.
+ *
+ * Steve, 2026-09-07, walking back his own earlier "six times as tall": "the
+ * same height as the emoji thumb or side eye icons. it should just be a little
+ * maybe 50% bigger than it is on the rule card thing on the bottom". Both
+ * measurements land in the same place. A settled token badge on a tile is a
+ * 56px glyph in a padded box, and the tray's card button is `size-12`, so
+ * fifty percent over that is 72. This is 72 square.
+ *
+ * It is the full card's art panel and nothing else: the same watermark, the
+ * same glyph, the same frame. At this size the name and the "throw when" line
+ * would be four and two pixels of type, which is worse than absent, so they
+ * are absent. The card is still named in the tooltip, in the screen-reader
+ * text the caller adds, and in the coach's line about it, and the full card is
+ * one click away in the tray.
+ *
+ * Deliberately shaped like the tray button rather than like a shrunken card:
+ * a thrown card should rhyme with the card the player armed to throw it and
+ * with the token badge it sits beside, because all three are the same class of
+ * object, a mark laid on a reason.
+ */
+export function RuleCardChip({ cardId }: { cardId: string }) {
+  const card = coachCard(cardId);
+  if (!card) return null;
+
+  return (
+    <div
+      data-rule-card-chip={cardId}
+      className="border-ink bg-card shadow-sticker-sm relative size-[72px] rounded-xl border-[1.5px] p-[3px]"
+    >
+      <div className="bg-paper relative flex size-full items-center justify-center overflow-hidden rounded-[8px]">
+        <svg
+          aria-hidden="true"
+          className="text-ink absolute inset-0 size-full opacity-15"
+          preserveAspectRatio="none"
+        >
+          <pattern
+            id={`rule-card-chip-weave-${cardId}`}
+            width="12"
+            height="12"
+            patternUnits="userSpaceOnUse"
+          >
+            <rect
+              x="3"
+              y="3"
+              width="6"
+              height="6"
+              rx="1"
+              transform="rotate(45 6 6)"
+              fill="currentColor"
+            />
+          </pattern>
+          <rect
+            width="100%"
+            height="100%"
+            fill={`url(#rule-card-chip-weave-${cardId})`}
+          />
+        </svg>
+        <span aria-hidden="true" className="relative text-[34px] leading-none">
+          {card.icon}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function RuleCardFace({ cardId }: { cardId: string }) {
   const card = coachCard(cardId);
   if (!card) return null;
