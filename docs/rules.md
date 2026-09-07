@@ -91,15 +91,15 @@ True today in the code:
 4. Either player sets the topic, from a 17-entry library or written fresh [unratified: lib/board/setup.ts:55]. Either player can start; nobody waits on a host.
 5. Play begins. Tiles go down, threads grow, tokens close threads, cards get thrown.
 
-Designed, unbuilt: each player writes 2 starting reason tiles before play, Plus using "Yes, because" and Minus using "No, because" [unratified: GAME_MECHANICS.md]. Nothing in the code requires this.
+**The web version requires the opening tiles too** [ruled Nathan 2026-08-29]: the first tile is not free, and the rebutting part of the game does not begin until the opening tiles are down. Plus writes with "Yes, because" and Minus with "No, because" [unratified: GAME_MECHANICS.md].
 
-`GAP: does the web version require each player to write two opening reason tiles before the board opens, or is the first tile free?`
+True today in the code, by a narrower route than the ruling describes. It shipped as the root stage in section 4 rather than as a gate on the board opening, and the count is per game rather than always four: no reply may hang off another tile until every root slot for that game is filled, which is 4 in live play and in Gym levels 2 and up, and 2 in Gym level 1 [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/board/rules.ts:67-93, lib/gym/levels/onboarding.ts:39]. Nathan's ruling said all four, two from each player; level 1's two-root shape is the one narrowing of it, and it was ruled later.
 
 ## 4. A turn, and its timing
 
-**Turn order.** True today in the code: there is no turn order. No field, no check, no notion of whose turn it is anywhere in `lib/board/rules.ts`. Either player may place a tile at any time the board is open.
+**Turn order.** Brain is **free-running** [ruled Nathan 2026-08-29]. Both players may write at once, neither waits on the other, and there is no alternation and no notion of whose turn it is. The board shows an indication while a player is part-way through writing a tile, so two people typing at the same time is visible rather than a surprise.
 
-`GAP: is Brain strictly alternating, or free-running with both players able to write at once? The code assumes free-running and no source doc rules either way.`
+True today in the code: there is no turn order. No field, no check, no notion of whose turn it is anywhere in `lib/board/rules.ts`. Either player may place a tile at any time the board is open, which is the ruling. Designed, unbuilt: nothing broadcasts or renders a "writing now" state between two live players. The thinking and typing indication that exists is the scripted Gym opponent's, driven from the level script rather than from the other seat.
 
 **Timers.** There are no turn timers in this edition [ruled Steve 2026-09-03]; the earlier 30-second speaker and 45-second summarize entry here was recorded in error and belongs to the Heart edition, not Brain. The print game's one-minute chat timer, flipped by hand when writing is not enough, is a Heart-edition mechanic [unratified: GAME_MECHANICS.md].
 
@@ -131,7 +131,7 @@ The shipped on-screen labels are "Agree to agree" for 👍 and "Agree to disagre
 
 Three further tokens have art and labels in the repo and cannot be placed by anything: 🔍 disagree on a fact, ⚖️ disagree on priorities, 🍷 disagree on personal taste [unratified: lib/board/rules.ts:53]. They are deferred behind progression. Treat the game as a two-token game.
 
-`GAP: BRAIN-T260425-33, still open: does level 1 ship with only 👍 and 👀, making it a two-emoji game above level 1 as well, or does the vocabulary widen and when?`
+**Two tokens through level 5, and the vocabulary widens at level 6** [ruled Steve 2026-09-05, BRAIN-T260905-30, closing BRAIN-T260425-33]. 👍 and 👀 are the whole vocabulary everywhere the first release reaches; the three-way split of 👀 into fact, priorities, and taste waits for level 6 and above. Nathan ruled the same two-token game on 2026-08-29 but attached the widening to no level; Steve's later ruling names one.
 
 ## 6. Asking the other player for something
 
@@ -144,7 +144,9 @@ Some moves need both players. One sends the ask, the other accepts or declines, 
 - Hand a reading back, if their version of your side is wrong.
 - Propose new wording for the topic itself.
 
-`GAP: BRAIN-T260815-27, still open: how does a player ask for clarification? The definition ask and the reading ask both exist in the event log, and neither has been ruled to be the clarification move a player reaches for.`
+**Asking for clarification is one-sided, and is not one of the asks above** [ruled Nathan 2026-08-29, closing BRAIN-T260815-27]. A player marks a tile as wanting clarification and carries straight on writing other tiles; nothing on the board waits for an answer. The mark shows on the tile, and the tile's author is told that a tile of theirs needs clarifying, without having to address it before their next move.
+
+Designed, unbuilt: no clarification mark, event, or notification exists. The `clarification_needed` field in the log (`lib/events/types.ts`) is the coach's own research metadata about a tile it read, not a player asking for anything.
 
 ## 7. The four rule cards
 
@@ -222,6 +224,8 @@ Two ways, and both are agreements [unratified: lib/board/rules.ts, app/how-to-pl
 1. **Every thread resolved**, with no minimum count (`threadsWinReached`) [ruled Steve 2026-09-01, BRAIN-T260901-06].
 2. **A rewritten topic both sides could sign** (`topicAgreementEndsGame`). In live play this always ends the game; in the Gym it ends the game only inside a level or boss game.
 
+One further way a game stops, and it is not a third win condition: **a player leaves or disconnects** [ruled Nathan 2026-08-29]. The game closes, nobody loses, and nothing is scored. True today in the code: `endIfAbandoned` and `endInFlightGame` append `game_ended` with `win_condition: "abandoned"` (`lib/games/abandon.ts`), and that file is the only writer of that value.
+
 The board stays readable afterwards, with every thread and the token it landed on.
 
 The Certificate of Agreeable Disagreement is built for the Gym: `components/gym/certificate.tsx` renders one at the end of a level, reading the game's own award events for the topic, the token counts, the points, and the boss reformed [unratified: components/gym/certificate.tsx]. It renders on screen only; exporting one as an image so it can be photographed did not ship [BRAIN-T260904-11]. Whether live play outside the Gym ever produces one is undecided.
@@ -232,9 +236,7 @@ The progression layer under the certificate is built, not designed-unbuilt. `THR
 
 The Gym is single-player practice against a scripted opponent whose lines are fixed text, not a model. One cooked game per level; the cooked game is the boss game.
 
-**You cannot fail a Gym level** [ruled BIZ-T260823-67, guide §2.10]. There is no failure state anywhere in levels 1 to 4: no move budget, no timer, no wrong-answer counter, no retry loop, no way to be sent back to the start.
-
-`GAP: BRAIN-T260815-21, still open: what does failing a level cost the player? The Gym guide answers this by ruling that failing is impossible in levels 1 to 4, which is a design decision, not an answer for level 5 and up.`
+**You cannot fail a Gym level** [ruled BIZ-T260823-67, guide §2.10]. There is no failure state anywhere in levels 1 to 4: no move budget, no timer, no wrong-answer counter, no retry loop, no way to be sent back to the start. That extends to level 5 and above [ruled Nathan 2026-08-29, closing BRAIN-T260815-21], so failing costs a player nothing at any level number, because there is no level of the Gym a player can lose.
 
 | Level | Teaches | Boss | Topic | Threads | Points scope | Fast-forward |
 |---|---|---|---|---|---|---|
@@ -279,9 +281,9 @@ Level-specific mechanics [ruled guide §3 to §6]:
 
 **How a level is passed:** by reaching the end of its beat script. Completion grants the level's rule card and its certificate; using fast-forward (available at levels 3 and 4 only) grants the card but not the certificate [unratified: guide §1.1 `fastForward.grantsCard: true, grantsCertificate: false`].
 
-`GAP: can a completed level be replayed, and if so does it award anything the second time? "No failure state" removes the need for a retry loop but does not rule on replay.`
+**Replay** [ruled Nathan 2026-08-29]: a completed level can be played again. It runs the same cooked script and awards nothing the second time; the card and the certificate are granted once.
 
-Finishing a level does not unlock the next one, because there is no lock: all four scripted levels are open regardless of cleared state [ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23].
+Finishing a level does not unlock the next one, because there is no lock: all four scripted levels are open regardless of cleared state [ruled Steve 2026-09-03, components/account/progression/ladder-strip.tsx:22-23]. This supersedes Nathan's 2026-08-29 ruling that every level is gated by the one before it.
 
 True today in the code: all four Gym levels are fully scripted and playable end to end against their boss [unratified: lib/gym/levels/onboarding.ts and its three siblings; played and cleared in full by `docs/handoffs/2026-09-04_overnight-result.md`, tid BRAIN-T260904-20]. `app/gym/page.tsx` is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip (`components/account/progression/ladder-strip.tsx`) is the level select now [ruled Steve 2026-09-04, cited in app/gym/page.tsx's own doc comment].
 
