@@ -2691,6 +2691,11 @@ export function LiveBoard({
           id: t.id,
           parentId: t.parentId,
           side: t.side ?? null,
+          // Same inputs the board itself lays out from (SpatialBoard), corner
+          // included: the minimap reads a thread's corner off this layout, so
+          // dropping the field here would let the stamp light a different
+          // quadrant than the board draws.
+          corner: t.corner ?? null,
         })),
       ),
     [board],

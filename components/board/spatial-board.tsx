@@ -176,6 +176,24 @@ export interface SpatialTile {
    * Minus on the left, bottom corners first. See `SIDE_OFFSETS` in layout.ts.
    */
   side?: "plus" | "minus" | null;
+  /**
+   * The diagonal the placer actually clicked, off the tile's own event
+   * (`BoardTile.corner`, `TilePlacedPayload.corner`).
+   *
+   * Without this the layout only ever hears about `side`, which nothing but a
+   * thread starter has, so every reply fell back to the default NE/SE/SW/NW
+   * order and landed on the first free diagonal regardless of where it was
+   * placed. Steve, from his 2026-09-06 level 1 playthrough: "firsrt reply to
+   * bob still starts in lower right but then appears in uppwer rght." The
+   * event carried the corner, the projection kept it, `LayoutInput` has
+   * preferred it since 2026-09-04, and this interface was the one link in the
+   * chain that dropped it on the floor.
+   *
+   * Optional, and null is fine: a tile with no recorded corner takes the old
+   * default order, which is how a game logged before the field draws exactly
+   * as it always did.
+   */
+  corner?: TileCorner | null;
 }
 
 export interface SpatialBoardProps<T extends SpatialTile> {
@@ -816,7 +834,12 @@ export function SpatialBoard<T extends SpatialTile>({
   const layout = useMemo(
     () =>
       topicRootedLayout(
-        ordered.map((t) => ({ id: t.id, parentId: t.parentId, side: t.side ?? null })),
+        ordered.map((t) => ({
+          id: t.id,
+          parentId: t.parentId,
+          side: t.side ?? null,
+          corner: t.corner ?? null,
+        })),
       ),
     [ordered],
   );
