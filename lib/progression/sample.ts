@@ -191,7 +191,7 @@ export const BOSSES: readonly Boss[] = [
   {
     id: "rambling-rosa",
     name: "Rambling Rosa",
-    emoji: "🧑🏿‍🔧",
+    emoji: "🧑🏽‍🔧",
     level: 2,
     habit: "Wanders off the thread's root.",
     status: "reformed",
