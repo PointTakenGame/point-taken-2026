@@ -112,9 +112,7 @@ Refusals the player sees today [unratified: lib/board/rules.ts, `canPlaceTile`]:
 
 **Root stage.** No reply may hang off another tile until every root slot for that game is filled: 4 in live play and in Gym levels 2 and up, 2 in Gym level 1, one root from each side [ruled Steve 2026-09-05, BRAIN-T260905-32, lib/board/rules.ts:67-93, lib/gym/levels/onboarding.ts:39]. A fresh root hung straight off the topic is always allowed; anything hung off another tile waits for the stage to close.
 
-Thread ceiling is 4 on the tile board, the four diagonals of the centre tile [ruled Steve 2026-09-05, BRAIN-T260905-33, lib/board/rules.ts:69]. Six belongs to compact mode, three a side, when it ships. There is no minimum: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]. The earlier entry here citing a live-play floor of at least 4 threads is superseded by that ruling, reconfirmed 2026-09-03: "it is all threads, not four threads." The ceiling opens above 4 at level 5.
-
-Nathan ruled a floor of 4 threads in live play and the level's own thread count in the Gym on 2026-08-29; Steve's 2026-09-01 removal of any floor is later and overtakes it.
+Level 1 of the Gym runs two threads, one per side, using only the two bottom diagonals of the centre tile. Level 2 and up in the Gym, and live play, run four threads total, two per side, using all four diagonals of the centre tile [ruled Steve 2026-09-05, BRAIN-T260905-33, lib/board/rules.ts:69]. Six threads belongs only to compact mode, when it ships, not before. There is no minimum thread count and no thread floor at any level: every live thread must resolve, however many there are [ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105; reconfirmed final, Steve 2026-09-07]. Earlier entries here citing a live-play floor of at least four threads, or any minimum at all, are superseded.
 
 ## 5. Ending a thread
 
@@ -299,7 +297,7 @@ Acknowledgment of imbalance, stated rather than hidden: the boss roster is US-ce
 
 ## 12. What is decided, what is built, what is neither
 
-True today in the code, and player-visible: seats and sides, the three-line signing ritual, the topic library, the 100-character tile, the root stage, the 6-thread ceiling, the two resolution tokens, both-must-match resolution, the click-then-click card throw, the six proposal asks, the four rule cards, the coach as an opt-in post-placement offer, both endgames, all four scripted Gym bosses and levels, the level's award events and points, and the Gym's on-screen certificate.
+True today in the code, and player-visible: seats and sides, the three-line signing ritual, the topic library, the 100-character tile, the root stage, the four-thread ceiling, the two resolution tokens, both-must-match resolution, the click-then-click card throw, the six proposal asks, the four rule cards, the coach as an opt-in post-placement offer, both endgames, all four scripted Gym bosses and levels, the level's award events and points, and the Gym's on-screen certificate.
 
 Decided and unbuilt: the graded steps inside cards, streaks, badge display names (the taxonomy itself is still open), a certificate a player can export or that live play produces, and the coach's pre-post draft review. Turn timers are removed from this list: they are out of scope for this edition by ruling [ruled Steve 2026-09-03, BRAIN-T260903-01] and belong to the Heart edition, not Brain.
 

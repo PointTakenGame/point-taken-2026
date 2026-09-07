@@ -410,10 +410,13 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
 - **The skill wording for levels 1 to 4**, whose source is a draft awaiting Steve.
 - **The emoji vocabulary above level 1.** Level 1 ships with 👍 and 👀 only; the wider vocabulary is
   an open question.
-- **The live-play thread bounds**: no minimum, a ceiling of four on the tile board and six in
-  compact mode, every live thread must resolve `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`)
-  `[ruled Steve 2026-09-05]` (`BRAIN-T260905-33`). The four-minimum this entry used to carry is
-  gone; the ceiling opens at level 5.
+- **The live-play thread bounds**: no minimum thread count and no thread floor at any level, every
+  live thread must resolve `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`, reconfirmed final
+  2026-09-07). Level 1 of the Gym runs two threads, one per side, on the tile board's two bottom
+  diagonals; level 2 and up in the Gym, and live play, run four threads total, two per side, which
+  is the tile board's full capacity `[ruled Steve 2026-09-05]` (`BRAIN-T260905-33`). Six threads
+  belongs only to compact mode, when it ships, not before. The four-minimum this entry used to
+  carry is gone.
 - **The event log's physical home**, an open engineering call: inline on the game record or its own
   table. This repo answers it with its own table `[unratified]`, which does not make the call ruled.
 - **Boss roster coverage.** Skin tones are deliberately uncorrelated with name origin `[ruled]`. No

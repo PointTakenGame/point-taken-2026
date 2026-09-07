@@ -399,14 +399,17 @@ a pre-rewrite Vue file that no longer exists in this codebase; the current
 number is confirmed directly in TypeScript, not carried over from a stale
 pointer.
 
-`MIN_THREADS_TO_END` is gone: there is no minimum thread count any more. A game
-ends once every live thread resolves, whatever their number `[ruled Steve
-2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]`, reconfirmed
-2026-09-03: "it is all threads, not four threads." This entry previously
-tracked a carried-forward floor of 4 as an open gap (`BRAIN-T260823-10`); that
-gap is resolved. Nathan ruled a floor of 4 in live play and the level's own
-thread count in the Gym on 2026-08-29, also closing `BRAIN-T260823-10`; Steve's
-2026-09-01 removal of any floor is later and overtakes it. `MAX_THREADS = 4` is `[ruled Steve 2026-09-05, BRAIN-T260905-33]`: four is the tile board's capacity, six belongs to compact mode when it ships.
+`MIN_THREADS_TO_END` is gone: there is no minimum thread count and no thread
+floor at any level. A game ends once every live thread resolves, whatever
+their number `[ruled Steve 2026-09-01, BRAIN-T260901-06, lib/board/rules.ts:103-105]`,
+reconfirmed final 2026-09-07. This entry previously tracked a carried-forward
+floor of 4 as an open gap (`BRAIN-T260823-10`); that gap is resolved, and an
+intervening Nathan ruling that reinstated a floor is overtaken by Steve's
+2026-09-01 and 2026-09-07 rulings. `MAX_THREADS = 4` is `[ruled Steve
+2026-09-05, BRAIN-T260905-33]`: level 1 of the Gym runs two threads, one per
+side, on the tile board's two bottom diagonals; level 2 and up in the Gym, and
+live play, run four threads total, two per side, which is the tile board's
+full capacity; six threads belongs only to compact mode, when it ships.
 `RESOLUTION_TOKENS = ["👍", "👀"]`
 is `[ruled]` 2026-08-23; three more tokens (`🔍`, `⚖️`, `🍷`) exist in code as
 `DEFERRED_RESOLUTION_TOKENS` but are not accepted by `isResolutionToken`, so
@@ -687,8 +690,10 @@ cannot conclude the function is open.
 - **Two items `CLAUDE.md` itself lists as still moving, not settled**:
   level/badge taxonomy naming and any level above 4 (`BRAIN-T260817-02`), and
   the coach's turn shape beyond what section 6 confirms. The thread ceiling,
-  once a third item here, is settled at four on the tile board and six in
-  compact mode `[ruled Steve 2026-09-05, BRAIN-T260905-33]`. A fourth item
+  once a third item here, is settled: two threads, one per side, on level 1
+  of the Gym; four threads, two per side, on level 2 and up in the Gym and in
+  live play; six threads only in compact mode, when it ships
+  `[ruled Steve 2026-09-05, BRAIN-T260905-33]`. A fourth item
   once listed here, whether the
   agreement is three lines or four, is settled at three (`rules.md` section 3,
   and `SIGNING_LINES` in `lib/board/setup.ts:45-70` ships three).

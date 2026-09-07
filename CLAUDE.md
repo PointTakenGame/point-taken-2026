@@ -278,9 +278,13 @@ Settled, and not up for redesign in a surface pull request:
   player's own tiles, and no empty slot is drawn while a card throw is expected. Ways to Win
   and the card tray stay hidden until the script reveals them. Levels 2 to 4 are not cooked
   unless Steve says so. Steve, 2026-09-05, `BRAIN-T260905-40` and `BRAIN-T260905-43`.
-- the thread ceiling is four on the tile board, the centre tile's four diagonals, and six only
-  in compact mode when it ships; `MAX_THREADS` in `lib/board/rules.ts` says four. There is no
-  minimum: a game ends when every live thread resolves. Steve, 2026-09-05, `BRAIN-T260905-33`.
+- level 1 of the Gym runs two threads, one per side, using only the two bottom diagonals of
+  the board. Levels 2 and up in the Gym, and live play, run four threads total, two per side;
+  `MAX_THREADS` in `lib/board/rules.ts` says four. Six threads belongs only to compact mode,
+  when it ships, not before. There is no minimum thread count and no thread floor at any level:
+  a game ends when every live thread resolves, however many there are. Steve, 2026-09-05,
+  `BRAIN-T260905-33`; level 1's two-thread shape and Steve's 2026-09-07 final ruling on the
+  no-minimum point.
 - tokens are named Agree to agree (👍) and Agree to disagree (👀); the three-way split of 👀
   waits for level 6 and above. Steve, 2026-09-05, `BRAIN-T260905-30`.
 - a rule card is thrown by two clicks, the card then the tile. No drag. Steve, 2026-09-05,

@@ -131,12 +131,15 @@ All strings below are `[unratified]`; file is `lib/board/rules.ts` unless noted.
 - `DEFINITION_TERM_MAX_CHARS = 60`
 - `DECLINE_REASON_MAX_CHARS = 200`
 - `MAX_PLAYERS = 2` (read pre-compaction, `lib/board/setup.ts`)
-- `MAX_THREADS = 4` [ruled Steve 2026-09-05, BRAIN-T260905-33]; compact mode raises it to 6 when it ships
+- `MAX_THREADS = 4` [ruled Steve 2026-09-05, BRAIN-T260905-33]: level 1 of the Gym runs two threads,
+  one per side, on the tile board's two bottom diagonals; level 2 and up in the Gym, and live play,
+  run four threads total, two per side, which is the tile board's full capacity. Compact mode raises
+  it to 6 when it ships, not before.
 - No `MIN_THREADS_TO_END` any more. The constant is gone from the code; a game ends once every live
-  thread resolves, whatever their number [ruled Steve 2026-09-01, BRAIN-T260901-06]. This entry
-  used to quote the constant's own now-removed GAP comment about a carried-forward floor of 4; that
-  floor no longer exists. Nathan ruled a floor of 4 in live play on 2026-08-29; Steve's later
-  removal of any floor overtakes it.
+  thread resolves, whatever their number, with no minimum thread count and no thread floor at any
+  level [ruled Steve 2026-09-01, BRAIN-T260901-06; reconfirmed final, Steve 2026-09-07]. An
+  intervening Nathan ruling that reinstated a floor of 4 in live play on 2026-08-29 is overtaken by
+  Steve's later rulings.
 
 **Resolution tokens** (agree/disagree markers on a thread, distinct from Heart's 🙏):
 `RESOLUTION_TOKENS = ["👍", "👀"]`, settled 2026-08-23 by Steve, `[ruled]`.
