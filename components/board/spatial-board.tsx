@@ -715,7 +715,12 @@ function BossDraftSlot({
             className="mt-1 block leading-snug"
             style={{ fontSize: `${TILE_BODY_PX}px` }}
           >
-            {text}
+            {/* The same strip a placed tile does. The lead is drawn above,
+                and the boss's scripted text writes the sentence out in full
+                ("Yes, because a hot dog is..."), so without this the draft
+                reads "Yes, because" twice while he types, then loses the
+                repeat the moment the tile lands. */}
+            {stripDuplicateLead(text)}
             <span className="motion-safe:animate-pulse">▍</span>
           </span>
         </p>
@@ -1289,12 +1294,23 @@ export function SpatialBoard<T extends SpatialTile>({
    * the thing actually landing, mid-turn, over whatever slot the coach may
    * still be pointing at from the beat before.
    *
-   * Pans and zooms out (never in) only as far as needed to bring the target
-   * fully inside the pane, clear of the reserved furniture on every edge,
-   * including a `reserveTop` strip for the persistent coach persona pill.
-   * Does nothing if the target is already fully visible there, and never
-   * runs mid-drag: this is the board choosing to look somewhere, not a
-   * correction to fight a player who is already navigating.
+   * Zooms out, and only zooms out, until the target is fully inside the
+   * pane, clear of the reserved furniture on every edge, including a
+   * `reserveTop` strip for the persistent coach persona pill. The shrink is
+   * about the pane's own centre, exactly as the automatic refit above does
+   * it, so whatever the player already has in the middle of their screen
+   * stays there.
+   *
+   * It used to pan as well, on the reasoning that a pan the coach announces
+   * is a pan the player expects. Steve, 2026-09-06, ruled that out for good
+   * after a level-1 playtest: the board "can zoom out, but never pan". So a
+   * target that will not fit even at `MIN_ZOOM` is simply left where it is,
+   * the same bargain the composer-visibility effect above already strikes.
+   * An imperfect view beats a view that moved on its own.
+   *
+   * Does nothing if the target is already fully visible, and never runs
+   * mid-drag: this is the board choosing a scale, not a correction to fight
+   * a player who is already navigating.
    */
   useEffect(() => {
     if (!pane || panning || dragRef.current) return;
@@ -1325,42 +1341,36 @@ export function SpatialBoard<T extends SpatialTile>({
       b.right <= safeRight &&
       b.bottom <= safeBottom;
     const currentScale = remPx * zoom;
+    // Shrinking about the pane's centre moves the canvas origin, so the pan
+    // that goes with a candidate scale is part of the candidate, not a
+    // separate decision. On screen it reads as a pure zoom: the point in the
+    // middle of the player's view does not move.
+    const cx = pane.w / 2;
+    const cy = pane.h / 2;
+    const panFor = (scale: number) => {
+      const ratio = scale / currentScale;
+      return { x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio };
+    };
     if (fullyVisible(box(currentScale, pan))) return;
-    // Only shrink as far as the cell itself needs to fit the safe area: a
-    // pan alone is nearly always enough, since one cell is far smaller than
-    // the pane, and shrinking further than that would zoom the whole board
-    // out for no reason the player could see.
+    // A dozen 8% steps rather than solving for the scale directly: the
+    // target has to clear four different edges, and which of them is
+    // binding changes as the board shrinks around the pane's centre.
     let candidate = currentScale;
-    const cellSize = size * candidate;
-    const safeWidth = safeRight - safeLeft;
-    const safeHeight = safeBottom - safeTop;
-    if (cellSize > safeWidth || cellSize > safeHeight) {
-      for (let i = 0; i < 12 && candidate > MIN_ZOOM * remPx; i++) {
-        candidate *= 0.92;
-        if (size * candidate <= safeWidth && size * candidate <= safeHeight) break;
+    let fitted = false;
+    for (let i = 0; i < 12 && candidate > MIN_ZOOM * remPx; i++) {
+      candidate = Math.max(MIN_ZOOM * remPx, candidate * 0.92);
+      if (fullyVisible(box(candidate, panFor(candidate)))) {
+        fitted = true;
+        break;
       }
-      candidate = Math.max(MIN_ZOOM * remPx, candidate);
     }
+    // Nothing found inside the zoom range. Leave the view alone rather than
+    // shrink the whole board to its floor for a target that still will not
+    // fit: the player would lose the view they had and gain nothing.
+    if (!fitted) return;
     const nextZoom = candidate / remPx;
-    // Minimal nudge, not a recentre: clamp the target's box into the safe
-    // rectangle from whichever edge it is crossing, rather than centring it,
-    // so a target that is only barely off-screen does not jump further than
-    // it has to.
-    const b = box(candidate, pan);
-    let dx = 0;
-    if (b.left < safeLeft) dx = safeLeft - b.left;
-    else if (b.right > safeRight) dx = safeRight - b.right;
-    let dy = 0;
-    if (b.top < safeTop) dy = safeTop - b.top;
-    else if (b.bottom > safeBottom) dy = safeBottom - b.bottom;
-    const nextPan = { x: pan.x + dx, y: pan.y + dy };
-    if (
-      Math.abs(nextZoom - zoom) < 0.001 &&
-      Math.abs(nextPan.x - pan.x) < 0.5 &&
-      Math.abs(nextPan.y - pan.y) < 0.5
-    ) {
-      return;
-    }
+    const nextPan = panFor(candidate);
+    if (Math.abs(nextZoom - zoom) < 0.001) return;
     // Next frame, matching the composer-visibility effect: the target is
     // arriving as this runs, and a synchronous `setState` here is a
     // cascading render for a view the player has not been shown yet.
@@ -1370,9 +1380,9 @@ export function SpatialBoard<T extends SpatialTile>({
       setPan(nextPan);
     });
     // Deliberately leaves `touched` alone, the same way the composer effect
-    // does: this is the board following the coach's own attention, not the
-    // player choosing a view, and marking it touched would switch the
-    // automatic refit off for the rest of the game.
+    // does: this is the board choosing a scale for itself, not the player
+    // choosing a view, and marking it touched would switch the automatic
+    // refit off for the rest of the game.
     return () => cancelAnimationFrame(frame);
     // `pan` and `zoom` are read above but deliberately excluded: they are
     // this effect's own output, and depending on them would refire it after
