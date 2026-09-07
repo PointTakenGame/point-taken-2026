@@ -422,12 +422,39 @@ function Director({
       if (played || firedRef.current === stamp) return;
       played = true;
       firedRef.current = stamp;
-      // Drop the draft as the move goes out: the real tile lands in the same
-      // cell on the next refresh, and two of them for a frame is a stutter.
-      clearBossDraft();
+      // The typed line stays in its cell until the real tile lands there.
+      //
+      // It used to be dropped here, as the move went out, on the theory that
+      // the real tile arrives on the next refresh and two of them for a frame
+      // is a stutter. The refresh is a server round trip, so what that
+      // actually bought was an empty cell for a few hundred milliseconds:
+      // Steve, 2026-09-07, "Bob autotypes a tile, he types it, and then it
+      // disappears and then it comes back." Holding it costs at worst one
+      // frame where the draft and the finished tile sit in the same cell
+      // saying the same words, which nobody can see.
+      //
+      // What takes it down is this effect's own cleanup, which runs when the
+      // refreshed board arrives, which is the frame the real tile appears in.
+      // The republish drops `finishNow` so the cell stops offering a click
+      // that has already been spent.
+      if (plan) {
+        publishBossDraft({
+          parentId: plan.parentId,
+          corner: plan.corner,
+          side: level.bossSide,
+          bossName: level.bossName,
+          text: plan.text,
+        });
+      }
       startTransition(async () => {
         const result = await bossAct(gameId);
-        if (!result.ok) setError(result.error);
+        if (!result.ok) {
+          setError(result.error);
+          // A refused move appends no event, so `board.lastSeq` does not
+          // move and the cleanup above never runs. Take the draft down by
+          // hand rather than leaving Bob's words hanging in an empty slot.
+          clearBossDraft();
+        }
         router.refresh();
       });
     };
