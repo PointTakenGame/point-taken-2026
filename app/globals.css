@@ -255,6 +255,46 @@
 }
 
 /*
+  The pulse on the one open slot the coach is pointing at.
+
+  Steve, 2026-09-07: "whenever there's a click here on a blank tile space, can
+  we gently flash the tile on and off, not in an aggressive way, but in like a
+  slow roll, like on for a second, off for a second, in like a sine wave
+  pulsing so that we don't need to say click here."
+
+  So this replaces a sentence, not decorates one. `ease-in-out` in both
+  directions over two seconds is the sine wave rather than a constant fade:
+  the slot rests near each end for most of its second and crosses quickly in
+  between, which is what reads as breathing rather than as a dimmer.
+
+  It never goes fully out. A slot at zero takes the sample answer drawn inside
+  it with it, and a board where words blink out entirely reads as a fault; 0.35
+  is far enough down to be unmistakably a pulse and still legible at the bottom
+  of it.
+*/
+@keyframes slot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-slot-pulse {
+  animation: slot-pulse 2s ease-in-out infinite;
+}
+
+/* A pulse is an invitation, not information: nothing is lost by holding it
+   still for somebody who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slot-pulse {
+    animation: none;
+  }
+}
+
+/*
   The account flow's page ground: Rannie's warm grey, with the decorative dot
   grid she draws behind the top of every account frame. Hers is a 5x5px dot of
   #747474 every 52px, starting at (18, 9), and it stops 832px down the page

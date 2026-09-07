@@ -521,6 +521,7 @@ function GhostSlot({
   mark = "+",
   stem = null,
   interactive = true,
+  pulse = false,
   parentId,
   corner,
 }: {
@@ -552,6 +553,17 @@ function GhostSlot({
    * hover-highlighted.
    */
   interactive?: boolean;
+  /**
+   * True for the single slot the coach is pointing at, which then breathes in
+   * and out on a two second cycle (`animate-slot-pulse`, app/globals.css).
+   *
+   * Steve, 2026-09-07, asked for this in place of a sentence: the gym used to
+   * say "click where I'm pointing" in the coach's bubble, at the top of the
+   * screen, about a slot near the bottom of it. A slot that moves is the only
+   * thing on a still board that does, so it says the same thing where the
+   * thing actually is.
+   */
+  pulse?: boolean;
   /**
    * The parent this slot hangs off ("topic" for a root), carried as a data
    * attribute so a coach overlay can point at the right slot without the
@@ -623,7 +635,9 @@ function GhostSlot({
     return (
       <div
         title={label}
-        className="pointer-events-none absolute border-none bg-transparent p-0 opacity-35"
+        className={`pointer-events-none absolute border-none bg-transparent p-0 opacity-35 ${
+          pulse ? "animate-slot-pulse" : ""
+        }`}
         style={style}
         {...dataAttrs}
       >
@@ -638,7 +652,9 @@ function GhostSlot({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="group absolute cursor-pointer border-none bg-transparent p-0"
+      className={`group absolute cursor-pointer border-none bg-transparent p-0 ${
+        pulse ? "animate-slot-pulse" : ""
+      }`}
       style={style}
       {...dataAttrs}
     >
@@ -1665,6 +1681,14 @@ export function SpatialBoard<T extends SpatialTile>({
               stem={tileLead(side, true, null)}
               mark={side === "minus" ? "\u2212" : "+"}
               interactive={interactive}
+              // Only the player's own corner is ever pulsed: the other side's
+              // placeholder is drawn for orientation and pulsing it would
+              // invite a click that does nothing.
+              pulse={
+                interactive &&
+                pointedSlot?.parentId === TOPIC_CELL_ID &&
+                pointedSlot.corner === corner
+              }
               parentId={parentId}
               corner={corner}
               onClick={() => onPlace?.(parentId, pos, sample, corner)}
@@ -1683,6 +1707,7 @@ export function SpatialBoard<T extends SpatialTile>({
               style={pixelStyle(pos, layout, size)}
               label="Click to write your reason here"
               side={side}
+              pulse={pointedSlot?.parentId === parentId && pointedSlot.corner === corner}
               parentId={parentId}
               corner={corner}
               onClick={() => onPlace?.(parentId, pos, sample, corner)}

@@ -43,6 +43,7 @@ import {
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { PencilGlyph } from "@/components/ui/pencil-glyph";
+import { useSeatSpeech } from "@/components/board/seat-speech";
 import { RuleCardFace } from "@/components/board/rule-card-face";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
 import { canStartLaterMove } from "@/components/board/later-moves";
@@ -2571,6 +2572,13 @@ function DefinitionForm({
 /**
  * Walking out. A live board needs both sides, so this ends the game for the
  * other player too, which is why it takes a second press.
+ *
+ * **Smaller, and just "Leave", Steve 2026-09-07:** "make it leave and make the
+ * pill smaller." It is the only thing left on the top strip now, so it no
+ * longer has to hold its own against a row of neighbours, and the one thing a
+ * player is never in danger of misreading is the button in the corner that
+ * takes them off the board. The second press still spells out the whole
+ * consequence, which is where the words are actually needed.
  */
 function LeaveButton({ gameId }: { gameId: string }) {
   const [sure, setSure] = useState(false);
@@ -2593,12 +2601,12 @@ function LeaveButton({ gameId }: { gameId: string }) {
     <div className="flex flex-col items-start gap-1">
       <button
         type="button"
-        className="border-gray/30 bg-offwhite text-p-sm text-neutral-black hover:bg-sand cursor-pointer rounded-full border px-4 py-2 font-semibold shadow-md disabled:opacity-40"
+        className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-label cursor-pointer rounded-full border px-3 py-1.5 text-xs font-bold tracking-widest uppercase shadow-md disabled:opacity-40"
         disabled={pending}
         onClick={leave}
         title="Leave this game and go back to the home screen"
       >
-        {sure ? "Yes, end it for both of us" : "\u2190 Leave game"}
+        {sure ? "Yes, end it for both of us" : "\u2190 Leave"}
       </button>
       {sure ? (
         <p className="text-p-sm bg-offwhite border-gray/30 max-w-[16rem] rounded-xl border px-3 py-2 opacity-80 shadow-md">
@@ -2611,7 +2619,8 @@ function LeaveButton({ gameId }: { gameId: string }) {
   );
 }
 
-/** One person's seat on the board: their face, their side, and their name.
+/** One person's seat on the board: their name, their face, their side, and the
+ *  space where whatever they are doing right now shows up.
  *
  *  Steve, 2026-09-07. Both players are drawn the same way now, and the corner
  *  a badge sits in is decided by side, never by who is reading: Minus hangs
@@ -2623,6 +2632,24 @@ function LeaveButton({ gameId }: { gameId: string }) {
  *  The face is the badge and the side octagon is a corner mark on it, the way
  *  Steve ruled on 2026-09-05. Both are three times the area they were, because
  *  at 48px "they're barely noticeable right now".
+ *
+ *  **Name above the face, and a reserved space beside it, Steve 2026-09-07:**
+ *  "put the name above the emoji picture and then reserve this space toward
+ *  the center, so for the left one it's on the right and for the right one
+ *  it's on the left, for a little bit of a thought bubble, so if they're
+ *  thinking or typing or speaking or something like that then that is the area
+ *  where that happens."
+ *
+ *  So the column reads name then face, and the inward half of the badge is
+ *  held open whether or not anything is in it. It is a fixed width rather than
+ *  one that grows with its contents, because a bubble that pushes the face
+ *  sideways every time the boss starts typing makes the person move, and the
+ *  point of the badge is that the person stays put. Nothing is drawn there
+ *  while the seat is quiet; the space is simply left.
+ *
+ *  What lands in it comes from `seat-speech.ts`, which the gym's Director
+ *  writes to. A live game leaves it empty: there is no "they are typing"
+ *  signal between two real keyboards yet.
  */
 function SeatBadge({
   seat,
@@ -2632,34 +2659,18 @@ function SeatBadge({
   align: "left" | "right";
 }) {
   const colour = seat.side === "plus" ? "var(--color-green)" : "var(--color-orange)";
+  const speech = useSeatSpeech(seat.side);
   return (
     <div
-      className={`pointer-events-none fixed top-20 z-30 flex max-w-[16rem] items-center gap-3 ${
+      className={`pointer-events-none fixed top-20 z-30 flex items-start gap-3 ${
         align === "left" ? "left-8 flex-row" : "right-8 flex-row-reverse"
       }`}
     >
-      {/* The emoji hugs the outer edge on both sides, so the two faces sit at
-          the far corners of the screen and the names read inward. */}
-      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
-        {seat.emoji ? (
-          <span
-            aria-hidden="true"
-            className="border-ink bg-offwhite flex h-20 w-20 items-center justify-center rounded-full border-2 text-5xl leading-none shadow-md"
-          >
-            {seat.emoji}
-          </span>
-        ) : (
-          <SideAvatar side={seat.side} className="h-20 w-20" />
-        )}
-        {seat.emoji ? (
-          <span className="absolute -right-1 -bottom-1">
-            <SideAvatar side={seat.side} className="h-10 w-10" />
-          </span>
-        ) : null}
-      </div>
-      <div className={`flex flex-col ${align === "left" ? "items-start" : "items-end"}`}>
+      {/* The name and the face, in that order, hugging the outer edge on both
+          sides so the two people sit at the far corners of the screen. */}
+      <div className="flex w-24 shrink-0 flex-col items-center gap-1">
         <h3
-          className="font-primary text-p-md tracking-wide uppercase"
+          className="font-primary text-p-md text-center leading-tight tracking-wide uppercase"
           style={{
             color: colour,
             textShadow:
@@ -2671,6 +2682,38 @@ function SeatBadge({
         {seat.you ? (
           <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
             You
+          </span>
+        ) : null}
+        <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+          {seat.emoji ? (
+            <span
+              aria-hidden="true"
+              className="border-ink bg-offwhite flex h-20 w-20 items-center justify-center rounded-full border-2 text-5xl leading-none shadow-md"
+            >
+              {seat.emoji}
+            </span>
+          ) : (
+            <SideAvatar side={seat.side} className="h-20 w-20" />
+          )}
+          {seat.emoji ? (
+            <span className="absolute -right-1 -bottom-1">
+              <SideAvatar side={seat.side} className="h-10 w-10" />
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {/* The reserved thought space, on the inward side of the face. Held open
+          at a fixed width so the face never moves when something lands in it,
+          and pushed down past the name so a bubble points at the head rather
+          than at the lettering above it. */}
+      <div
+        className="flex w-40 shrink-0 pt-8"
+        aria-live="polite"
+        aria-label={`What ${seat.name} is doing`}
+      >
+        {speech ? (
+          <span className="sticker font-secondary text-p-sm text-ink-soft rounded-2xl px-3 py-2 italic">
+            {speech === "typing" ? "typing..." : "thinking..."}
           </span>
         ) : null}
       </div>
@@ -3189,9 +3232,9 @@ export function LiveBoard({
         // four normally, two in gym level 1. The board draws a placeholder
         // for every corner still in play (Steve, 2026-09-04).
         rootTarget={rootTarget(board)}
-        // The rail is `right-8 w-[15rem]`, so 15 plus its 2rem gutter. Keep
+        // The rail is `right-24 w-[15rem]`, so 15 plus its 6rem gutter. Keep
         // this in step with the rail wrapper's classes below.
-        reserveRight={17}
+        reserveRight={21}
         // The bottom cluster is `bottom-8` plus the Place a reason pill, the
         // gap, and the rule-card tray with its tab and its hint line. Keep
         // this in step with that column's classes below; the composer is
@@ -3495,51 +3538,18 @@ export function LiveBoard({
         }}
       />
 
-      {/* The top strip, reordered by Steve on 2026-09-07.
-          Row one is the game's own furniture: the way out, help beside it,
-          then which room and which level. It sits at `top-4` so it runs level
-          with the coach pill, which is `fixed top-4` and centred, and the
-          three read as one line across the top of the screen.
-          Row two, lower and clearly separate, is the two people playing. */}
+      {/* The top strip, cut back to one button by Steve on 2026-09-07: "the
+          only thing that should be left on the top besides coach should be
+          leave game." Everything the top used to carry was furniture rather
+          than play. Help and the room code moved to the bottom-left corner
+          where the bug reporter already lives, and the gym level chip is gone
+          outright because the coach pill in the middle of this same line
+          already reads "Level 1 · 3 of 22".
+
+          The top of a board should be the board and the coach, not a shelf of
+          site chrome competing with them for the first look. */}
       <div className="fixed top-4 left-8 z-30 flex h-10 items-center gap-4">
         <LeaveButton gameId={gameId} />
-        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
-            replaced it on the board: a "?" that opens the same four-step
-            overlay in place. A player who is stuck mid-argument will not
-            leave the game to go and read a page, and the retired client's
-            help was a corner button for the same reason.
-            There used to be two of these, and they were not even the same
-            button: this one opened a second private copy of the overlay,
-            while the one in the top right rail drove the board's own
-            onboarding state, the copy that opens by itself on a first live
-            game and stays shut once it has been read. Steve, 2026-09-07: "we
-            don't need two of those. Keep the help button only on the upper
-            left to the right of leave game." So the survivor sits where he
-            asked and is wired to the real overlay. */}
-        <button
-          type="button"
-          title="Instructions"
-          aria-label="Instructions"
-          onClick={onboarding.show}
-          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg font-bold shadow-md"
-        >
-          ?
-        </button>
-        {/* Rannie writes the room code up here as plain small print, not as a
-            chip: `#Room: 83083` in `1096:252192`. It used to sit in the
-            bottom-left stack with the bug reporter, which is where you look
-            for site furniture rather than for the thing you read aloud to the
-            person you are about to argue with. */}
-        {joinCode ? (
-          <span className="font-primary text-p-md text-gray tracking-wide">
-            #Room: <span className="text-neutral-black">{joinCode}</span>
-          </span>
-        ) : null}
-        {board.mode === "gym" && board.levelId ? (
-          <span className="bg-orange text-neutral-black text-p-sm font-primary rounded-full px-4 py-2 tracking-wide uppercase shadow-md">
-            {board.levelId.replace(/_/g, " ")}
-          </span>
-        ) : null}
       </div>
 
       {/* Row two: the two seats, Minus left and Plus right, on the same line
@@ -3565,7 +3575,7 @@ export function LiveBoard({
           answer the mouse exactly as before. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-y-0 right-0 z-20 w-[26rem]"
+        className="pointer-events-none fixed inset-y-0 right-0 z-20 w-[30rem]"
         style={{
           background:
             "linear-gradient(to left, var(--color-board-ground) 66%, color-mix(in srgb, var(--color-board-ground) 55%, transparent) 85%, transparent)",
@@ -3578,7 +3588,15 @@ export function LiveBoard({
           players are drawn the same way, and the help button is gone because
           one is enough (Steve, 2026-09-07). The rail starts lower now to
           clear the seat row above it. */}
-      <div className="fixed top-44 right-8 z-30 flex max-h-[calc(100vh-12rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
+      {/* Pulled in off the edge by Steve, 2026-09-07: "bring the right side
+          in towards the middle." It was hard against the window at `right-8`,
+          which put it as far from the board it annotates as the screen allows
+          and made the board look pushed left. `right-24` sits it beside the
+          board instead of beside the bezel. Everything that has to keep out of
+          its way carries the same 4rem: `reserveRight` on the board and on the
+          tile card, the `right` on the tray and the move banner, and the width
+          of the fade behind it. */}
+      <div className="fixed top-44 right-24 z-30 flex max-h-[calc(100vh-12rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
         {/* One card, not two. "Ways to win" and a "How this ends" panel under
             it said the same two things in the same rail, one as a diagram and
             one as a paragraph, and Rannie draws a single card. The three lines
@@ -3662,6 +3680,42 @@ export function LiveBoard({
           board root, which means raising the board off the dev hot seat bar
           does not raise this with it. It has to carry the same offset itself. */}
       <div className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-30 flex flex-col items-start gap-2">
+        {/* Rannie writes the room code as plain small print rather than as a
+            chip (`#Room: 83083` in `1096:252192`). It sits down here with the
+            rest of the furniture: it is read aloud once at the start and then
+            never again, so it does not need to hold the top of the screen for
+            the length of a game. */}
+        {joinCode ? (
+          <span className="font-primary text-p-md text-gray pl-1 tracking-wide">
+            #Room: <span className="text-neutral-black">{joinCode}</span>
+          </span>
+        ) : null}
+        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
+            replaced it on the board: a "?" that opens the same four-step
+            overlay in place. A player who is stuck mid-argument will not
+            leave the game to go and read a page, and the retired client's
+            help was a corner button for the same reason.
+            There used to be two of these, and they were not even the same
+            button: one opened a second private copy of the overlay, the other
+            drove the board's own onboarding state, the copy that opens by
+            itself on a first live game and stays shut once it has been read.
+            Steve, 2026-09-07: "we don't need two of those." The survivor is
+            wired to the real overlay.
+            It sits here rather than in the top strip because Steve moved it
+            on 2026-09-07: "take help and onboarding and move them to the
+            lower left right next to report a bug." Help and reporting a bug
+            are the same kind of thing, a way to get unstuck with the software
+            rather than with the argument, and they belong in the same corner
+            as each other. */}
+        <button
+          type="button"
+          title="Instructions"
+          aria-label="Instructions"
+          onClick={onboarding.show}
+          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg font-bold shadow-md"
+        >
+          ?
+        </button>
         <FeedbackPopover variant="inline" />
         {buildStamp}
         {/* `Your games` used to sit here as a quiet way off the board. It
@@ -3694,7 +3748,7 @@ export function LiveBoard({
       {hiddenSurfaces.includes("card-tray") || movingTile ? null : (
         <div
           className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
-          style={{ right: "23rem" }}
+          style={{ right: "27rem" }}
         >
           <RuleCardTray
             deck={deck}
@@ -3740,7 +3794,7 @@ export function LiveBoard({
       {movingTile && (
         <div
           className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
-          style={{ right: "23rem" }}
+          style={{ right: "27rem" }}
         >
           <div className="border-gold bg-sand flex max-w-lg flex-col items-center gap-2 rounded-lg border-2 p-3 shadow-md">
             <span className="font-secondary text-p-sm text-neutral-black text-center">
@@ -3768,12 +3822,12 @@ export function LiveBoard({
             setPencilEditTileId(null);
             setSelectedTileId(null);
           }}
-          // The right rail is 15rem wide sitting 2rem in from the edge, and
+          // The right rail is 15rem wide sitting 6rem in from the edge, and
           // the canvas runs underneath it, so a tile near the middle of the
           // board has "room to the right" that is actually Ways to win. One
           // rem of air on top of the rail's own footprint, so the card flips
           // to the tile's left instead of landing on the panel.
-          reserveRight={18}
+          reserveRight={22}
         >
           {/* Steve, 2026-09-05, ruling on the tile card: the popup no longer
               restates the tile's text at the top. The octagon is right there

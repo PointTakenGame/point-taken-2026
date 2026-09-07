@@ -32,6 +32,7 @@ import {
   TOPIC_CELL_ID,
   type GridPosition,
 } from "@/components/board/layout";
+import { setSeatSpeech } from "@/components/board/seat-speech";
 import { RuleCardFace } from "@/components/board/rule-card-face";
 import {
   clearPointedSlot,
@@ -652,6 +653,26 @@ function Director({
     return () => clearCookedPlacement();
   }, [cookedPlacement]);
 
+  // Where "Bashful Bob is typing" gets drawn.
+  //
+  // Steve, 2026-09-07: "the Bashful Bob is thinking notification appears under
+  // the coach instead of near Bashful Bob. Bashful Bob should have some area
+  // above him where his thoughts are available." It was in the coach's bubble
+  // because the coach is what narrates a beat, but the coach narrating that
+  // somebody else is typing is the coach reporting the room rather than
+  // teaching. The boss has a seat badge with a face in it, and that is where a
+  // person's own activity belongs, so it goes to the badge and the coach stops
+  // mentioning it (see LineBubble below).
+  //
+  // A tile act is typing, because words are being written. Everything else is
+  // thinking, because nothing is.
+  const bossActivity =
+    beat?.kind === "boss" ? (beat.act.kind === "tile" ? "typing" : "thinking") : null;
+  useEffect(() => {
+    setSeatSpeech(bossActivity ? { side: level.bossSide, state: bossActivity } : null);
+    return () => setSeatSpeech(null);
+  }, [bossActivity, level.bossSide]);
+
   // Pause beats can ask to hold their bubble back a moment
   // (`Beat.delayMs`), so the coach visibly reads the board before speaking,
   // instead of the bubble appearing the instant the beat becomes current.
@@ -709,6 +730,19 @@ function Director({
  * showing. Never the thing carrying the level's words any more; those are
  * the speech bubbles pointing at it or at the board. This is just where the
  * coach visibly lives, and where the score sits.
+ *
+ * **The coach's own activity sits under the card, Steve 2026-09-07:** "for the
+ * coach, their equivalent of that is the area right underneath the coach
+ * card." The equivalent being the thought space now reserved beside each
+ * player's seat badge (`SeatBadge`, live-board.tsx). So "reading the board" is
+ * no longer a word swap inside the pill, where it replaced the coach's own
+ * name and made the pill change width mid-level; it hangs below, in the same
+ * place every time, and the pill stays put.
+ *
+ * It is absolutely positioned so it cannot move the pill, and it does not
+ * collide with the beat's bubble even though the bubble docks in the same
+ * place when it has no target: the bubble is only mounted once `bubbleReady`,
+ * and `thinking` is exactly `!bubbleReady`.
  */
 function CoachPersona({
   step,
@@ -721,7 +755,7 @@ function CoachPersona({
   thinking?: boolean;
 }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex flex-col items-center px-4">
       <div
         data-coach-persona
         className="sticker pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2"
@@ -729,11 +763,7 @@ function CoachPersona({
         <span aria-hidden className="text-2xl leading-none">
           🧘
         </span>
-        {thinking ? (
-          <span className="font-label text-ink-soft italic">reading the board...</span>
-        ) : (
-          <span className="font-label text-ink-soft">Coach · {step}</span>
-        )}
+        <span className="font-label text-ink-soft">Coach · {step}</span>
         {score ? (
           <span className="font-label text-ink shrink-0">
             {score.total} pts
@@ -744,6 +774,15 @@ function CoachPersona({
                 {score.delta} {score.label}
               </span>
             ) : null}
+          </span>
+        ) : null}
+      </div>
+      {/* The coach's thought space: under the card, always in the same place,
+          empty when the coach has nothing going on. */}
+      <div className="relative w-full" aria-live="polite">
+        {thinking ? (
+          <span className="sticker font-secondary text-p-sm text-ink-soft absolute top-2 left-1/2 -translate-x-1/2 rounded-2xl px-3 py-1.5 whitespace-nowrap italic">
+            reading the board...
           </span>
         ) : null}
       </div>
@@ -917,6 +956,12 @@ function LineBubble({
   // boss beat: see offScriptTokenNudge for the two cases it covers.
   const tokenNudge =
     beat.kind === "win" ? null : offScriptTokenNudge(level, board, progress);
+  // A boss beat with nothing written for it used to fall back to
+  // "<boss> is typing...", which is now drawn at the boss's own seat badge
+  // instead (see the bossActivity effect in Director, and `seat-speech.ts`).
+  // So the line can be nothing at all, and when it is, and there is nothing
+  // else to show, the coach says nothing rather than saying something in order
+  // to avoid an empty bubble.
   const line =
     tokenNudge ??
     (beat.kind === "player"
@@ -924,11 +969,23 @@ function LineBubble({
         ? beat.nudge
         : beat.coach
       : beat.kind === "boss"
-        ? (beat.coach ??
-          (beat.act.kind === "tile"
-            ? `${level.bossName} is typing...`
-            : `${level.bossName} is thinking...`))
+        ? (beat.coach ?? null)
         : (beat.coach ?? "Every thread is closing. One moment."));
+
+  const suggestions =
+    beat.kind === "player" &&
+    (beat.expect.kind === "edit" || beat.expect.kind === "propose")
+      ? (beat.expect.suggestions ?? [])
+      : [];
+
+  if (
+    !line &&
+    !(beat.kind === "boss" && beat.bossSays) &&
+    !error &&
+    suggestions.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <Bubble targetSelector={targetSelector} width={20}>
@@ -938,7 +995,7 @@ function LineBubble({
             {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
           </p>
         ) : null}
-        <Paragraphs className="font-secondary text-ink" text={line} />
+        {line ? <Paragraphs className="font-secondary text-ink" text={line} /> : null}
 
         {/*
           Nothing is said here about where to click, on purpose. The sample
@@ -961,15 +1018,14 @@ function LineBubble({
         */}
         {beat.kind === "player" &&
         (beat.expect.kind === "edit" || beat.expect.kind === "propose") &&
-        beat.expect.suggestions &&
-        beat.expect.suggestions.length > 0 ? (
+        suggestions.length > 0 ? (
           <div className="flex flex-col gap-1">
             <span className="font-label text-ink-soft">
               {beat.expect.kind === "edit"
                 ? "Something like:"
                 : "Something like one of these:"}
             </span>
-            {beat.expect.suggestions.map((sample) => (
+            {suggestions.map((sample) => (
               <p key={sample} className="font-secondary text-p-sm text-ink-soft">
                 “{sample}”
               </p>
