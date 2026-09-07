@@ -2052,10 +2052,15 @@ function InTileComposer({
   // wants to keep it can leave it, and a player who wants their own words
   // can just start typing over the selection in one motion. `finishedAt` is
   // 0 until the first finish, so the mount render is a no-op here.
+  //
+  // Not when the draft is locked. Selecting text offers to replace it, and a
+  // locked draft has nothing to replace it with: the keystroke that the
+  // selection invites does nothing, and the tile arrives looking like it has
+  // been flagged rather than written (Steve, 2026-09-07, playing level 1).
   useEffect(() => {
-    if (finishedAt === 0) return;
+    if (finishedAt === 0 || locked) return;
     textareaRef.current?.select();
-  }, [finishedAt]);
+  }, [finishedAt, locked]);
 
   /**
    * The box is exactly as tall as what is in it, so it never scrolls.

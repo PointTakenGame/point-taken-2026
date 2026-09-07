@@ -32,10 +32,14 @@ import { createPortal } from "react-dom";
 type Pos = {
   left: number;
   top: number;
-  /** Which edge the arrow sits on, or null when this placement carries no arrow. */
-  arrowSide: "left" | "right" | null;
-  /** Arrow's vertical offset from the card's top edge, in px. */
-  arrowTop: number;
+  /**
+   * Which edge of the card the arrow sits on, or null when this placement
+   * carries no arrow. "left" and "right" are a card beside its anchor;
+   * "top" and "bottom" are a card below or above it.
+   */
+  arrowSide: "left" | "right" | "top" | "bottom" | null;
+  /** Arrow's offset along that edge from the card's top or left corner, in px. */
+  arrowOffset: number;
 } | null;
 
 export function AnchoredCard({
@@ -119,29 +123,117 @@ export function AnchoredCard({
         rect.bottom + gap,
         Math.max(8, window.innerHeight - cardHeight - 8),
       );
-      setPos({ left, top, arrowSide: null, arrowTop: 0 });
+      setPos({ left, top, arrowSide: null, arrowOffset: 0 });
       return;
     }
 
-    // To the right of the tile by default, flipped to the left when there is
-    // no room, and always kept inside the viewport vertically.
+    // Four places a card can go: beside the anchor on either side, or below
+    // or above it. Staying inside the window is not enough on the game board,
+    // where a card is wider than a tile and the tiles are packed on a
+    // diagonal: "to the right of the anchor" put the coach's card squarely on
+    // top of the neighbouring reason more often than not (Steve, 2026-09-07,
+    // playing level 1: the pause card sits on top of the tiles it is talking
+    // about). So all four are measured against what is actually on the board
+    // and the one that covers the least wins.
     const rightLimit = window.innerWidth - 8 - reserveRight * 16;
-    let left = rect.right + gap;
-    let arrowSide: "left" | "right" = "left";
-    if (left + cardWidth > rightLimit) {
-      left = rect.left - gap - cardWidth;
-      arrowSide = "right";
+    const clampLeft = (value: number) =>
+      Math.min(Math.max(8, value), Math.max(8, rightLimit - cardWidth));
+    const clampTop = (value: number) =>
+      Math.min(Math.max(8, value), Math.max(8, window.innerHeight - cardHeight - 8));
+
+    const midX = rect.left + rect.width / 2;
+    const midY = rect.top + rect.height / 2;
+
+    // Ordered: the first entry wins a tie, so an unobstructed board still
+    // places the card where it has always been placed.
+    const candidates: {
+      side: "left" | "right" | "top" | "bottom";
+      left: number;
+      top: number;
+    }[] = [
+      {
+        side: "left",
+        left: clampLeft(rect.right + gap),
+        top: clampTop(midY - cardHeight / 2),
+      },
+      {
+        side: "right",
+        left: clampLeft(rect.left - gap - cardWidth),
+        top: clampTop(midY - cardHeight / 2),
+      },
+      {
+        side: "top",
+        left: clampLeft(midX - cardWidth / 2),
+        top: clampTop(rect.bottom + gap),
+      },
+      {
+        side: "bottom",
+        left: clampLeft(midX - cardWidth / 2),
+        top: clampTop(rect.top - gap - cardHeight),
+      },
+    ];
+
+    // Everything the card should not bury: every reason on the board, and the
+    // anchor itself, which the clamps above can otherwise slide the card
+    // straight on top of when neither side has room.
+    //
+    // A tile is drawn as an octagon, clipped out of its box by OCTAGON_CLIP in
+    // components/board/geometry.ts, so its four corners are empty air that
+    // still measures solid in getBoundingClientRect. Scoring the raw box makes
+    // the card flee a corner it is not actually covering, and the tiles sit on
+    // a diagonal, so corners are exactly where the gaps between them are. Pull
+    // each box in far enough that a corner graze is free and burying the text
+    // still costs everything.
+    const obstacles: Edges[] = [rect];
+    for (const tile of document.querySelectorAll("[data-tile-id]")) {
+      const box = tile.getBoundingClientRect();
+      if (box.width <= 4 || box.height <= 4) continue;
+      const insetX = box.width * CORNER_INSET;
+      const insetY = box.height * CORNER_INSET;
+      obstacles.push({
+        left: box.left + insetX,
+        right: box.right - insetX,
+        top: box.top + insetY,
+        bottom: box.bottom - insetY,
+      });
     }
-    if (left < 8) left = 8;
-    const top = Math.min(
-      Math.max(8, rect.top + rect.height / 2 - cardHeight / 2),
-      Math.max(8, window.innerHeight - cardHeight - 8),
-    );
-    const arrowTop = Math.min(
-      Math.max(16, rect.top + rect.height / 2 - top),
-      cardHeight - 16,
-    );
-    setPos({ left, top, arrowSide: arrow ? arrowSide : null, arrowTop });
+
+    const covered = (left: number, top: number) => {
+      let total = 0;
+      for (const obstacle of obstacles) {
+        const overlapX =
+          Math.min(left + cardWidth, obstacle.right) - Math.max(left, obstacle.left);
+        const overlapY =
+          Math.min(top + cardHeight, obstacle.bottom) - Math.max(top, obstacle.top);
+        if (overlapX > 0 && overlapY > 0) total += overlapX * overlapY;
+      }
+      return total;
+    };
+
+    let best = candidates[0];
+    let bestCost = covered(best.left, best.top);
+    for (const candidate of candidates.slice(1)) {
+      const cost = covered(candidate.left, candidate.top);
+      if (cost < bestCost) {
+        best = candidate;
+        bestCost = cost;
+      }
+    }
+
+    // The arrow runs along whichever edge faces the anchor, so a card beside
+    // the anchor offsets its tail vertically and one below or above it
+    // offsets horizontally.
+    const vertical = best.side === "left" || best.side === "right";
+    const arrowOffset = vertical
+      ? Math.min(Math.max(16, midY - best.top), Math.max(16, cardHeight - 16))
+      : Math.min(Math.max(16, midX - best.left), Math.max(16, cardWidth - 16));
+
+    setPos({
+      left: best.left,
+      top: best.top,
+      arrowSide: arrow ? best.side : null,
+      arrowOffset,
+    });
   }, [anchorSelector, fallbackSelector, width, reserveRight, placement, arrow]);
 
   useEffect(() => {
@@ -221,28 +313,55 @@ export function AnchoredCard({
       </div>
 
       {/* Drawn after the panel, and outside it, so it reads as a tail on the
-          card pointing at the thing the card is about. Two borders rather than
-          four: a square with a border all the way round draws a visible V
-          across the card's interior once half of it overlaps the panel. Which
-          two depends on the side, because a 45-degree rotation turns the left
-          and bottom edges into the outward faces of a leftward tip, and the
-          top and right edges into those of a rightward one. */}
+          card pointing at the thing the card is about. Which borders it draws,
+          and why only two of them, is `ARROW_BORDERS` below. */}
       {pos?.arrowSide ? (
         <div
           aria-hidden
-          className={`border-gray/40 bg-offwhite pointer-events-none absolute h-3 w-3 rotate-45 ${
-            pos.arrowSide === "left" ? "border-b border-l" : "border-t border-r"
-          }`}
-          style={{
-            top: `${pos.arrowTop - 6}px`,
-            ...(pos.arrowSide === "left" ? { left: "-6px" } : { right: "-6px" }),
-          }}
+          className={`border-gray/40 bg-offwhite pointer-events-none absolute h-3 w-3 rotate-45 ${ARROW_BORDERS[pos.arrowSide]}`}
+          style={
+            pos.arrowSide === "left" || pos.arrowSide === "right"
+              ? {
+                  top: `${pos.arrowOffset - 6}px`,
+                  ...(pos.arrowSide === "left" ? { left: "-6px" } : { right: "-6px" }),
+                }
+              : {
+                  left: `${pos.arrowOffset - 6}px`,
+                  ...(pos.arrowSide === "top" ? { top: "-6px" } : { bottom: "-6px" }),
+                }
+          }
         />
       ) : null}
     </div>,
     document.body,
   );
 }
+
+/**
+ * Which two of the tail's four borders are its outward faces.
+ *
+ * A 45-degree rotation turns the square's left and bottom edges into the two
+ * faces of a leftward tip, its top and right into those of a rightward one,
+ * and so on round. Drawing all four puts a visible V across the card's
+ * interior where the tail overlaps the panel.
+ */
+/** The sides of a rectangle, which is all the overlap maths below needs. */
+type Edges = { left: number; right: number; top: number; bottom: number };
+
+/**
+ * How far into a tile's bounding box its octagon actually starts, as a
+ * fraction of the box. OCTAGON_CLIP cuts each corner at 29%; this is a little
+ * under half of that, which is the most that can be shaved off all four sides
+ * at once without eating into the tile's own text.
+ */
+const CORNER_INSET = 0.13;
+
+const ARROW_BORDERS: Record<"left" | "right" | "top" | "bottom", string> = {
+  left: "border-b border-l",
+  right: "border-t border-r",
+  top: "border-t border-l",
+  bottom: "border-b border-r",
+};
 
 /** Nothing ever changes, so nothing ever needs to notify. */
 function subscribeNoop(): () => void {
