@@ -278,6 +278,20 @@ export interface SpatialBoardProps<T extends SpatialTile> {
    * markup in `draft` and the board only says where it goes.
    */
   draftAt?: GridPosition | null;
+  /**
+   * Which slot the open draft occupies, carried through as the same
+   * `data-slot-parent` / `data-slot-corner` pair an empty slot wears.
+   *
+   * Steve reported the same thing twice (2026-09-07): the coach's bubble
+   * appears beside the slot it is pointing at, then vanishes and reappears at
+   * the top of the screen. This is why. Clicking the slot swaps the empty-slot
+   * element for the composer, and the composer carried no slot attributes, so
+   * the selector the coach was anchored to stopped matching anything and the
+   * bubble fell back to docking under the coach pill. His rule: "anything about
+   * something else should always be spatially next to it. People shouldn't have
+   * to find things."
+   */
+  draftSlot?: { parentId: string; corner: TileCorner } | null;
   /** Drawn in the `draftAt` cell in place of that cell's open slot. */
   draft?: ReactNode;
   /**
@@ -782,6 +796,7 @@ export function SpatialBoard<T extends SpatialTile>({
   pointedTileId = null,
   bossDraft = null,
   draftAt = null,
+  draftSlot = null,
   draft,
   placementEnabled = false,
   canPlaceOn,
@@ -1701,6 +1716,8 @@ export function SpatialBoard<T extends SpatialTile>({
         {draftAt && (
           <div
             className="z-20"
+            data-slot-parent={draftSlot?.parentId}
+            data-slot-corner={draftSlot?.corner}
             // Deliberately unclipped, unlike every other cell. The composer
             // hangs its Place and cancel buttons below the octagon, and the
             // octagon-shaped clip that fixes hit testing for placed tiles

@@ -625,6 +625,16 @@ function Director({
   // as the one legal placement, and is already null for a beat with no slot
   // anchor (a throw, a token, a tile anchor), which is exactly when nothing
   // should be offered at all.
+  //
+  // Steve, 2026-09-07: the locked draft is not part of that bundle any more,
+  // it applies to every Gym level. A level teaches one rule by walking the
+  // player through a board whose next move is known, and a player who rewrites
+  // the coach's sample can walk it somewhere the script cannot follow. Stick
+  // to the Root is the plain case: if the player edits the root, the rule has
+  // nothing left to be about. So a Gym draft is the script's words, and Place
+  // or Cancel are the only moves. This is until further notice; when a level
+  // should hand the writing back, that level stops locking, not all of them.
+  // A live game is untouched: no Director mounts, so `NONE` still applies.
   const cookedPlacement = useMemo(
     () =>
       level.cooked
@@ -634,11 +644,10 @@ function Director({
             ghosts: false,
             lockedText: true,
           }
-        : null,
+        : { onlySlot: null, ownReplies: true, ghosts: true, lockedText: true },
     [level.cooked, pointedSlot],
   );
   useEffect(() => {
-    if (!cookedPlacement) return;
     publishCookedPlacement(cookedPlacement);
     return () => clearCookedPlacement();
   }, [cookedPlacement]);

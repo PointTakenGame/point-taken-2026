@@ -38,7 +38,7 @@ export const GROUND_RULES: Level = {
   topicId: "clock-changes",
   bossId: "rambling-rosa",
   bossName: "Rambling Rosa",
-  bossEmoji: "🧑🏿‍🔧",
+  bossEmoji: "🧑🏽‍🔧",
   cardId: CARD,
   // The standard four, which is what the opening pause tells the player a
   // normal game looks like. Rosa opens C and D, the player opens A and B.

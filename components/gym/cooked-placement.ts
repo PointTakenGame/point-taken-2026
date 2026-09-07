@@ -5,11 +5,12 @@
  * to the board.
  *
  * Steve, 2026-09-05: level 1 is "fully cooked", meaning the player is never
- * given a choice a script has not already made for them. Ordinary play (and
- * every other level) gets the unrestricted `NONE` value: hover ghosts on
- * every tile, replies under your own reasons, editable drafts, all of it.
- * `NONE` is also what a board with no Director mounted ever sees, live games
- * included.
+ * given a choice a script has not already made for them. Another Gym level
+ * keeps the hover ghosts and the replies under its own tiles, but its draft
+ * is locked too (Steve, 2026-09-07): every scripted level needs the tile it
+ * placed to say what the script thinks it says.
+ * `NONE`, fully unrestricted, is what a board with no Director mounted sees,
+ * which means every live game.
  *
  * Same shape and reasons as `sample-answers.ts`: the Director and the board
  * are siblings on the game page, only the Director knows whether the level

@@ -103,7 +103,6 @@ import {
   throwCard,
 } from "@/app/game/[gameId]/actions";
 import type { Side, TileCorner, Uuid } from "@/lib/events/types";
-import { OnboardingLauncher } from "@/components/onboarding/onboarding-launcher";
 import { useBossDraft } from "@/components/gym/boss-draft";
 import { useCookedPlacement } from "@/components/gym/cooked-placement";
 import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
@@ -142,6 +141,9 @@ export interface LiveBoardProps {
    *  functions, which cannot be handed from the server to a client
    *  component. Undefined outside the Gym. */
   opponentEmoji?: string;
+  /** This player's own avatar emoji, shown on their seat badge. Same rule as
+   *  `opponentEmoji`: only the emoji crosses the boundary. */
+  myEmoji?: string;
 }
 
 /** Every live tile that has no live parent and is not a thread root. */
@@ -2544,6 +2546,73 @@ function LeaveButton({ gameId }: { gameId: string }) {
   );
 }
 
+/** One person's seat on the board: their face, their side, and their name.
+ *
+ *  Steve, 2026-09-07. Both players are drawn the same way now, and the corner
+ *  a badge sits in is decided by side, never by who is reading: Minus hangs
+ *  top left and Plus top right, matching the colour that side's tiles carry on
+ *  the board. Before this, your own side was a bare 36px octagon in the top
+ *  left cluster and the opponent was a 48px face in the right rail, so the two
+ *  people in the game were drawn at two sizes in two idioms in two places.
+ *
+ *  The face is the badge and the side octagon is a corner mark on it, the way
+ *  Steve ruled on 2026-09-05. Both are three times the area they were, because
+ *  at 48px "they're barely noticeable right now".
+ */
+function SeatBadge({
+  seat,
+  align,
+}: {
+  seat: { side: Side; emoji?: string; name: string; you: boolean };
+  align: "left" | "right";
+}) {
+  const colour = seat.side === "plus" ? "var(--color-green)" : "var(--color-orange)";
+  return (
+    <div
+      className={`pointer-events-none fixed top-20 z-30 flex max-w-[16rem] items-center gap-3 ${
+        align === "left" ? "left-8 flex-row" : "right-8 flex-row-reverse"
+      }`}
+    >
+      {/* The emoji hugs the outer edge on both sides, so the two faces sit at
+          the far corners of the screen and the names read inward. */}
+      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+        {seat.emoji ? (
+          <span
+            aria-hidden="true"
+            className="border-ink bg-offwhite flex h-20 w-20 items-center justify-center rounded-full border-2 text-5xl leading-none shadow-md"
+          >
+            {seat.emoji}
+          </span>
+        ) : (
+          <SideAvatar side={seat.side} className="h-20 w-20" />
+        )}
+        {seat.emoji ? (
+          <span className="absolute -right-1 -bottom-1">
+            <SideAvatar side={seat.side} className="h-10 w-10" />
+          </span>
+        ) : null}
+      </div>
+      <div className={`flex flex-col ${align === "left" ? "items-start" : "items-end"}`}>
+        <h3
+          className="font-primary text-p-md tracking-wide uppercase"
+          style={{
+            color: colour,
+            textShadow:
+              "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
+          }}
+        >
+          {seat.name}
+        </h3>
+        {seat.you ? (
+          <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
+            You
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * A thread's resolution, drawn on the reason the thread started from.
  *
@@ -2707,6 +2776,7 @@ export function LiveBoard({
   buildStamp = null,
   joinCode = null,
   opponentEmoji,
+  myEmoji,
 }: LiveBoardProps): ReactElement {
   const threads = liveThreads(board);
 
@@ -2828,7 +2898,27 @@ export function LiveBoard({
   // opposite of mine is the safe fallback: there are only two sides, and by
   // the time a board is live the other one is taken.
   const opponent = board.players.find((player) => player.id !== me.playerId) ?? null;
-  const opponentSide: Side = opponent?.role ?? (me.role === "plus" ? "minus" : "plus");
+  const mySeatPlayer = board.players.find((player) => player.id === me.playerId) ?? null;
+  // Steve, 2026-09-07: the two seat badges are placed by side, not by who is
+  // reading. Minus hangs top left and Plus top right, so the badge is always
+  // on the same side of the screen as that player's colour is on the board,
+  // whichever seat you happen to be sitting in.
+  const seatOf = (side: Side) =>
+    side === me.role
+      ? {
+          side,
+          emoji: myEmoji,
+          name: mySeatPlayer?.displayName ?? SIDE_LABEL[side],
+          you: true,
+        }
+      : {
+          side,
+          emoji: opponentEmoji,
+          name: opponent?.displayName ?? SIDE_LABEL[side],
+          you: false,
+        };
+  const minusSeat = seatOf("minus");
+  const plusSeat = seatOf("plus");
 
   const threadByRoot = useMemo(
     () => new Map(threads.map((thread) => [thread.rootId, thread])),
@@ -3051,6 +3141,9 @@ export function LiveBoard({
         // reserving. A live game runs no coach and passes 0.
         reserveTop={board.mode === "gym" ? 5 : 0}
         draftAt={draft?.pos ?? null}
+        // The open composer wears the slot's own coordinates, so the coach's
+        // bubble keeps pointing at the cell after the click that opened it.
+        draftSlot={draft ? { parentId: draft.parentId, corner: draft.corner } : null}
         draft={
           draft && (
             <InTileComposer
@@ -3333,15 +3426,36 @@ export function LiveBoard({
         }}
       />
 
-      {/* Top left: the way out, and which game this is. Ported from the
-          retired client, where the browser Back button is trapped and this
-          button is the only exit. */}
-      <div className="fixed top-14 left-8 z-30 flex items-center gap-4">
+      {/* The top strip, reordered by Steve on 2026-09-07.
+          Row one is the game's own furniture: the way out, help beside it,
+          then which room and which level. It sits at `top-4` so it runs level
+          with the coach pill, which is `fixed top-4` and centred, and the
+          three read as one line across the top of the screen.
+          Row two, lower and clearly separate, is the two people playing. */}
+      <div className="fixed top-4 left-8 z-30 flex h-10 items-center gap-4">
         <LeaveButton gameId={gameId} />
-        {/* Which side you are, in the corner Rannie puts it in. Your colour is
-            on every tile you have placed, but only once you have placed one,
-            and the first move of the game is the one where knowing matters. */}
-        <SideAvatar side={me.role} className="h-9 w-9" />
+        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
+            replaced it on the board: a "?" that opens the same four-step
+            overlay in place. A player who is stuck mid-argument will not
+            leave the game to go and read a page, and the retired client's
+            help was a corner button for the same reason.
+            There used to be two of these, and they were not even the same
+            button: this one opened a second private copy of the overlay,
+            while the one in the top right rail drove the board's own
+            onboarding state, the copy that opens by itself on a first live
+            game and stays shut once it has been read. Steve, 2026-09-07: "we
+            don't need two of those. Keep the help button only on the upper
+            left to the right of leave game." So the survivor sits where he
+            asked and is wired to the real overlay. */}
+        <button
+          type="button"
+          title="Instructions"
+          aria-label="Instructions"
+          onClick={onboarding.show}
+          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg font-bold shadow-md"
+        >
+          ?
+        </button>
         {/* Rannie writes the room code up here as plain small print, not as a
             chip: `#Room: 83083` in `1096:252192`. It used to sit in the
             bottom-left stack with the bug reporter, which is where you look
@@ -3357,18 +3471,18 @@ export function LiveBoard({
             {board.levelId.replace(/_/g, " ")}
           </span>
         ) : null}
-        {/* The How to play page is gone (Steve, 2026-09-03) and this is what
-            replaced it on the board: a "?" that opens the same four-step
-            overlay in place. A player who is stuck mid-argument will not
-            leave the game to go and read a page, and the retired client's
-            help was a corner button for the same reason. */}
-        <OnboardingLauncher
-          label="How to play"
-          className="border-gray/30 bg-offwhite text-neutral-black hover:bg-sand font-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border text-lg shadow-md"
-        >
-          <span aria-hidden>?</span>
-        </OnboardingLauncher>
       </div>
+
+      {/* Row two: the two seats, Minus left and Plus right, on the same line
+          as each other and lower than the furniture above them. These used to
+          be a 36px octagon on the left saying which side you were and a 48px
+          badge in the right rail saying who the other person was, which meant
+          the two players were drawn at different sizes, in different places,
+          in different ways. Steve, 2026-09-07: "those emojis need to be much
+          bigger, like three times as big because they're barely noticeable
+          right now." */}
+      <SeatBadge seat={minusSeat} align="left" />
+      <SeatBadge seat={plusSeat} align="right" />
 
       {/* A soft fade under the right rail.
           The cards float over a canvas that pans, so a tile can end up behind
@@ -3389,62 +3503,13 @@ export function LiveBoard({
         }}
       />
 
-      {/* Top right: who you are, help, and the two ways this ends. Same stack
-          and the same 13rem column width as the retired client. */}
-      <div className="fixed top-8 right-8 z-30 flex max-h-[calc(100vh-4rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
-        {/* The person on the other side of the argument, named and coloured,
-            which is what Rannie hangs in this corner. It used to say who
-            *you* are, and you already know: your own side is written on
-            every tile you have placed and on the card in the bottom centre
-            that only offers your colour. Theirs is the thing worth a
-            permanent corner. */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-end gap-2">
-            {/* Steve, 2026-09-05: the boss's own face is who you are looking
-                at; the side's plus/minus octagon is a label on it, not the
-                other way around. The emoji is now the primary badge and the
-                octagon the small corner mark, where the two used to be
-                sized the other way round. */}
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-              {opponentEmoji ? (
-                <span
-                  aria-hidden="true"
-                  className="border-ink bg-orange flex h-12 w-12 items-center justify-center rounded-full border-2 text-2xl leading-none shadow-md"
-                >
-                  {opponentEmoji}
-                </span>
-              ) : (
-                <SideAvatar side={opponentSide} className="h-12 w-12" />
-              )}
-              {opponentEmoji ? (
-                <span className="absolute -right-1.5 -bottom-1.5">
-                  <SideAvatar side={opponentSide} className="h-6 w-6" />
-                </span>
-              ) : null}
-            </div>
-            <h3
-              className="font-primary text-p-md tracking-wide uppercase"
-              style={{
-                color:
-                  opponentSide === "plus" ? "var(--color-green)" : "var(--color-orange)",
-                textShadow:
-                  "-3px -3px 0 var(--color-offwhite), 3px -3px 0 var(--color-offwhite), -3px 3px 0 var(--color-offwhite), 3px 3px 0 var(--color-offwhite)",
-              }}
-            >
-              {opponent?.displayName ?? SIDE_LABEL[opponentSide]}
-            </h3>
-          </div>
-          <button
-            type="button"
-            title="Instructions"
-            aria-label="Instructions"
-            onClick={onboarding.show}
-            className="btn-icon border-gray/30 bg-offwhite text-p-md text-neutral-black h-10 w-10 shrink-0 cursor-pointer rounded-full border font-bold shadow-md"
-          >
-            ?
-          </button>
-        </div>
-
+      {/* Top right: the two ways this ends. Same 13rem column width as the
+          retired client. It used to open with the opponent's name badge and a
+          second help button; the badge moved up to the seat row so both
+          players are drawn the same way, and the help button is gone because
+          one is enough (Steve, 2026-09-07). The rail starts lower now to
+          clear the seat row above it. */}
+      <div className="fixed top-44 right-8 z-30 flex max-h-[calc(100vh-12rem)] w-[15rem] flex-col gap-3 overflow-y-auto pb-2">
         {/* One card, not two. "Ways to win" and a "How this ends" panel under
             it said the same two things in the same rail, one as a diagram and
             one as a paragraph, and Rannie draws a single card. The three lines
