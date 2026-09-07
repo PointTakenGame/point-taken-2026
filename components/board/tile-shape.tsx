@@ -180,6 +180,8 @@ export function TileShape({
   weight = "normal",
   watermark,
   dimmed = false,
+  muted = false,
+  flash = false,
   selected = false,
   className,
   style,
@@ -197,6 +199,24 @@ export function TileShape({
   watermark?: string;
   /** Resolution-thread dimming (retired `resolvingThreadRoot`): fades everything but the thread being resolved. No engine state drives this yet; wired for the day one exists. */
   dimmed?: boolean;
+  /**
+   * A far softer fade than `dimmed`, for a tile that is merely not a candidate
+   * for the move in progress rather than out of the game.
+   *
+   * Steve, 2026-09-07: with a rule card in hand, every reason on the board
+   * still looked equally clickable, so the player learned which ones were legal
+   * targets by clicking the illegal ones and reading an error. `dimmed` is far
+   * too strong for this: at 20% the rest of the board stops being readable, and
+   * a player choosing a target is reading the other tiles, not ignoring them.
+   */
+  muted?: boolean;
+  /**
+   * Play the landing flash once, for as long as this stays true.
+   *
+   * Set on the tile a rule card has just been thrown at. It is an event, not a
+   * state, so the caller turns it off again on a timer.
+   */
+  flash?: boolean;
   /** Retired client's selected/active tile highlight. A CSS ring would be clipped away by the octagon wrappers, so the outer frame goes to full strength instead. */
   selected?: boolean;
   className?: string;
@@ -234,7 +254,7 @@ export function TileShape({
 
   return (
     <div
-      className={`group shrink-0 transition-[filter] duration-150 [filter:drop-shadow(0_1px_2px_rgb(0_0_0_/_0.10))] hover:[filter:drop-shadow(0_3px_6px_rgb(0_0_0_/_0.16))] ${dimmed ? "opacity-20" : ""} ${className ?? ""}`}
+      className={`group shrink-0 transition-[filter] duration-150 [filter:drop-shadow(0_1px_2px_rgb(0_0_0_/_0.10))] hover:[filter:drop-shadow(0_3px_6px_rgb(0_0_0_/_0.16))] ${dimmed ? "opacity-20" : muted ? "opacity-45 saturate-50" : ""} ${flash ? "animate-tile-flash" : ""} ${className ?? ""}`}
       style={{
         position: "relative",
         width: `${size}rem`,

@@ -3121,6 +3121,17 @@ export function LiveBoard({
   const [armedCardId, setArmedCardId] = useState<string | null>(null);
   const [throwError, setThrowError] = useState<string | null>(null);
   const [throwPending, startThrow] = useTransition();
+  // The reason a card has just landed on, held only long enough to flash it.
+  // The card does appear on the tile, but it appears in the same frame the
+  // board re-projects, so without this the one thing that just happened is
+  // lost in everything else that moved (Steve, 2026-09-07, playing level 1).
+  const [flashTileId, setFlashTileId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flashTileId) return;
+    // Two beats of 0.7s in globals.css, plus a little air.
+    const timer = window.setTimeout(() => setFlashTileId(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [flashTileId]);
   // Moving a reason is the same two clicks as throwing a card (Steve,
   // 2026-09-05, BRAIN-T260905-64): Move it on the tile's card arms the board,
   // then the empty spot clicked is where the reason goes. Nobody is asked
@@ -3406,7 +3417,10 @@ export function LiveBoard({
                 cardId,
               });
               if (!result.ok) setThrowError(result.error);
-              else setArmedCardId(null);
+              else {
+                setArmedCardId(null);
+                setFlashTileId(tileId);
+              }
             });
             return;
           }
@@ -3452,6 +3466,17 @@ export function LiveBoard({
                 // a negotiation on one tile should not look like it belongs
                 // to the whole board.
                 dimmed={tile.removed || topicEditing || topicPending}
+                // With a card armed, every reason it cannot legally answer
+                // steps back, so the legal targets are the ones that read as
+                // clickable. Without this the player finds out which is which
+                // by clicking the wrong ones and reading the error (Steve,
+                // 2026-09-07). `canThrowCard` is the same check the click
+                // handler runs, so the two can never disagree.
+                muted={
+                  armedCardId !== null &&
+                  !canThrowCard(board, tile.id, armedCardId, me.role, me.playerId).ok
+                }
+                flash={tile.id === flashTileId}
                 selected={tile.id === selectedTileId}
               >
                 <p className="font-tiles text-center">

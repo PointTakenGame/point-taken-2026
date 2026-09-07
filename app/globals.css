@@ -295,6 +295,60 @@
 }
 
 /*
+  A rule card landing on a reason.
+
+  Steve, 2026-09-07, playing level 1: clicking the offending tile "produced
+  almost no feedback". The card does appear on the tile, but it appears at the
+  same instant the board is re-projecting and half a screen of other things
+  move, so the one thing that just happened is the one thing nobody sees.
+
+  Two quick beats rather than one, because a single pulse at this duration is
+  easy to read as a render hiccup, and a warm glow rather than a colour change,
+  because the tile keeps its own side colour and this is an event on it, not a
+  new state of it. It runs twice and stops: an animation that keeps going is a
+  status light, and this is an acknowledgement.
+
+  On the outer wrapper, which is the one layer of a tile that is not inside an
+  octagon clip, so a glow drawn outside the silhouette survives.
+*/
+@keyframes tile-flash {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1));
+  }
+  30%,
+  70% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 16px rgb(233 165 46 / 0.9));
+  }
+}
+
+.animate-tile-flash {
+  animation: tile-flash 0.7s ease-in-out 2;
+}
+
+/* The same acknowledgement with the movement taken out. The glow alone still
+   says which tile it landed on, so this keeps the feedback rather than
+   dropping it the way the slot pulse above can afford to. */
+@keyframes tile-flash-still {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1));
+  }
+  30%,
+  70% {
+    filter: drop-shadow(0 0 16px rgb(233 165 46 / 0.9));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tile-flash {
+    animation-name: tile-flash-still;
+  }
+}
+
+/*
   The account flow's page ground: Rannie's warm grey, with the decorative dot
   grid she draws behind the top of every account frame. Hers is a 5x5px dot of
   #747474 every 52px, starting at (18, 9), and it stops 832px down the page
