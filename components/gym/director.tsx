@@ -31,6 +31,7 @@ import {
   TOPIC_CELL_ID,
   type GridPosition,
 } from "@/components/board/layout";
+import { RuleCardFace } from "@/components/board/rule-card-face";
 import {
   clearPointedSlot,
   publishPointedSlot,
@@ -40,7 +41,6 @@ import { useMovingTile } from "@/components/gym/moving-tile";
 import { clearPointedTile, publishPointedTile } from "@/components/gym/pointed-tile";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
-import { coachCard } from "@/lib/coach/cards";
 import type { TileCorner, Uuid } from "@/lib/events/types";
 import { levelById } from "@/lib/gym/levels";
 import {
@@ -781,7 +781,10 @@ function PauseBubble({
   targetSelector: string | null;
   onDismiss: () => void;
 }) {
-  const card = beat.cardId ? coachCard(beat.cardId) : undefined;
+  // The card is drawn at full size, the same object the tray raises when it is
+  // armed, so "this is a rule card" and the thing the player clicks a beat
+  // later are recognisably one card rather than two summaries of it.
+  const cardId = beat.cardId ?? null;
   return (
     <Bubble targetSelector={targetSelector} width={24}>
       <div
@@ -795,17 +798,9 @@ function PauseBubble({
         >
           {beat.title}
         </h2>
-        {card ? (
-          <div className="border-ink bg-card flex items-start gap-3 rounded-2xl border-[1.5px] p-4">
-            <span aria-hidden className="text-3xl leading-none">
-              {card.icon}
-            </span>
-            <div className="flex flex-col gap-1">
-              <span className="font-primary text-ink tracking-wide uppercase">
-                {card.name}
-              </span>
-              <span className="font-secondary text-p-sm text-ink-soft">{card.plain}</span>
-            </div>
+        {cardId ? (
+          <div className="flex justify-center py-1">
+            <RuleCardFace cardId={cardId} />
           </div>
         ) : null}
         {beat.bossSays ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { RuleCardFace } from "@/components/board/rule-card-face";
 import { coachCard } from "@/lib/coach/cards";
 
 /**
@@ -20,6 +21,15 @@ import { coachCard } from "@/lib/coach/cards";
  * Every card in the deck is shown whether or not it can be thrown at this
  * instant, for the reason CardHand gives: a hand that quietly loses cards is a
  * hand you cannot learn.
+ *
+ * Arming a card also brings up a full-size copy of it, standing on the tray
+ * above the button (Steve, 2026-09-06: "clicking 'you is taboo' card should
+ * bring up a copy of the card"). One click does both, which is not a
+ * compromise between two features: every variant of Rannie's `game bar`
+ * (875:65982) is this tray with exactly one card expanded in place, so the
+ * expanded card IS how the tray shows what is armed. It also puts the card's
+ * own instructions in front of the player at the one moment they are about to
+ * act on them, and clicking the same card again puts it away and disarms.
  */
 export function RuleCardTray({
   deck,
@@ -55,26 +65,32 @@ export function RuleCardTray({
             const armed = armedCardId === cardId;
             const count = counts[cardId] ?? 0;
             return (
-              <button
-                key={cardId}
-                type="button"
-                aria-pressed={armed}
-                title={card ? `${card.name}. ${card.plain}` : cardId}
-                onClick={() => onArm(armed ? null : cardId)}
-                className={`relative flex size-12 cursor-pointer items-center justify-center rounded-xl border-2 text-2xl transition-colors ${
-                  armed
-                    ? "border-neutral-black bg-sand"
-                    : "border-gray/30 bg-offwhite hover:bg-sand/40"
-                }`}
-              >
-                <span aria-hidden="true">{card ? card.icon : "?"}</span>
-                <span className="sr-only">{card ? card.name : cardId}</span>
-                {count > 0 && (
-                  <span className="bg-neutral-black text-offwhite absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold">
-                    {count}
-                  </span>
+              <div key={cardId} className="relative">
+                {armed && (
+                  <div className="absolute bottom-full left-1/2 z-20 mb-3 -translate-x-1/2">
+                    <RuleCardFace cardId={cardId} />
+                  </div>
                 )}
-              </button>
+                <button
+                  type="button"
+                  aria-pressed={armed}
+                  title={card ? `${card.name}. ${card.plain}` : cardId}
+                  onClick={() => onArm(armed ? null : cardId)}
+                  className={`relative flex size-12 cursor-pointer items-center justify-center rounded-xl border-2 text-2xl transition-colors ${
+                    armed
+                      ? "border-neutral-black bg-sand"
+                      : "border-gray/30 bg-offwhite hover:bg-sand/40"
+                  }`}
+                >
+                  <span aria-hidden="true">{card ? card.icon : "?"}</span>
+                  <span className="sr-only">{card ? card.name : cardId}</span>
+                  {count > 0 && (
+                    <span className="bg-neutral-black text-offwhite absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              </div>
             );
           })}
         </div>
