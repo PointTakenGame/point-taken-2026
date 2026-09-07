@@ -136,16 +136,46 @@ export function ProfileHero({
           name={player?.display_name ?? null}
           currentEmoji={player?.avatar_emoji ?? null}
         />
-        <h1 className="font-primary text-ink pt-2 text-3xl tracking-wide uppercase">
-          {player?.display_name ?? "Your account"}
-        </h1>
+        {/* Steve, 2026-09-07: nothing on this page said the name under the
+            avatar was the reader's own. A player who never picked a name gets
+            a generated one ("Scarlet Lucky Clover"), reads it cold at the top
+            of a page full of other people's leaderboards and levels, and has
+            no reason to know it is theirs. Two words above the name answer it,
+            in the same micro-label type the stat tiles use, and they answer it
+            for the avatar too since the avatar sits directly above. */}
+        <div className="flex flex-col items-center gap-1 pt-2">
+          <span className="font-label text-ink-soft text-[11px] font-bold tracking-widest uppercase">
+            You are
+          </span>
+          <h1 className="font-primary text-ink text-3xl tracking-wide uppercase">
+            {player?.display_name ?? "Your account"}
+          </h1>
+        </div>
         <p className="font-label text-ink-soft text-sm">
           {player?.claimed_at ? (
             <>
               Player since <LocalDay iso={player.claimed_at} />
             </>
           ) : (
-            "Anonymous. Attach an email in Settings to keep it."
+            <>
+              {/* Steve, 2026-09-07. This used to read "Anonymous. Attach an
+                  email in Settings to keep it.", which named the fix but left
+                  Settings as a word to go hunting for. Now it says what is
+                  happening in a full sentence, then makes Settings the link
+                  it was already describing. His draft quoted the word as well
+                  as linking it; a link and quotation marks are the same
+                  emphasis twice, so the link carries it alone. */}
+              You are playing anonymously.
+              <br />
+              To keep your account, pop an email in{" "}
+              <Link
+                href="/settings"
+                className="text-ink underline decoration-dotted underline-offset-2"
+              >
+                Settings
+              </Link>
+              .
+            </>
           )}
         </p>
         {current ? (
