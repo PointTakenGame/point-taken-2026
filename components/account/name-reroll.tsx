@@ -25,6 +25,11 @@ import { useFocusTrap } from "@/components/win/use-focus-trap";
  * "once they do it once, then let them hit it as many times as they want to
  * generate new fresh names."
  *
+ * The modal is two lines because Steve wrote those two lines, 2026-09-07,
+ * cutting a longer version that explained the generator and promised the
+ * player would not be asked again. Neither fact is worth a paragraph in front
+ * of somebody who has already decided.
+ *
  * The "told once" flag is per player in this browser's localStorage. It is not
  * a database column because nothing depends on it: a player who clears their
  * storage sees one warning they have seen before, which is the harmless
@@ -74,7 +79,7 @@ function RerollIcon() {
   );
 }
 
-export function NameReroll({ current, playerId }: { current: string; playerId: string }) {
+export function NameReroll({ playerId }: { playerId: string }) {
   const router = useRouter();
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +124,6 @@ export function NameReroll({ current, playerId }: { current: string; playerId: s
 
       {asking ? (
         <WarningModal
-          current={current}
           onCancel={() => setAsking(false)}
           onConfirm={() => {
             markWarned(playerId);
@@ -133,11 +137,9 @@ export function NameReroll({ current, playerId }: { current: string; playerId: s
 }
 
 function WarningModal({
-  current,
   onCancel,
   onConfirm,
 }: {
-  current: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -158,17 +160,12 @@ function WarningModal({
       >
         <h2
           id="name-reroll-heading"
-          className="font-primary text-ink text-2xl tracking-wide uppercase"
+          className="font-primary text-ink text-2xl leading-tight tracking-wide uppercase"
         >
-          This one will be gone
+          Are you sure you want to change your name?
         </h2>
         <p className="font-secondary text-p-sm text-ink-soft mt-3 leading-relaxed">
-          You are <span className="text-ink font-bold">{current}</span> right now. Draw a
-          new name and that one is not coming back: nothing stores it, and the generator
-          will not hand it out again on purpose.
-        </p>
-        <p className="font-secondary text-p-sm text-ink-soft mt-2 leading-relaxed">
-          After this you can draw as many as you like without being asked again.
+          You can’t get this one back.
         </p>
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           <button

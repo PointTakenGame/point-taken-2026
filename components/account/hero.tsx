@@ -3,34 +3,43 @@ import Link from "next/link";
 import type { PlayerAwards } from "@/lib/db/awards";
 import type { PlayerStats } from "@/lib/db/stats";
 import type { PlayerRow } from "@/lib/db/types";
-import { levelById } from "@/lib/gym/levels";
 import { ladderFor } from "@/lib/progression/state";
 import { AvatarPicker } from "@/components/account/avatar-picker";
 import { NameReroll } from "@/components/account/name-reroll";
-import { ArrowGlyph, BUTTON_PRIMARY } from "@/components/account/account-shell";
+import { BUTTON_PRIMARY } from "@/components/account/account-shell";
 import { LocalDay } from "@/components/local-day";
 import { JoinRoomInline } from "@/components/rooms/room-entry";
 import { StartNewGameButton } from "@/components/rooms/start-new-game";
-import { StartLevelButton } from "@/components/gym/start-level-button";
 
 /**
  * The top of the profile, as Rannie draws it (Figma `1066:216757`, adopted
  * object by object on 2026-09-04, BRAIN-T260904-40): who you are on the left,
- * the two ways to play on the right, and three numbers under those.
+ * the one way to play with a person on the right, and three numbers under
+ * those.
  *
  * **The identity block is the hero.** It used to be a card two-thirds of the
  * way down the page, under the badges; a profile that introduces its owner
  * last is a strange profile. Hers is a large square avatar, the name in
- * display type, "Player since", and an orange level pill. The location line
- * under her name is left out: nothing collects one, and a blank slot for it
- * would be a promise. The pill is the one-glance answer to "where am I" that
- * the old page spread across three cards.
+ * display type, and "Player since". The location line under her name is left
+ * out: nothing collects one, and a blank slot for it would be a promise.
  *
- * **Two action cards, weighted.** Gym play carries the orange button, Live
- * play the ink one, both with the circled arrow because both leave the page.
- * The Gym is the recommended path for somebody new, and the colour says so
- * without copy. Live play keeps the room-code field because this is the home
- * page and that field is what the home page used to be for.
+ * **The orange rule, Steve 2026-09-07.** Orange means "this is the thing to
+ * click right now", and the page is allowed one of them at a time. It had
+ * four: a level pill under the name, a Gym play button in this file's second
+ * card, the current node on the ladder, and Fight this boss under it. Two of
+ * those were removed here. The pill went because it was a label wearing the
+ * action colour, and the whole "Active boss challenge" card went because it
+ * was the ladder's boss briefing said a second time, one screen higher.
+ *
+ * **What is left is two jobs, not four.** Play with a person, which is this
+ * card, and take the next step on the ladder, which is the ladder. They are
+ * roughly matched in weight, with the ladder ahead while there is a level
+ * left to clear: the ladder holds the orange and this card holds the ink
+ * button, which is dark and loud but not the recommended move. When every
+ * designed level is cleared the ladder has nothing left to point at, so the
+ * orange comes here instead; `gymDone` below is that switch. Live play keeps
+ * the room-code field because this is the home page and that field is what
+ * the home page used to be for.
  *
  * **Live play reworked 2026-09-05 (BRAIN-T260905 profile play card rework).**
  * The card now offers "Start a new game" full width on its own row, "Join a
@@ -81,20 +90,22 @@ function StatTile({
   const tone = noteTone === "good" ? "text-stat-good" : "text-stat-warm";
   const body = (
     <>
-      <span className="font-label text-ink-soft text-[11px] font-bold tracking-widest uppercase">
-        {label}
-      </span>
-      <span className="font-figure text-ink text-5xl leading-none font-black tabular-nums">
+      <span className="font-figure text-ink shrink-0 text-4xl leading-none font-black tabular-nums">
         {figure}
       </span>
-      <span
-        className={`font-label text-xs font-semibold ${tone} ${href ? "underline decoration-dotted" : ""}`}
-      >
-        {note}
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
+          {label}
+        </span>
+        <span
+          className={`font-label text-[11px] leading-tight font-semibold ${tone} ${href ? "underline decoration-dotted" : ""}`}
+        >
+          {note}
+        </span>
       </span>
     </>
   );
-  const className = "sticker flex flex-col items-center gap-2 px-4 py-6 text-center";
+  const className = "sticker flex flex-1 items-center gap-3 px-4 py-3";
   if (href) {
     return (
       <Link
@@ -114,7 +125,6 @@ export function ProfileHero({
   awards,
   stats,
   gamesThisWeek,
-  currentLevelId,
   resumeGameId,
 }: {
   player: PlayerRow | null;
@@ -122,11 +132,12 @@ export function ProfileHero({
   awards: PlayerAwards;
   stats: PlayerStats;
   gamesThisWeek: number;
-  currentLevelId: string;
   resumeGameId: string | null;
 }) {
-  const current = ladderFor(awards).find((rung) => rung.status === "current") ?? null;
-  const level = levelById(currentLevelId);
+  // No current rung means every designed level is cleared, so the ladder has
+  // no next step to offer and live play becomes the recommended action. See
+  // the orange rule at the top of this file.
+  const gymDone = ladderFor(awards).every((rung) => rung.status !== "current");
   const cleared = awards.clearedLevels.length;
 
   return (
@@ -155,9 +166,7 @@ export function ProfileHero({
             <h1 className="font-primary text-ink text-3xl tracking-wide uppercase">
               {player?.display_name ?? "Your account"}
             </h1>
-            {player?.display_name ? (
-              <NameReroll current={player.display_name} playerId={playerId} />
-            ) : null}
+            {player?.display_name ? <NameReroll playerId={playerId} /> : null}
           </div>
         </div>
         <p className="font-label text-ink-soft text-sm">
@@ -187,69 +196,32 @@ export function ProfileHero({
             </>
           )}
         </p>
-        {current ? (
-          <span className="font-primary border-ink bg-orange text-ink shadow-sticker-sm mt-1 rounded-lg border-[1.5px] px-4 py-1.5 text-sm tracking-wide">
-            Level {current.level}: {current.title}
-          </span>
-        ) : null}
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <section className={CARD}>
-            <h2 className="font-figure text-ink text-2xl font-black tracking-wide uppercase">
-              Active boss challenge
-            </h2>
-            <p className="text-ink-soft font-secondary text-p-sm flex-1">
-              {/* The first of the level's own learning goals, which is
-                written to stand on its own as a one-line summary of what the
-                level is for. Steve, 2026-09-07: this card used to promise a
-                rule card and describe a habit, and a player who has not
-                played yet cannot picture either. Falls back to the habit
-                sentence for a level with no goals written. */}
-              {level
-                ? (level.learningGoals?.[0] ??
-                  `Level ${level.number}, ${level.title}: you will reform ${level.bossName}, who ${level.bossHabit ?? "argues badly on purpose"}.`)
-                : "Practise on your own against an opponent who argues badly on purpose."}
-            </p>
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <StartLevelButton levelId={currentLevelId} className={BUTTON_PRIMARY}>
-                Gym play
-                <ArrowGlyph />
-              </StartLevelButton>
-              <Link
-                href="/#ladder"
-                className="font-label text-ink-soft hover:text-ink text-[10px] font-bold tracking-widest uppercase transition-colors"
-              >
-                or pick a level
-              </Link>
-            </div>
-          </section>
+      <div className="grid gap-6 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <section className={CARD}>
+          <h2 className="font-figure text-ink text-2xl font-black tracking-wide uppercase">
+            Play with your peers
+          </h2>
+          <p className="text-ink-soft font-secondary text-p-sm">
+            Invite somebody you actually disagree with: start a room and read out the
+            code, or type in one somebody sent you.
+          </p>
+          <StartNewGameButton
+            className={`${gymDone ? BUTTON_PRIMARY : BUTTON_SECONDARY_INLINE} w-full justify-center`}
+          />
+          <JoinRoomInline signedIn buttonClassName={BUTTON_SECONDARY_INLINE} />
+          {resumeGameId ? (
+            <Link
+              href={`/game/${resumeGameId}`}
+              className="font-label text-ink-soft hover:text-ink self-start text-[10px] font-bold tracking-widest uppercase transition-colors"
+            >
+              Back to your game
+            </Link>
+          ) : null}
+        </section>
 
-          <section className={CARD}>
-            <h2 className="font-figure text-ink text-2xl font-black tracking-wide uppercase">
-              Play with your peers
-            </h2>
-            <p className="text-ink-soft font-secondary text-p-sm">
-              Invite somebody you actually disagree with: start a room and read out the
-              code, or type in one somebody already sent you.
-            </p>
-            <StartNewGameButton
-              className={`${BUTTON_SECONDARY_INLINE} w-full justify-center`}
-            />
-            <JoinRoomInline signedIn buttonClassName={BUTTON_SECONDARY_INLINE} />
-            {resumeGameId ? (
-              <Link
-                href={`/game/${resumeGameId}`}
-                className="font-label text-ink-soft hover:text-ink self-start text-[10px] font-bold tracking-widest uppercase transition-colors"
-              >
-                Back to your game
-              </Link>
-            ) : null}
-          </section>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <div className="flex flex-col gap-3">
           <StatTile
             label="Games played"
             figure={String(stats.games_played)}

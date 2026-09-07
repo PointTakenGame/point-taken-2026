@@ -22,9 +22,14 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * "not yet", which is the truthful one, since all four scripted levels are
  * open regardless of cleared state (Steve, 2026-09-03).
  *
- * **The pointer.** An orange bar with a caret hangs off the current node and
- * points down at the boss, so the ladder and the briefing read as one object:
+ * **The pointer.** An orange bar with a caret rises off the current node and
+ * points up at the boss, so the ladder and the briefing read as one object:
  * "you are here, and this is who is waiting."
+ *
+ * **Order, Steve 2026-09-07.** The challenge card and the boss are the top
+ * half of this panel and the strip runs along the bottom, because the strip
+ * is a place-marker and a back catalogue, while the challenge is the thing to
+ * do now.
  *
  * Rannie's frame draws L1 to L8 with her own eight names. LADDER reads
  * whatever length it has and the four designed rungs keep our names; her
@@ -115,10 +120,10 @@ function RungNode({ rung }: { rung: Rung }) {
       {current ? (
         <span
           aria-hidden
-          className="pointer-events-none absolute top-full left-1/2 mt-3 -translate-x-1/2"
+          className="pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2"
         >
           <span className="bg-orange border-ink block h-2.5 w-24 rounded-full border-[1.5px]" />
-          <span className="border-ink bg-orange absolute top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-r-[1.5px] border-b-[1.5px]" />
+          <span className="border-ink bg-orange absolute bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-t-[1.5px] border-l-[1.5px]" />
         </span>
       ) : null}
     </li>
@@ -140,11 +145,14 @@ export function LadderStrip({ awards }: { awards: PlayerAwards }) {
         <Chip tone="good">
           {cleared} / {designedRungs()} cleared
         </Chip>
+      </div>
+      {current ? <BossBriefing rung={current} awards={awards} /> : null}
+      <div className="border-ink/15 flex flex-wrap items-center gap-3 border-t pt-4">
         <span className="font-label text-ink-soft text-[10px] font-bold tracking-widest uppercase">
           Pick a level to enter the gym
         </span>
       </div>
-      <ol className="flex items-start overflow-x-auto pb-8">
+      <ol className="flex items-start overflow-x-auto pt-10 pb-2">
         {rungs.map((rung, i) => (
           <Fragment key={rung.level}>
             {i > 0 ? (
@@ -157,7 +165,6 @@ export function LadderStrip({ awards }: { awards: PlayerAwards }) {
           </Fragment>
         ))}
       </ol>
-      {current ? <BossBriefing rung={current} awards={awards} /> : null}
     </Panel>
   );
 }
