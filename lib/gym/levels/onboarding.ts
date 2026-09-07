@@ -62,6 +62,11 @@ export const ONBOARDING: Level = {
   bossHabit: "talks about you instead of the question",
   bossTip:
     "when a reason turns into a comment about you instead of about the topic, throw the card at that tile",
+  learningGoals: [
+    "You'll learn how Point Taken works by playing a short game against Bashful Bob, who is not very good at this yet.",
+    "You'll write your first reasons, hang them on the board, and find out how a disagreement ends without anybody winning it.",
+    "And you'll pick up your first rule card, so when Bob starts arguing about you instead of the hot dog, you can bring him into line.",
+  ],
   // Steve, 2026-09-05: keep the ways-to-win card and the rule-card tray out
   // of sight until the beats that explain them reveal them.
   hiddenSurfaces: ["ways-to-win", "card-tray"],

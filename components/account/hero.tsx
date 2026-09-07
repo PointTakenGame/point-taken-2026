@@ -201,8 +201,15 @@ export function ProfileHero({
               Active boss challenge
             </h2>
             <p className="text-ink-soft font-secondary text-p-sm flex-1">
+              {/* The first of the level's own learning goals, which is
+                written to stand on its own as a one-line summary of what the
+                level is for. Steve, 2026-09-07: this card used to promise a
+                rule card and describe a habit, and a player who has not
+                played yet cannot picture either. Falls back to the habit
+                sentence for a level with no goals written. */}
               {level
-                ? `Level ${level.number}, ${level.title}: you will earn a rule card and reform ${level.bossName}, who ${level.bossHabit ?? "argues badly on purpose"}.`
+                ? (level.learningGoals?.[0] ??
+                  `Level ${level.number}, ${level.title}: you will reform ${level.bossName}, who ${level.bossHabit ?? "argues badly on purpose"}.`)
                 : "Practise on your own against an opponent who argues badly on purpose."}
             </p>
             <div className="flex flex-wrap items-center gap-4 pt-2">

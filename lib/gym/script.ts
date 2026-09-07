@@ -224,6 +224,23 @@ export interface Level {
   bossHabit?: string;
   bossTip?: string;
   /**
+   * What the player will come away able to do, in their own future tense,
+   * for the boss briefing on the profile page
+   * (components/account/progression/boss-briefing.tsx).
+   *
+   * Steve, 2026-09-07: the briefing used to be a list of instructions, and a
+   * player standing in front of level 1 has not seen a board yet, so an
+   * instruction is a sentence about a thing they cannot picture. These are
+   * learning goals instead: "you'll learn how Point Taken works by playing a
+   * quick game against Bashful Bob, and you'll use your first rule card to
+   * bring him into line when he does something naughty".
+   *
+   * Two or three lines, second person, and they do not name a rule card the
+   * player has not earned (the question-mark rule, web/point-taken-2026
+   * CLAUDE.md). Describe what the card does for them instead.
+   */
+  learningGoals?: readonly string[];
+  /**
    * Board chrome that starts hidden and only appears when a pause beat
    * names it in `reveal`. Unset means everything is visible from the start,
    * which is every level except level 1.

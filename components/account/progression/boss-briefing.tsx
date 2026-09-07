@@ -25,8 +25,8 @@ import { StartLevelButton } from "@/components/gym/start-level-button";
  * The rule card is only named once the player holds it. "A rule card not yet
  * earned is shown as a question mark, never named early" is a settled rule
  * for the account pages (web/point-taken-2026/CLAUDE.md), and the old panel's
- * "Teaches {card}" line broke it. Before the card is earned the bullet tells
- * the player where to look for it instead.
+ * "Teaches {card}" line broke it. Before it is earned, the goals say what the
+ * card will do for the player without naming it.
  *
  * The emoji is placeholder art; her frame has a drawn character with a
  * wordmark, and the art is on Rannie, not on this build.
@@ -67,29 +67,34 @@ export function BossBriefing({ rung, awards }: { rung: Rung; awards: PlayerAward
           </h4>
           <Chip tone="warm">Level {level.number}</Chip>
         </div>
-        <p className="font-secondary text-p-sm text-card/85">
-          {level.bossName} {level.bossHabit ?? "argues badly on purpose"}. Before facing
-          them, you must:
-        </p>
-        <ul className="font-secondary text-p-sm text-card/85 flex list-disc flex-col gap-1.5 pl-5">
-          {level.bossTip ? (
-            <li>{level.bossTip[0].toUpperCase() + level.bossTip.slice(1)}.</li>
+        {/* Learning goals, not a checklist. Steve, 2026-09-07: somebody
+          standing in front of level 1 has not seen a board yet, so "throw the
+          card the moment they break it" names three things they cannot
+          picture. What they can picture is what they will be able to do
+          afterwards, so that is what this says. The copy is per level, in
+          `learningGoals` (lib/gym/script.ts), because only the level knows
+          what it teaches. */}
+        <div className="font-secondary text-p-sm text-card/85 flex flex-col gap-2">
+          {(
+            level.learningGoals ?? [
+              `You'll play a level against ${level.bossName} and come out the other side knowing something you didn't.`,
+            ]
+          ).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          {/* Named only once it is theirs: an unearned card is a question
+            mark, never a name (web/point-taken-2026/CLAUDE.md). Once they
+            hold it, saying so is the reward for having come back. */}
+          {holdsCard && card ? (
+            <p className="text-card/60">
+              You already hold{" "}
+              <span className="text-card font-semibold">
+                {card.icon} {card.name}
+              </span>{" "}
+              from this one.
+            </p>
           ) : null}
-          <li>
-            {holdsCard && card ? (
-              <>
-                Throw{" "}
-                <span className="text-card font-semibold">
-                  {card.icon} {card.name}
-                </span>{" "}
-                the moment they break it.
-              </>
-            ) : (
-              "Find the rule card, still face down, partway through the level."
-            )}
-          </li>
-          <li>Finish the level to earn its certificate.</li>
-        </ul>
+        </div>
         <div className="pt-2">
           <StartLevelButton levelId={level.id} className={BUTTON_PRIMARY}>
             Fight this boss

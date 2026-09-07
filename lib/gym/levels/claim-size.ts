@@ -64,6 +64,11 @@ export const CLAIM_SIZE: Level = {
   bossHabit: "claims more than the evidence underneath it can carry",
   bossTip:
     "listen for words like every, never, and only, then throw the card and ask for a size he will actually defend",
+  learningGoals: [
+    "You'll take on Braggy Bogdan, who says everyone, always and never when he means quite a lot of people, sometimes.",
+    "You'll learn to read the size of a claim, which is the difference between a reason you can back and a reason you just like the sound of.",
+    "And you'll earn the card that makes him cut a claim down to what he can actually hold up.",
+  ],
   awards: {
     badges: ["no-exaggeration-1", "no-exaggeration-2", "no-exaggeration-3"],
     cardId: CARD,

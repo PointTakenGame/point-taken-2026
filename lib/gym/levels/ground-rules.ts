@@ -67,6 +67,11 @@ export const GROUND_RULES: Level = {
   bossHabit: "wanders off the thread's root",
   bossTip:
     "check every tile against the root at the top of its thread, and throw the card the moment one stops answering it",
+  learningGoals: [
+    "You'll play a proper four-thread game against Rambling Rosa, which is what a normal match looks like.",
+    "Rosa answers whatever she feels like answering, wherever she feels like putting it, and this is the level where you stop letting her.",
+    "You'll earn the card that keeps every reason under the point it is actually arguing with, and you'll get caught by it once yourself.",
+  ],
   // Same reason as level 1: the tray stays out of sight until the beat that
   // explains the card reveals it. Ways to Win is not hidden here, level 1
   // already taught it.

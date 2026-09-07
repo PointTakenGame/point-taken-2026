@@ -63,6 +63,11 @@ export const CLARITY: Level = {
   bossHabit: "leaves you to guess what she meant",
   bossTip:
     "throw the card and hand back how you read the tile, instead of telling her it was unclear",
+  learningGoals: [
+    "You'll face Sloppy Salma, who leaves you guessing what she meant and then argues as if you had agreed to it.",
+    "You'll learn why you cannot answer a reason you have not understood, and why asking is a move rather than a delay.",
+    "And you'll earn the card that makes her say plainly what a word is doing before the two of you argue about it.",
+  ],
   awards: {
     badges: ["help-me-understand-1", "help-me-understand-2"],
     cardId: CARD,
