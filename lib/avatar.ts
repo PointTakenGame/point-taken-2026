@@ -32,18 +32,33 @@ export interface AvatarMark {
  * mirrored in `supabase/migrations/0015_player_avatar.sql`'s check
  * constraint, the same way the event vocabulary is mirrored between
  * `lib/events/types.ts` and its catalogue migration. Changing the set means
- * changing both, by hand, in the same commit.
+ * changing both, by hand, in the same commit. The *order* is this file's
+ * alone: nothing stores a position, the stored value is the emoji character
+ * itself, so reordering costs no migration and cannot disturb a player who
+ * has already picked.
+ *
+ * The order is not arbitrary. `components/account/avatar-picker.tsx` lays
+ * these nine straight into a three by three grid, reading across, so the
+ * array order *is* the seating plan. Sorted by skin tone, as it was until
+ * 2026-09-07, the grid put every lighter face along the top and both darker
+ * faces in the bottom corner, which reads as a sorting rather than a
+ * choice. So the nine are dealt out to a rule (Steve, 2026-09-07): every row
+ * and every column carries at least one man, at least one woman, at least
+ * one darker skin tone and at least one lighter one, and the first cell is
+ * the medium-tone woman. `lib/avatar.test.ts` checks those properties of the
+ * grid rather than pinning the exact sequence, so the arrangement can be
+ * re-dealt without rewriting an expectation.
  */
 export const PLAYER_EMOJIS = [
-  "👨🏻",
-  "👩🏻",
-  "👱🏻‍♂️",
-  "👩🏻‍🦰",
   "👩🏽",
-  "👨🏽",
-  "🧑🏼",
-  "👨🏾‍🦲",
+  "👨🏻",
+  "👩🏻‍🦰",
+  "👱🏻‍♂️",
   "👩🏾‍🦱",
+  "👨🏽",
+  "👨🏾‍🦲",
+  "👩🏻",
+  "🧑🏼",
 ] as const;
 
 export type PlayerEmoji = (typeof PLAYER_EMOJIS)[number];

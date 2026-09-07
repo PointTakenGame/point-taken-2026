@@ -48,9 +48,67 @@ describe("avatarMark", () => {
   });
 });
 
+// How each of the nine reads, for the grid checks below. Written out here
+// rather than exported from lib/avatar.ts because nothing in the app needs to
+// know: it is only the test that has an opinion about how the picker looks.
+// "person" is the one gender-neutral face, and it counts as neither a man nor
+// a woman, so its row and column have to be carried by their other two cells.
+const READS = {
+  "👨🏻": { who: "man", tone: "lighter" },
+  "👩🏻": { who: "woman", tone: "lighter" },
+  "👱🏻‍♂️": { who: "man", tone: "lighter" },
+  "👩🏻‍🦰": { who: "woman", tone: "lighter" },
+  "🧑🏼": { who: "person", tone: "lighter" },
+  "👩🏽": { who: "woman", tone: "darker" },
+  "👨🏽": { who: "man", tone: "darker" },
+  "👨🏾‍🦲": { who: "man", tone: "darker" },
+  "👩🏾‍🦱": { who: "woman", tone: "darker" },
+} as const;
+
+/** The nine as the picker actually lays them out: three across, three down. */
+function rowsAndColumns(): { label: string; cells: readonly string[] }[] {
+  const rows = [0, 1, 2].map((r) => ({
+    label: `row ${r + 1}`,
+    cells: PLAYER_EMOJIS.slice(r * 3, r * 3 + 3),
+  }));
+  const columns = [0, 1, 2].map((c) => ({
+    label: `column ${c + 1}`,
+    cells: [PLAYER_EMOJIS[c], PLAYER_EMOJIS[c + 3], PLAYER_EMOJIS[c + 6]],
+  }));
+  return [...rows, ...columns];
+}
+
 describe("PLAYER_EMOJIS", () => {
-  it("offers exactly the nine emoji Point Taken Heart offers, in that order", () => {
-    expect(PLAYER_EMOJIS).toEqual(["👨🏻", "👩🏻", "👱🏻‍♂️", "👩🏻‍🦰", "👩🏽", "👨🏽", "🧑🏼", "👨🏾‍🦲", "👩🏾‍🦱"]);
+  it("offers exactly the nine emoji Point Taken Heart offers", () => {
+    // The set is mirrored in supabase/migrations/0015_player_avatar.sql's
+    // check constraint. Order is deliberately not asserted here: the grid
+    // properties below are what the arrangement has to satisfy.
+    expect([...PLAYER_EMOJIS].sort()).toEqual(
+      ["👨🏻", "👩🏻", "👱🏻‍♂️", "👩🏻‍🦰", "👩🏽", "👨🏽", "🧑🏼", "👨🏾‍🦲", "👩🏾‍🦱"].sort(),
+    );
+  });
+
+  it("opens the grid on the medium-tone woman", () => {
+    expect(PLAYER_EMOJIS[0]).toBe("👩🏽");
+  });
+
+  it("gives every row and column a man and a woman", () => {
+    for (const { label, cells } of rowsAndColumns()) {
+      const who = cells.map((cell) => READS[cell as keyof typeof READS].who);
+      expect(who, `${label} has no man`).toContain("man");
+      expect(who, `${label} has no woman`).toContain("woman");
+    }
+  });
+
+  it("gives every row and column a darker and a lighter skin tone", () => {
+    // The complaint this answers (Steve, 2026-09-07): sorted by tone, the
+    // grid put both darker faces together in one corner, which reads as a
+    // sorting rather than a choice.
+    for (const { label, cells } of rowsAndColumns()) {
+      const tone = cells.map((cell) => READS[cell as keyof typeof READS].tone);
+      expect(tone, `${label} is all lighter`).toContain("darker");
+      expect(tone, `${label} is all darker`).toContain("lighter");
+    }
   });
 });
 
