@@ -1,7 +1,6 @@
 import type { PlayerAwards } from "@/lib/db/awards";
 import { CARD_WALL, type CardWallEntry } from "@/lib/progression/sample";
 import { ladderFor } from "@/lib/progression/state";
-import { SectionHeading } from "@/components/account/account-shell";
 
 /**
  * The rule-card wall: one tile per ratified card, owned, next, or later.
@@ -105,11 +104,6 @@ export function CardWall({
 
   return (
     <section className="mb-8">
-      <SectionHeading
-        title="Rule cards"
-        note={`${held.size} of ${CARD_WALL.length} in your hand`}
-        noteTone="good"
-      />
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {entries.map((entry) => (
           <CardTile

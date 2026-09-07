@@ -1,5 +1,4 @@
 import { BOSSES } from "@/lib/progression/sample";
-import { SectionHeading } from "@/components/account/account-shell";
 import { SampleTag } from "./sample-tag";
 
 /**
@@ -52,15 +51,8 @@ function BossTile({ boss }: { boss: (typeof BOSSES)[number] }) {
 }
 
 export function BossCollection() {
-  const reformed = BOSSES.filter((boss) => boss.status === "reformed").length;
-
   return (
     <section className="mb-8">
-      <SectionHeading
-        title="Bosses"
-        note={`${reformed} of ${BOSSES.length} reformed`}
-        noteTone="good"
-      />
       <div className="pb-4">
         <SampleTag />
       </div>

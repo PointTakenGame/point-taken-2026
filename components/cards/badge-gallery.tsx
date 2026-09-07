@@ -1,5 +1,4 @@
-import { BADGES, earnedBadges, type Badge } from "@/lib/progression/sample";
-import { SectionHeading } from "@/components/account/account-shell";
+import { BADGES, type Badge } from "@/lib/progression/sample";
 import { SampleTag } from "./sample-tag";
 
 /**
@@ -52,16 +51,10 @@ function BadgeTile({ badge }: { badge: Badge }) {
 }
 
 export function BadgeGallery() {
-  const earned = earnedBadges().length;
   const levels = [...new Set(BADGES.map((badge) => badge.level))].sort((a, b) => a - b);
 
   return (
     <section className="mb-8">
-      <SectionHeading
-        title="Badges"
-        note={`${earned} of ${BADGES.length} earned`}
-        noteTone="good"
-      />
       <div className="pb-4">
         <SampleTag />
       </div>

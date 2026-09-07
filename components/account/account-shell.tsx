@@ -92,6 +92,54 @@ function Tab({ href, label, active }: { href: string; label: string; active: boo
   );
 }
 
+/**
+ * A row of folder tabs sitting on the top edge of whatever comes below them.
+ *
+ * Two rows use it. The account bar cuts into the sheet from outside, so the
+ * sheet's own border is the line the tabs sit on. The Cards & Badges sub-tabs
+ * cut into the same sheet from inside, where there is no border to sit on, so
+ * `rule` draws one under the row. Everything else is identical: same die, same
+ * fills, same 1.5px overlap, because the active tab is always the colour of the
+ * surface below it and the inactive ones are always the colour behind.
+ *
+ * Steve, 2026-09-07, on the Cards & Badges page: "you can use the same tab
+ * format as you use on the top now for the screen."
+ *
+ * `children` render to the left of the tabs, which is where the wordmark goes.
+ */
+export function FolderTabs({
+  label,
+  tabs,
+  current,
+  rule = false,
+  children,
+}: {
+  label: string;
+  tabs: { key: string; href: string; label: string }[];
+  current: string;
+  rule?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <nav
+      aria-label={label}
+      className={`flex flex-wrap items-end gap-x-2 ${
+        rule ? "border-ink border-b-[1.5px]" : "pl-3"
+      }`}
+    >
+      {children}
+      {tabs.map((entry) => (
+        <Tab
+          key={entry.key}
+          href={entry.href}
+          label={entry.label}
+          active={current === entry.key}
+        />
+      ))}
+    </nav>
+  );
+}
+
 /** The footer's version line: her "v2.4.1", on the id Vercel actually stamped. */
 function BuildLine() {
   const { id, where } = buildStamp();
@@ -114,22 +162,22 @@ export function AccountShell({
   return (
     <div className="dot-ground min-h-screen w-full">
       <div className="mx-auto w-full max-w-[1229px] px-6 pt-8 pb-10">
-        <nav aria-label="Your account" className="flex flex-wrap items-end gap-x-2 pl-3">
+        <FolderTabs
+          label="Your account"
+          current={tab}
+          tabs={TABS.map((entry) => ({
+            key: entry.tab,
+            href: entry.href,
+            label: entry.label,
+          }))}
+        >
           {/* The mark sits on the ground rather than in a box, which is how
               she draws it. It is the way home, not a tab. */}
           <Link href="/" className="pr-5 pb-2 transition-opacity hover:opacity-70">
             <Wordmark width={112} />
             <span className="sr-only">Point Taken home</span>
           </Link>
-          {TABS.map((entry) => (
-            <Tab
-              key={entry.href}
-              href={entry.href}
-              label={entry.label}
-              active={tab === entry.tab}
-            />
-          ))}
-        </nav>
+        </FolderTabs>
         <div className="account-sheet px-10 pt-10 pb-8 sm:px-12">
           {children}
           {/*
