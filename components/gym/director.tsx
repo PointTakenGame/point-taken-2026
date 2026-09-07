@@ -663,6 +663,19 @@ function Director({
   // or Cancel are the only moves. This is until further notice; when a level
   // should hand the writing back, that level stops locking, not all of them.
   // A live game is untouched: no Director mounts, so `NONE` still applies.
+  //
+  // The lock has one exception, and it is a safety net rather than a design:
+  // a beat that asks for text but ships no sample. Locking an empty draft
+  // leaves a read-only composer whose Place button can never enable, which is
+  // an unfinishable level, not a strict one. Five beats in levels 3 and 4 were
+  // in that state. They have samples now, so this branch should stay unused;
+  // it is here so the next empty `suggestions` list is a level that hands the
+  // writing back rather than a level that stops.
+  const lockedText = useMemo(() => {
+    if (beat?.kind !== "player") return true;
+    if (beat.expect.kind !== "tile" && beat.expect.kind !== "propose") return true;
+    return (beat.expect.suggestions ?? []).length > 0;
+  }, [beat]);
   const cookedPlacement = useMemo(
     () =>
       level.cooked
@@ -670,10 +683,10 @@ function Director({
             onlySlot: pointedSlot,
             ownReplies: false,
             ghosts: false,
-            lockedText: true,
+            lockedText,
           }
-        : { onlySlot: null, ownReplies: true, ghosts: true, lockedText: true },
-    [level.cooked, pointedSlot],
+        : { onlySlot: null, ownReplies: true, ghosts: true, lockedText },
+    [level.cooked, pointedSlot, lockedText],
   );
   useEffect(() => {
     publishCookedPlacement(cookedPlacement);

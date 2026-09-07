@@ -157,7 +157,15 @@ export const CLAIM_SIZE: Level = {
       id: "player-answers-a1",
       coach: "Bogdan answered your first thread. Answer him, under his tile.",
       nudge: "Under Bogdan's tile in your first thread.",
-      expect: { kind: "tile", key: "A2", parent: "A1", suggestions: [] },
+      expect: {
+        kind: "tile",
+        key: "A2",
+        parent: "A1",
+        suggestions: [
+          "But restaurants already sort out who is good at the job when they hand out shifts and raises.",
+          "But a tip tracks how busy the section was as much as how well anyone worked it.",
+        ],
+      },
     },
     {
       kind: "boss",
@@ -344,7 +352,15 @@ export const CLAIM_SIZE: Level = {
       coach:
         "Bait, catch, throw, three times now, and once in the other direction on your own tile. Answer him under the tile he just narrowed.",
       nudge: "Under Bogdan's narrowed tile, in his same-pocket thread.",
-      expect: { kind: "tile", key: "D2", parent: "D1", suggestions: [] },
+      expect: {
+        kind: "tile",
+        key: "D2",
+        parent: "D1",
+        suggestions: [
+          "The ones that lasted paid above the old tipped average, which is a pay problem, not a tipping one.",
+          "Holding staff has been hard across the whole industry lately, tipped restaurants included.",
+        ],
+      },
     },
     {
       kind: "player",

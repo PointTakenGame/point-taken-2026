@@ -156,7 +156,15 @@ export const CLARITY: Level = {
       id: "player-answers-a1",
       coach: "Salma answered your first thread. Answer her, under her tile.",
       nudge: "Under Salma's tile in your first thread.",
-      expect: { kind: "tile", key: "A2", parent: "A1", suggestions: [] },
+      expect: {
+        kind: "tile",
+        key: "A2",
+        parent: "A1",
+        suggestions: [
+          "Plenty of what people read has no publisher attached, which is where a label tells you something.",
+          "Knowing who published a thing and knowing how it was made are two different questions.",
+        ],
+      },
     },
     {
       kind: "pause",
@@ -193,7 +201,15 @@ export const CLARITY: Level = {
       coach:
         "Salma's warning-label thread has nothing from you in it yet. Answer her root.",
       nudge: "Under Salma's root about a label reading as a warning.",
-      expect: { kind: "tile", key: "D1", parent: "D", suggestions: [] },
+      expect: {
+        kind: "tile",
+        key: "D1",
+        parent: "D",
+        suggestions: [
+          "Nutrition labels read as warnings at first too, and now people just read them.",
+          "If a label reads as a warning, fix how it is written, rather than leave it off.",
+        ],
+      },
     },
     {
       kind: "boss",
@@ -379,7 +395,15 @@ export const CLARITY: Level = {
       id: "player-answers-c1",
       coach: "Answer the tile she just fixed, in her own thread.",
       nudge: "Under Salma's rewritten tile about labels people scroll past.",
-      expect: { kind: "tile", key: "C2", parent: "C1", suggestions: [] },
+      expect: {
+        kind: "tile",
+        key: "C2",
+        parent: "C1",
+        suggestions: [
+          "Then the argument worth having is about where the label sits, not about whether it exists.",
+          "Some people will scroll past it, and the ones who stop get something they had no other way to know.",
+        ],
+      },
     },
     {
       kind: "boss",
