@@ -62,7 +62,7 @@ export const GROUND_RULES: Level = {
       kind: "pause",
       id: "p1-four-threads",
       title: "Four threads, and points",
-      body: "Two reasons from each of you this time, four threads is the normal game. And there's a score now. You'll get points for catching Rosa with a card, and only for that. Nothing you write scores; catching does.",
+      body: "Two reasons from each of you this time, four threads is the normal game.\n\nAnd there's a score now. You'll get points for catching Rosa with a card, and only for that. Nothing you write scores; catching does.",
       button: "Got it",
     },
     {

@@ -841,7 +841,7 @@ function PauseBubble({
             {level.bossEmoji} {level.bossName}: “{beat.bossReplies}”
           </p>
         ) : null}
-        <p className="font-secondary text-ink">{beat.body}</p>
+        <Paragraphs className="font-secondary text-ink" text={beat.body} />
         <div>
           <button type="button" className={PILL} onClick={onDismiss} autoFocus>
             {beat.button}
@@ -849,6 +849,40 @@ function PauseBubble({
         </div>
       </div>
     </Bubble>
+  );
+}
+
+/**
+ * A coach line or a pause body, broken at its blank lines.
+ *
+ * Both used to be one `<p>{text}</p>`, which quietly collapsed every `\n\n`
+ * in the scripts into a single space: the breaks were written and never
+ * appeared. Steve asked on 2026-09-07 for real breaks at the natural pauses,
+ * so a blank line in a script string is now a paragraph break here. A single
+ * newline is not: the scripts use blank lines for this and nothing else, and
+ * treating every newline as a break would turn a wrapped source string into
+ * an accidental split.
+ *
+ * `text` may be null or undefined, which is what a player beat with no
+ * nudge of its own hands over; nothing renders in that case.
+ */
+function Paragraphs({
+  text,
+  className,
+}: {
+  text: string | null | undefined;
+  className?: string;
+}) {
+  const parts = (text ?? "").split(/\n\s*\n/).filter((part) => part.trim() !== "");
+  if (parts.length === 0) return null;
+  return (
+    <>
+      {parts.map((part, i) => (
+        <p key={i} className={className}>
+          {part}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -895,7 +929,7 @@ function LineBubble({
             {level.bossEmoji} {level.bossName}: “{beat.bossSays}”
           </p>
         ) : null}
-        <p className="font-secondary text-ink">{line}</p>
+        <Paragraphs className="font-secondary text-ink" text={line} />
 
         {/*
           The sample answers used to be chips here, and clicking one placed

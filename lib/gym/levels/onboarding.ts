@@ -12,7 +12,7 @@ import type { Level } from "../script";
  * chrome actually turns useful instead of all at once up front.
  *
  * `hiddenSurfaces` keeps the ways-to-win card and the rule-card tray out of
- * sight until this script itself reveals them (`p4b-ways-to-win`,
+ * sight until this script itself reveals them (`p4-agree-to-agree`,
  * `p5-first-card`): a level 1 player has not earned either idea yet, and
  * showing the chrome before the concept invites the "why is that there"
  * question the level answers a few beats later anyway. `cooked: true` locks
@@ -72,7 +72,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p1-board",
       title: "The board",
-      body: "You're Minus: a hot dog is not a sandwich. Bob's Plus, he thinks it is. He goes first.",
+      body: "You're Minus: a hot dog is not a sandwich. Bob's Plus, he thinks it is.\n\nHe goes first.",
       button: "Got it",
       // Steve, 2026-09-06: this used to have no anchor at all, so the very
       // first thing a new player ever sees docked to the coach persona at the
@@ -94,7 +94,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p2-reason-tile",
       title: "Reason tiles",
-      body: "When the game starts, each player gives their best reason for their side. Bob says yes to the topic question, so he put his best reason here. Your turn.",
+      body: "When the game starts, each player gives their best reason for their side. Bob says yes to the topic question, so he put his best reason here.\n\nYour turn.",
       button: "Got it",
       anchor: { tile: "A" },
     },
@@ -107,7 +107,7 @@ export const ONBOARDING: Level = {
       // never drawn in the slot beforehand, so there is nothing to "pick"
       // here.
       coach:
-        "Start your first thread by putting your best reason why a hot dog isn't a sandwich.\n\nOnce you click here, I'll write one for you to get you started. Just hit Place.",
+        "Start your first thread by putting your best reason why a hot dog isn't a sandwich.\n\nClick here, and I'll write one for you to get you started.",
       nudge: "That one goes here, under the topic.",
       expect: {
         kind: "tile",
@@ -123,7 +123,7 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-answers-a",
       coach:
-        "Once each player has their main reasons on the board, they reply to each other's reasons. Give a reply to Bob's reason in the highlighted spot connected to his first tile. Just click and I'll give you some text to start you out.",
+        "Once both players have their main reasons on the board, then they reply to each other's reasons.\n\nClick here, and I'll help you reply to Bob's reason.",
       nudge: "Here, under Bob's tile, the one at the top of his thread.",
       expect: {
         kind: "tile",
@@ -161,8 +161,14 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p4-agree-to-agree",
       title: "Agree to agree",
-      body: "Wow, congrats. You convinced Bashful Bob that he can agree to agree on this reason. That's generous of him. Putting a 👍 on a root reason tile shows that while you may not agree on the topic in general, you can agree that you've reached a consensus on this one thread.",
+      body: "Wow, congrats. You convinced Bashful Bob that he can agree to agree on this reason. That's generous of him.\n\nPutting a 👍 on a root reason tile shows that while you may not agree on the topic in general, you can agree that you've reached a consensus on this one thread.",
       button: "Got it",
+      // Steve, 2026-09-07: the Ways to Win pause that used to follow the
+      // player's token is cut, so the reveal moves here, onto the last pause
+      // before it. The panel is on screen while the player closes the thread,
+      // which puts its "0 of 2 resolved" count in view at the moment it ticks
+      // to 1. That is the reveal doing the teaching the cut pause used to do.
+      reveal: ["ways-to-win"],
       anchor: { tile: "A" },
     },
     {
@@ -174,19 +180,10 @@ export const ONBOARDING: Level = {
       // question the badge had already asked.
       coach:
         "Click here to approve. That is Bob's 👍, and your click puts yours beside it and closes the thread.",
-      nudge: "Bob's 👍 is on this thread, waiting for yours. Click it.",
+      nudge: "Bob's 👍 is on this thread, click it to approve his move.",
       badges: ["resolve-first-thread"],
       expect: { kind: "token", thread: "A", emoji: "👍" },
       anchor: { token: "A" },
-    },
-    {
-      kind: "pause",
-      id: "p4b-ways-to-win",
-      title: "Ways to win",
-      body: "Look: your 👍 just landed on this board. Close the other thread too and you and Bob win the game together.",
-      button: "Got it",
-      reveal: ["ways-to-win"],
-      anchor: { ui: "ways-to-win" },
     },
     {
       kind: "boss",
@@ -205,7 +202,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p3b-move-the-board",
       title: "Moving around",
-      body: "Grab anywhere on the board to move it. Or use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
+      body: "Grab anywhere on the board to move it.\n\nOr use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
       button: "Got it",
       delayMs: 2500,
       anchor: { ui: "nav-controls" },
@@ -214,7 +211,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p5-hold-up",
       title: "Hold up",
-      body: "Stop. Bob just made this about you, not about the hot dog. There's something you can do about it.",
+      body: "Stop. Bob just made this about you, not about the hot dog.\n\nThere's something you can do about it.",
       button: "Next",
       // The board hint before this beat already held the coach back while
       // Bob's tile was read, so Hold up follows it without a second pause.
@@ -225,7 +222,7 @@ export const ONBOARDING: Level = {
       id: "p5-first-card",
       cardId: "you_is_taboo",
       title: "Your first rule card",
-      body: "This is a rule card: 'You' is taboo. Click the card, then click Bob's tile that broke it.",
+      body: "This is a rule card: 'You' is taboo.\n\nClick the card, then click Bob's tile that broke it.",
       button: "Got it",
       reveal: ["card-tray"],
       anchor: { ui: "card-tray" },
@@ -253,7 +250,7 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p6-what-a-card-does",
       title: "Rule cards keep your discussion calm and rational",
-      body: "After you flagged this rule card violation, Bob rewrote his tile to remove the personal attack. I think you'll agree that this way of discussing a topic is far more productive.",
+      body: "After you flagged this rule card violation, Bob rewrote his tile to remove the personal attack.\n\nI think you'll agree that this way of discussing a topic is far more productive.",
       button: "Got it",
       anchor: { tile: "B1" },
     },
@@ -292,7 +289,7 @@ export const ONBOARDING: Level = {
       kind: "player",
       id: "player-token-b",
       coach:
-        "I think you two just see the world differently, and it's time to wrap this thread up and agree to disagree. Click this root tile and choose the 👀 side-eye.",
+        "I think you two just see the world differently, and it's time to wrap this thread up and agree to disagree.\n\nClick this root tile and choose the 👀 side-eye.",
       nudge:
         "Propose 👀 on your own thread. Neither of you has to change your mind for it to close.",
       expect: { kind: "token", thread: "B", emoji: "👀" },

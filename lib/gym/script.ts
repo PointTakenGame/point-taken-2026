@@ -112,6 +112,21 @@ export type BeatAnchor =
    */
   | { token: TileKey };
 
+/**
+ * A blank line inside any script string is a real paragraph break.
+ *
+ * `Paragraphs` in components/gym/director.tsx splits a pause's `body` and a
+ * beat's `coach` or `nudge` line on `\n\n` and renders one `<p>` per part.
+ * A single newline is deliberately not a break: the scripts use blank lines
+ * for this and nothing else, so a stray wrap in a source file cannot
+ * accidentally split a sentence in the player's face.
+ *
+ * Steve, 2026-09-07: use them. Any body that runs past two or three sentences
+ * gets a break at its natural pause, usually between what is happening and
+ * what the player should now do. Before this, both surfaces were a single
+ * `<p>{text}</p>` that collapsed every blank line into a space, so the breaks
+ * already written into the level 1 script had never once been visible.
+ */
 interface BeatBase {
   id: string;
   /** What the coach says at the top of the board while this beat is current. */
