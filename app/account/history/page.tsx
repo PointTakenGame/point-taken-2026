@@ -22,6 +22,14 @@ import { loadAccount } from "../data";
  * control that promises more than it does. When the archive grows past what one
  * page holds, all three arrive together with the paging that makes them mean
  * something.
+ *
+ * **Gym levels sit at the bottom, in their own section, Steve 2026-09-07.** A
+ * practice level against a scripted boss and a real game against a person are
+ * not the same kind of thing, and interleaving them by date reads as though
+ * they are. The unfiltered view is therefore two lists: games with people
+ * first, then a separated Gym section under them. Picking a filter above drops
+ * back to one plain list, because the filter has already made the distinction
+ * the split was making.
  */
 
 export const dynamic = "force-dynamic";
@@ -109,6 +117,11 @@ export default async function HistoryPage({
     games.some((game) => game.mode === kind),
   );
   const shown = mode ? games.filter((game) => game.mode === mode) : games;
+  // The unfiltered view splits; a filtered one does not, because the filter has
+  // already said which kind the reader wants. See the note at the top.
+  const live = shown.filter((game) => game.mode !== "gym");
+  const gym = shown.filter((game) => game.mode === "gym");
+  const listProps = { topics, opponents, cardsThrown, resolutions };
 
   return (
     <AccountShell tab="history">
@@ -118,18 +131,33 @@ export default async function HistoryPage({
           : `${games.length} game${games.length === 1 ? "" : "s"}, newest first.`}
       </AccountHeading>
       {modes.length > 1 ? <ModeFilter modes={modes} active={mode} /> : null}
-      <MatchList
-        games={shown}
-        topics={topics}
-        opponents={opponents}
-        cardsThrown={cardsThrown}
-        resolutions={resolutions}
-        empty={
-          mode
-            ? `No ${MODE_LABEL[mode]} games yet.`
-            : "No games yet. The first one starts the archive."
-        }
-      />
+      {mode ? (
+        <MatchList
+          games={shown}
+          {...listProps}
+          empty={`No ${MODE_LABEL[mode]} games yet.`}
+        />
+      ) : (
+        <>
+          <MatchList
+            games={live}
+            {...listProps}
+            empty="No games with people yet. The first one starts the archive."
+          />
+          {gym.length > 0 ? (
+            <section className="border-ink/15 mt-14 border-t pt-10">
+              <h2 className="font-label text-ink-soft pb-1 text-xs font-bold tracking-widest uppercase">
+                Gym levels
+              </h2>
+              <p className="font-secondary text-ink-soft text-p-sm pb-5">
+                Practice runs against a scripted boss, kept apart from your games with
+                people.
+              </p>
+              <MatchList games={gym} {...listProps} empty="" />
+            </section>
+          ) : null}
+        </>
+      )}
     </AccountShell>
   );
 }
