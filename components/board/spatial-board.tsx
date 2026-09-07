@@ -147,6 +147,20 @@ function PanButton({
  * player who never asked it to.
  */
 const COMFORT_ZOOM = 0.8;
+
+/**
+ * What a board with no Director over it sees.
+ *
+ * Hoisted out of the parameter default it used to be: written there it was a
+ * fresh object on every render, which made `ghosts` and then `content` and
+ * then `fit` new every render for any caller that leaves the prop off.
+ */
+const UNRESTRICTED_PLACEMENT = Object.freeze({
+  onlySlot: null,
+  ownReplies: true,
+  ghosts: true,
+  lockedText: false,
+});
 const MAX_ZOOM = 2;
 
 /** Breathing room, in px, left around the board when it is fitted to screen.
@@ -828,7 +842,7 @@ export function SpatialBoard<T extends SpatialTile>({
   size = OUTER_FRAME_REM,
   extraControls,
   onSelect,
-  placement = { onlySlot: null, ownReplies: true, ghosts: true, lockedText: false },
+  placement = UNRESTRICTED_PLACEMENT,
 }: SpatialBoardProps<T>) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<GridPosition>({ x: 0, y: 0 });
@@ -1145,7 +1159,15 @@ export function SpatialBoard<T extends SpatialTile>({
   useLayoutEffect(() => {
     const el = paneRef.current;
     if (!el) return;
-    const measure = () => setPane({ w: el.clientWidth, h: el.clientHeight });
+    // Same numbers, same object: `pane` is a dependency of `fit`, so handing
+    // back a fresh object for an unchanged size re-ran the automatic refit for
+    // nothing every time anything else on the page resized.
+    const measure = () =>
+      setPane((prev) => {
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        return prev && prev.w === w && prev.h === h ? prev : { w, h };
+      });
     measure();
     // jsdom has no ResizeObserver. One measurement is the whole of what a
     // test needs, and the window never resizes there.
@@ -1177,7 +1199,28 @@ export function SpatialBoard<T extends SpatialTile>({
         // blown up to 200% looks broken rather than roomy.
         1,
       );
-      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
+      let next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, floor, room));
+
+      // The automatic refit shrinks and never grows.
+      //
+      // Two other effects below, the composer's and the coach's, deliberately
+      // take the board smaller than this floor so that an open draft or the
+      // cell the coach is pointing at is actually on screen, and both
+      // deliberately leave `touched` alone, because neither is the player
+      // choosing a view. That left this refit free to undo them: `content`
+      // grows a ghost the moment the coach points, `fit` gets a new identity,
+      // and the board snapped back to COMFORT_ZOOM with the target off screen
+      // again, which fired the shrink again. Steve, 2026-09-07, playing level
+      // 1: "zooming in and out rapidly whenever new UI elements come on
+      // screen. It's really aversive."
+      //
+      // So the floor is a floor for the first fit only. After that this may
+      // take the board out, never back in. Fit to screen passes
+      // `onlyWhenRescaling` false and still recentres at any scale, which is
+      // the way back to a roomier view and the only thing that should be.
+      if (onlyWhenRescaling && hasCentered.current) {
+        next = Math.min(next, zoomRef.current);
+      }
 
       // The opponent's tile may rescale the board and may not pan it (Steve,
       // 2026-09-03). Fitting is both at once, so the automatic refit asks for
