@@ -947,14 +947,18 @@ function LineBubble({
           one is the same click that chooses where it goes and opens the
           composer over it. So all that is left here is the sentence that
           tells a player the slots are worth looking at.
+
+          One sentence for every Gym level, not two. This used to offer an
+          edit on any level that was not cooked, and since 2026-09-07 no
+          scripted level lets the draft be typed in (`lockedText` in
+          cooked-placement.ts), so that branch was telling the player to do
+          something the composer refuses.
         */}
         {beat.kind === "player" &&
         beat.expect.kind === "tile" &&
         beat.expect.suggestions.length > 0 ? (
           <span className="font-label text-ink-soft">
-            {level.cooked
-              ? "Click where I’m pointing, then hit Place."
-              : "Click where I’m pointing, then edit the sample before you place it."}
+            Click where I’m pointing, then hit Place.
           </span>
         ) : null}
 
