@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1951,6 +1952,31 @@ function InTileComposer({
     if (finishedAt === 0) return;
     textareaRef.current?.select();
   }, [finishedAt]);
+
+  /**
+   * The box is exactly as tall as what is in it, so it never scrolls.
+   *
+   * A textarea with a fixed `rows` scrolls the moment the text needs one more
+   * line than it was given, and it was given three: the coach's own level 1
+   * sample is sixty characters, which wraps to three lines and overflows by
+   * two pixels, so a scrollbar appeared inside the octagon on the very first
+   * tile a new player ever writes (Steve, 2026-09-06: "there is a scroll bar
+   * on tile, that shouldn't be needed"). Raising `rows` would only move the
+   * threshold; measuring removes it. TILE_MAX_CHARS is 100, which is about
+   * five lines at this width, and the octagon holds that with room to spare.
+   *
+   * Layout effect, not a plain one: the sample types itself in a character at
+   * a time, and a height applied after paint would show one frame of the old
+   * height on every tick.
+   */
+  useLayoutEffect(() => {
+    const box = textareaRef.current;
+    if (!box) return;
+    // Collapse first: scrollHeight of an already-tall box is its own height,
+    // so without this the box could only ever grow.
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  }, [text]);
   /**
    * Why Place is dead, on the screen rather than in the button's tooltip.
    *
