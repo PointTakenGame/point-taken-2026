@@ -23,6 +23,32 @@ const GLYPH_FOR: Record<string, "monacle" | "heart" | "glasses" | "book" | "part
  * 2026-09-05 ("They *might* even change my mind"), and both the lobby and
  * the Gym's agreement screen read the same strings from `SIGNING_LINES`.
  */
+/**
+ * "Collaborate" is the word all three pledges turn on, and Steve asked for it
+ * bold in each of them (2026-09-07). The pledge copy itself lives in
+ * `lib/board/setup.ts`, which this lane does not edit, so the emphasis is
+ * applied here where the copy is rendered rather than marked up at the source.
+ * It matches the stem, so "collaborate", "collaboratively", and any later
+ * inflection all take the emphasis without a second rule.
+ */
+const COLLABORATE = /(collaborat\w*)/gi;
+/** Same pattern, anchored and without /g: a global regex keeps `lastIndex`
+ *  between calls, so testing with the splitting one would match every other
+ *  time. */
+const IS_COLLABORATE = /^collaborat\w*$/i;
+
+function emphasise(text: string, key: string) {
+  return text.split(COLLABORATE).map((part, i) =>
+    IS_COLLABORATE.test(part) ? (
+      <strong key={`${key}-${i}`} className="font-bold">
+        {part}
+      </strong>
+    ) : (
+      <span key={`${key}-${i}`}>{part}</span>
+    ),
+  );
+}
+
 export function PledgeText({ text, className }: { text: string; className?: string }) {
   return (
     <span className={`flex flex-col gap-1 ${className ?? ""}`}>
@@ -41,9 +67,9 @@ export function PledgeText({ text, className }: { text: string; className?: stri
             .split(/(\*[^*]+\*)/)
             .map((part, j) =>
               part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
-                <em key={j}>{part.slice(1, -1)}</em>
+                <em key={j}>{emphasise(part.slice(1, -1), `${i}-${j}`)}</em>
               ) : (
-                <span key={j}>{part}</span>
+                <span key={j}>{emphasise(part, `${i}-${j}`)}</span>
               ),
             )}
         </span>

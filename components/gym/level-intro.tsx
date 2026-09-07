@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { signAgreement, startGame } from "@/app/game/[gameId]/setup-actions";
 import { OCTAGON_CLIP } from "@/components/board/geometry";
 import { SideAvatar } from "@/components/board/tile-shape";
+import { TopicTile } from "@/components/board/topic-tile";
 import type { BoardState } from "@/lib/board/project";
 import { SIGNING_LINES } from "@/lib/board/setup";
 import type { Level } from "@/lib/gym/script";
@@ -46,6 +47,10 @@ const PILL_DARK =
 const BACK_LINK = "font-secondary text-p-sm text-ink-soft underline";
 
 const SIDE_WORD = { plus: "Plus", minus: "Minus" } as const;
+
+/** What arguing for that side actually amounts to, in the one word a player
+ *  who has never seen a board will understand. */
+const SIDE_ANSWER = { plus: "yes", minus: "no" } as const;
 
 export function LevelIntro({
   gameId,
@@ -111,13 +116,17 @@ function BoardChrome({ level }: { level: Level }) {
 
 function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) {
   const bossLines = level.bossName.split(" ");
-  // Steve, 2026-09-05: no level intro names the rule card up front any more
-  // ("we're telling about the rule card before they even understand that
-  // there are rule cards"), so this line is the boss's habit alone, with no
-  // mention of the card the level will teach. A level with no habit shows no
-  // line at all rather than a sentence about a card nobody has met yet.
-  const habitLine = level.bossHabit ? `${level.bossName} ${level.bossHabit}.` : null;
-  const readyLine = `Ready? The topic: "${level.topic}". You're playing ${SIDE_WORD[level.playerSide]}.`;
+  // Steve, 2026-09-07. This card used to carry two sentences of prose: the
+  // boss's habit ("Bashful Bob talks about you instead of the question") and a
+  // "Ready? The topic: ..." line. Both were cut. The habit describes a move
+  // the reader has not seen yet, and the topic was being read as a quoted
+  // string in a paragraph when the topic is a physical object on the board
+  // they are about to see. So the topic is drawn as the tile it is going to
+  // be, and the only sentence left says which side of it the player is on.
+  //
+  // Cut on 2026-09-05, still true: no level intro names the rule card up
+  // front. A card is met on the board, when the script teaches it.
+  const sideLine = `You're playing the ${SIDE_WORD[level.playerSide]} side, so you'll be saying ${SIDE_ANSWER[level.playerSide]} this practice round.`;
 
   return (
     <div className="flex w-full flex-col items-center gap-4">
@@ -158,11 +167,9 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
           {`Level ${level.number} Game Challenge`}
         </h2>
 
-        {habitLine ? (
-          <p className="font-secondary text-ink-soft text-p-md">{habitLine}</p>
-        ) : null}
+        <TopicTile text={level.topic} />
 
-        <p className="font-secondary text-ink text-p-md font-bold">{readyLine}</p>
+        <p className="font-secondary text-ink text-p-md font-bold">{sideLine}</p>
 
         <button type="button" className={PILL_DARK} onClick={onNext}>
           {"Next →"}
@@ -240,9 +247,11 @@ function AgreementCard({
         When you play Point Taken, you agree to three things:
       </p>
 
-      <ol className="flex w-full flex-col gap-3 text-left">
+      {/* Steve, 2026-09-07: gap-3 ran the three pledges together, so they read
+          as one block of small type rather than three separate promises. */}
+      <ol className="flex w-full flex-col gap-6 pt-1 text-left">
         {SIGNING_LINES.map((line) => (
-          <li key={line.id} className="flex flex-col gap-0.5">
+          <li key={line.id} className="flex flex-col gap-1">
             <span className="font-primary text-ink text-p-md uppercase tracking-wide">
               {line.title}
             </span>

@@ -202,7 +202,10 @@ export const ONBOARDING: Level = {
       kind: "pause",
       id: "p3b-move-the-board",
       title: "Moving around",
-      body: "Grab anywhere on the board to move it.\n\nOr use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.",
+      // Steve, 2026-09-07: "grab anywhere on the board" is wrong, and a player
+      // who takes it literally grabs a tile. The grabbable thing is the dotted
+      // ground between the tiles, so the copy names it.
+      body: "Grab the dotted background of the board, anywhere, to move it.\n\nOr use these controls: the arrows move the board, the magnifiers zoom, and the last button fits the whole board on screen.\n\nTry them now if you like.",
       button: "Got it",
       delayMs: 2500,
       anchor: { ui: "nav-controls" },
