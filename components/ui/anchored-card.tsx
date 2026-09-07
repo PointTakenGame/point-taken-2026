@@ -176,43 +176,69 @@ export function AnchoredCard({
     <div
       ref={cardRef}
       role="dialog"
-      className="border-gray/40 bg-offwhite fixed z-50 rounded-2xl border shadow-lg"
+      className="fixed z-50"
       style={{
         left: pos ? `${pos.left}px` : "-9999px",
         top: pos ? `${pos.top}px` : "-9999px",
         width: `${width}rem`,
-        // Nearly the whole window, not 70vh of it. A tile's action list plus
-        // the token row runs about 590px, and on a 720px window 70vh is 504,
-        // so the card scrolled and the thing it cut off was the token row:
-        // "Where do you two disagree?" was on screen and the tokens that
-        // answer it were not, with no scrollbar and nothing to say they were
-        // there. `place` already keeps the card inside the window, so the
-        // remaining 30% was being held back for nothing.
-        maxHeight: "calc(100dvh - 3rem)",
-        overflowY: "auto",
       }}
     >
+      {/* Steve, 2026-09-06: the arrow used to render inside the card, pointing
+          the wrong way, and several cards grew small scrollbars they did not
+          need. Both were the same bug. This positioning wrapper used to be the
+          card itself and carried `overflowY: auto`, which makes an element a
+          scroll container in both axes (overflow-x computes to auto the moment
+          overflow-y is not visible). So the arrow, absolutely positioned at
+          -6px, was clipped at the border box, leaving only its inner half
+          visible as a wedge pointing into the card, and its outside half
+          counted as horizontal overflow, which is where the stray scrollbars
+          came from. The wrapper now positions and nothing else; the border,
+          the ground, and any scrolling belong to the panel below it. */}
+      <div
+        className="border-gray/40 bg-offwhite relative flex flex-col rounded-2xl border shadow-lg"
+        style={{
+          // Nearly the whole window, not 70vh of it. A tile's action list plus
+          // the token row runs about 590px, and on a 720px window 70vh is 504,
+          // so the card scrolled and the thing it cut off was the token row:
+          // "Where do you two disagree?" was on screen and the tokens that
+          // answer it were not, with no scrollbar and nothing to say they were
+          // there. `place` already keeps the card inside the window, so the
+          // remaining 30% was being held back for nothing.
+          maxHeight: "calc(100dvh - 3rem)",
+        }}
+      >
+        {showClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-gray hover:text-neutral-black absolute top-2 right-3 z-10 cursor-pointer text-lg leading-none"
+          >
+            ×
+          </button>
+        ) : null}
+        <div className="overflow-y-auto p-4">{children}</div>
+      </div>
+
+      {/* Drawn after the panel, and outside it, so it reads as a tail on the
+          card pointing at the thing the card is about. Two borders rather than
+          four: a square with a border all the way round draws a visible V
+          across the card's interior once half of it overlaps the panel. Which
+          two depends on the side, because a 45-degree rotation turns the left
+          and bottom edges into the outward faces of a leftward tip, and the
+          top and right edges into those of a rightward one. */}
       {pos?.arrowSide ? (
         <div
           aria-hidden
-          className="border-gray/40 bg-offwhite pointer-events-none absolute h-3 w-3 rotate-45 border"
+          className={`border-gray/40 bg-offwhite pointer-events-none absolute h-3 w-3 rotate-45 ${
+            pos.arrowSide === "left" ? "border-b border-l" : "border-t border-r"
+          }`}
           style={{
             top: `${pos.arrowTop - 6}px`,
             ...(pos.arrowSide === "left" ? { left: "-6px" } : { right: "-6px" }),
           }}
         />
       ) : null}
-      {showClose ? (
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="text-gray hover:text-neutral-black absolute top-2 right-3 cursor-pointer text-lg leading-none"
-        >
-          ×
-        </button>
-      ) : null}
-      <div className="p-4">{children}</div>
     </div>,
     document.body,
   );

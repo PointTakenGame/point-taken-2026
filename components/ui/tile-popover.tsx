@@ -375,7 +375,13 @@ function ChoiceBodyView({ body }: { body: TilePopoverChoiceBody }) {
 
 function ListBodyView({ body }: { body: TilePopoverListBody }) {
   return (
-    <div className="flex max-h-64 flex-col gap-4 overflow-y-auto pr-1">
+    // Steve, 2026-09-06: this used to cap at max-h-64, a flat 16rem, which is
+    // shorter than several of the lists that render through it, so an
+    // eight-item list scrolled inside a popover that had plenty of room around
+    // it. The cap is now what the window can actually hold, leaving space for
+    // the popover's own header and buttons and for the tile it hangs off, so
+    // an ordinary list simply fits and only a genuinely enormous one scrolls.
+    <div className="flex max-h-[calc(100dvh-14rem)] flex-col gap-4 overflow-y-auto pr-1">
       {body.groups.map((group) => (
         <div key={group.heading} className="flex flex-col gap-1">
           <p className="font-primary text-p-sm text-gray">{group.heading}</p>

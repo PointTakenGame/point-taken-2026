@@ -16,6 +16,8 @@ import {
   OCTAGON_CLIP,
   OCTAGON_POINTS,
   OUTER_FRAME_REM,
+  TILE_BODY_PX,
+  TILE_LEAD_PX,
 } from "@/components/board/geometry";
 import {
   TOPIC_CELL_ID,
@@ -26,7 +28,7 @@ import {
   type GridPosition,
 } from "@/components/board/layout";
 import { stripDuplicateLead, tileLead } from "@/components/board/side-label";
-import type { TileSide } from "@/components/board/tile-shape";
+import { TileShape, type TileSide } from "@/components/board/tile-shape";
 import type { CookedPlacement } from "@/components/gym/cooked-placement";
 import type { Side, TileCorner } from "@/lib/events/types";
 
@@ -444,14 +446,6 @@ const GHOST_WASH: Record<TileSide, string> = {
   neutral: "fill-transparent group-hover:fill-gray/10",
 };
 
-/** The Gym boss's draft slot is always filled in (there is no hover to wash
- *  in on), so it carries its side's wash at rest rather than only on hover. */
-const BOSS_DRAFT_FILL: Record<TileSide, string> = {
-  plus: "fill-green/10",
-  minus: "fill-orange/10",
-  neutral: "fill-gray/10",
-};
-
 /**
  * The four diagonals, keyed the way the event log records them (`TileCorner`
  * in lib/events/types.ts) and in the same NE/SE/SW/NW order as
@@ -647,6 +641,8 @@ function BossDraftSlot({
   style,
   side,
   text,
+  lead,
+  isOpening,
   parentId,
   corner,
   bossName,
@@ -655,6 +651,10 @@ function BossDraftSlot({
   style: CSSProperties;
   side: Side;
   text: string;
+  /** The sentence-starter above the words, exactly as a placed tile draws it. */
+  lead: string;
+  /** Whether this reason hangs off the topic, which is what wears the thick border. */
+  isOpening: boolean;
   parentId: string;
   corner: TileCorner;
   bossName: string;
@@ -690,33 +690,36 @@ function BossDraftSlot({
       style={style}
       {...dataAttrs}
     >
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        className="absolute"
-        style={{ inset: `${((1 - INNER_FRAME_RATIO) / 2) * 100}%` }}
-        aria-hidden="true"
-      >
-        <polygon
-          points={OCTAGON_POINTS}
-          className={`${GHOST_STROKE[side]} ${BOSS_DRAFT_FILL[side]}`}
-          strokeWidth={1.2}
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span
-        aria-live="polite"
-        className="absolute inset-0 z-10 flex flex-col items-center justify-center px-[16%] text-center"
-      >
-        <span className="sr-only">{bossName} is writing</span>
-        <span
-          aria-hidden="true"
-          className={`${GHOST_MARK[side]} font-secondary line-clamp-4 text-xs italic opacity-90`}
-        >
-          {text}
-          <span className="motion-safe:animate-pulse">▍</span>
-        </span>
+      {/* Steve, 2026-09-06: this used to draw a faint ghost octagon with his
+          words in small italics floating on it, which read as text behind a
+          tile rather than as somebody writing in one. It is now the same
+          `TileShape` the player's own composer opens (`Composer` in
+          live-board.tsx) with the same lead line and the same two text sizes,
+          so watching Bob write looks like the thing the player is about to do
+          themselves. The caret is the only difference, and it is the point. */}
+      <span className="sr-only" aria-live="polite">
+        {bossName} is writing
       </span>
+      <TileShape
+        side={side}
+        size={OUTER_FRAME_REM}
+        weight={isOpening ? "root" : "normal"}
+        watermark="reason"
+        selected
+      >
+        <p className="font-tiles w-full text-center" aria-hidden="true">
+          <span className="block leading-tight" style={{ fontSize: `${TILE_LEAD_PX}px` }}>
+            {lead}
+          </span>
+          <span
+            className="mt-1 block leading-snug"
+            style={{ fontSize: `${TILE_BODY_PX}px` }}
+          >
+            {text}
+            <span className="motion-safe:animate-pulse">▍</span>
+          </span>
+        </p>
+      </TileShape>
     </div>
   );
 }
@@ -1644,6 +1647,13 @@ export function SpatialBoard<T extends SpatialTile>({
             style={pixelStyle(bossDraftPos, layout, size)}
             side={bossDraft.side}
             text={bossDraft.text}
+            lead={tileLead(
+              bossDraft.side,
+              bossDraft.parentId === TOPIC_CELL_ID,
+              placed.find((entry) => entry.tile.id === bossDraft.parentId)?.tile.side ??
+                null,
+            )}
+            isOpening={bossDraft.parentId === TOPIC_CELL_ID}
             parentId={bossDraft.parentId}
             corner={bossDraft.corner}
             bossName={bossDraft.bossName}

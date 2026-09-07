@@ -191,7 +191,11 @@ function resolveAnchor(
 ): string | null {
   if (!anchor) return null;
   if ("tile" in anchor) {
-    const id = keys[anchor.tile];
+    // "topic" is the one tile key that is not a script key: the topic tile is
+    // on the board before any beat runs, so it has no uuid to bind, and the
+    // board renders it under the fixed id `TOPIC_CELL_ID`. The slot branch
+    // below already treats the literal the same way.
+    const id = anchor.tile === "topic" ? TOPIC_CELL_ID : keys[anchor.tile];
     return id ? `[data-tile-id="${cssEscape(id)}"]` : null;
   }
   if ("ui" in anchor) {

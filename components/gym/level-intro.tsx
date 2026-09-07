@@ -178,12 +178,17 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
 
 /**
  * The agreement screen. Replaces the old rule-card-plus-sign-and-start card
- * (Steve, 2026-09-05): one sentence naming the level, boss, and topic, the
- * three signing-line pledges read in full, then two steps in one place
- * rather than one button doing both. "I agree to all three" signs; once
- * signed, "Start the game" ungreys. A player who is already signed (a
- * rejoin, or the peer opened this screen first and this player signed
- * elsewhere) opens straight into the agreed state.
+ * (Steve, 2026-09-05): one sentence naming the level, boss, and topic, then
+ * the three signing-line pledges read in full.
+ *
+ * One button, "Agree, and Start the Game" (Steve, 2026-09-06, superseding his
+ * own 2026-09-05 two-button version). Signing and starting were two clicks
+ * with nothing between them: the second button only ever ungreyed because the
+ * first had just been pressed, so the pause it created taught nothing and read
+ * as a form to get through. The single button still does both things in
+ * order, signing first and starting only if the signature landed, and a
+ * player who is already signed (a rejoin, or a signature made elsewhere)
+ * simply starts.
  */
 function AgreementCard({
   gameId,
@@ -201,31 +206,26 @@ function AgreementCard({
   const [pending, startTransition] = useTransition();
 
   const mine = board.players.find((player) => player.id === me.playerId);
-  const [agreed, setAgreed] = useState((mine?.signed?.length ?? 0) > 0);
+  const alreadySigned = (mine?.signed?.length ?? 0) > 0;
 
   const introLine =
     level.number === 1
       ? `You're about to play your first game, against ${level.bossName}, on the question: ${level.topic}`
       : `You're about to play level ${level.number} against ${level.bossName}, on: ${level.topic}`;
 
-  const agree = () => {
+  const agreeAndStart = () => {
     setError(null);
     startTransition(async () => {
-      const result = await signAgreement(gameId);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      if (!alreadySigned) {
+        const signed = await signAgreement(gameId);
+        if (!signed.ok) {
+          setError(signed.error);
+          return;
+        }
       }
-      setAgreed(true);
-    });
-  };
-
-  const start = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await startGame(gameId);
-      if (!result.ok) {
-        setError(result.error);
+      const started = await startGame(gameId);
+      if (!started.ok) {
+        setError(started.error);
         return;
       }
       router.refresh();
@@ -257,19 +257,10 @@ function AgreementCard({
       <button
         type="button"
         className={PILL_DARK}
-        disabled={pending || agreed}
-        onClick={agree}
+        disabled={pending}
+        onClick={agreeAndStart}
       >
-        {agreed ? "Agreed" : "I agree to all three"}
-      </button>
-
-      <button
-        type="button"
-        className={PILL_DARK}
-        disabled={pending || !agreed}
-        onClick={start}
-      >
-        {"Start the game →"}
+        {"Agree, and Start the Game"}
       </button>
 
       {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}

@@ -74,7 +74,9 @@ export type PlayerExpect =
 
 /**
  * Where the coach's speech bubble points, for a beat that talks about one
- * specific thing on the board. `tile` names a placed tile by its script key.
+ * specific thing on the board. `tile` names a placed tile by its script key,
+ * or the literal "topic" for the topic tile in the middle, which is on the
+ * board before any beat runs and so has no script key to bind.
  * `slot` names an empty corner a placement beat wants filled: `parent` is
  * the tile whose diagonal it is, or the literal "topic" for one of the
  * topic's own four corners, and `corner` is which of the four. The director

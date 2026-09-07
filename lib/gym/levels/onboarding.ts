@@ -74,6 +74,11 @@ export const ONBOARDING: Level = {
       title: "The board",
       body: "You're Minus: a hot dog is not a sandwich. Bob's Plus, he thinks it is. He goes first.",
       button: "Got it",
+      // Steve, 2026-09-06: this used to have no anchor at all, so the very
+      // first thing a new player ever sees docked to the coach persona at the
+      // top of the screen while talking about the topic tile in the middle.
+      // It now points at the tile it is describing.
+      anchor: { tile: "topic" },
     },
     {
       kind: "boss",
