@@ -941,26 +941,17 @@ function LineBubble({
         <Paragraphs className="font-secondary text-ink" text={line} />
 
         {/*
-          The sample answers used to be chips here, and clicking one placed
-          the tile on the spot. Steve moved them onto the board on 2026-09-03:
-          they are drawn inside the open slots now, and the click that takes
-          one is the same click that chooses where it goes and opens the
-          composer over it. So all that is left here is the sentence that
-          tells a player the slots are worth looking at.
-
-          One sentence for every Gym level, not two. This used to offer an
-          edit on any level that was not cooked, and since 2026-09-07 no
-          scripted level lets the draft be typed in (`lockedText` in
-          cooked-placement.ts), so that branch was telling the player to do
-          something the composer refuses.
+          Nothing is said here about where to click, on purpose. The sample
+          answers used to be chips in this bubble and clicking one placed the
+          tile; Steve moved them onto the board on 2026-09-03, so they are
+          drawn inside the open slots and the click that takes one is the same
+          click that chooses the slot and opens the composer. What replaced
+          them was a line reading "Click where I’m pointing, then hit Place",
+          which Steve cut on 2026-09-07 as redundant: the coach is already
+          pointing at the slot, the slot is already the only one drawn, and the
+          sample text is already sitting in it. A sentence describing a gesture
+          the board is demonstrating is one more thing to read, not help.
         */}
-        {beat.kind === "player" &&
-        beat.expect.kind === "tile" &&
-        beat.expect.suggestions.length > 0 ? (
-          <span className="font-label text-ink-soft">
-            Click where I’m pointing, then hit Place.
-          </span>
-        ) : null}
 
         {/*
           A tile's samples are drawn in the board's open slots, but an edit
