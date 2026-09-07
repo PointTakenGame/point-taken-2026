@@ -43,6 +43,7 @@ import {
 import { FeedbackPopover } from "@/components/feedback/feedback-popover";
 import { AnchoredCard } from "@/components/ui/anchored-card";
 import { PencilGlyph } from "@/components/ui/pencil-glyph";
+import { RuleCardFace } from "@/components/board/rule-card-face";
 import { RuleCardTray } from "@/components/board/rule-card-tray";
 import { canStartLaterMove } from "@/components/board/later-moves";
 import {
@@ -107,6 +108,7 @@ import { useBossDraft } from "@/components/gym/boss-draft";
 import { useCookedPlacement } from "@/components/gym/cooked-placement";
 import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
 import { useTaughtMoves } from "@/components/gym/taught-moves";
+import { cardsThroughLevel } from "@/lib/gym/levels";
 import { taughtToken } from "@/lib/gym/taught";
 import { publishMovingTile } from "@/components/gym/moving-tile";
 import { usePointedSlot } from "@/components/gym/pointed-slot";
@@ -197,6 +199,28 @@ function cssEscape(value: string): string {
  * hundred lines down already solved this for asks; this is the same rule in
  * the same colours.
  */
+/**
+ * The rule cards played on this reason, laid on the tile.
+ *
+ * Steve, 2026-09-06 and again 2026-09-07: "The rule card laid on the tile is
+ * still way too small. It needs to be as big as the emoji or side eye. It
+ * needs to be like six times as tall as it is now." It was a 24px circle
+ * carrying the card's glyph, which is a status dot, not a card. A card thrown
+ * at your reason is the loudest thing that can happen to it and the whole of
+ * the next move, so it is now the card itself, `RuleCardFace`, the same object
+ * the tray raises when you arm one, dropped across the tile's lower edge at
+ * about six times the old height.
+ *
+ * Only a **standing** card gets that treatment. Once the throw is settled the
+ * question it asked has been answered, so it shrinks back to the small stamp,
+ * which is the record of what was played rather than a demand for a reply. The
+ * card stays visible either way: it is laid on the reason for the rest of the
+ * game (BRAIN-T260907-13).
+ *
+ * The card does not take the mouse. Answering one means clicking the reason
+ * underneath it, so the whole stack stays `pointer-events-none` and the tile
+ * keeps its own hit area.
+ */
 function TileThrowBadges({
   board,
   tileId,
@@ -208,50 +232,74 @@ function TileThrowBadges({
 }) {
   const here = board.throws.filter((thrown) => thrown.targetTileId === tileId);
   if (here.length === 0) return null;
+
+  const standing = here.filter((thrown) => thrown.status === "standing");
+  const settled = here.filter((thrown) => thrown.status !== "standing");
+
   return (
-    <div
-      style={{ bottom: EDGE_INSET }}
-      className="absolute left-1/2 z-20 flex -translate-x-1/2 gap-1"
-    >
-      {here.map((thrown) => {
+    <>
+      {standing.map((thrown, index) => {
         const card = coachCard(thrown.cardId);
-        const standing = thrown.status === "standing";
+        const name = card ? card.name : thrown.cardId;
         // A card the other side played is yours to answer. A card the coach
         // played is too, which is why this asks who it was not rather than
         // who it was.
-        const yours = standing && thrown.thrownByRole !== me.role;
-        const name = card ? card.name : thrown.cardId;
+        const yours = thrown.thrownByRole !== me.role;
         return (
           <span
             key={thrown.seq}
-            title={
-              standing
-                ? yours
-                  ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
-                  : `${name}. You played this. Waiting for their rewrite.`
-                : `${name}. ${card ? card.plain : ""}`
-            }
-            className={`flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${
-              yours
-                ? "border-gold bg-sand"
-                : standing
-                  ? "border-neutral-black/30 bg-offwhite"
-                  : "border-neutral-black/30 bg-offwhite opacity-50"
+            data-thrown-card={thrown.cardId}
+            // Fanned, so a second standing card on one reason is visible
+            // behind the first rather than exactly underneath it.
+            style={{
+              left: "50%",
+              bottom: 0,
+              transform: `translate(-50%, 30%) rotate(${-6 + index * 7}deg) scale(0.62)`,
+            }}
+            // The gold mat under the card is the same "this one is yours to
+            // answer" colour an unanswered ask wears everywhere else on the
+            // board. It is a mat rather than a tint because the card face is
+            // opaque, so the only place the colour can show is around it.
+            className={`pointer-events-none absolute z-20 origin-bottom rounded-2xl p-1 drop-shadow-lg ${
+              yours ? "border-gold bg-sand border-[1.5px]" : ""
             }`}
+            title={
+              yours
+                ? `${name}. ${card ? card.plain : ""} Played on your reason. Click the reason to answer it.`
+                : `${name}. You played this. Waiting for their rewrite.`
+            }
           >
-            <span aria-hidden="true">{card ? card.icon : "?"}</span>
+            <RuleCardFace cardId={thrown.cardId} />
             <span className="sr-only">
               {name}
-              {standing
-                ? yours
-                  ? ", waiting for your answer"
-                  : ", waiting for their answer"
-                : ", settled"}
+              {yours ? ", waiting for your answer" : ", waiting for their answer"}
             </span>
           </span>
         );
       })}
-    </div>
+
+      {settled.length > 0 ? (
+        <div
+          style={{ bottom: EDGE_INSET }}
+          className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 gap-1"
+        >
+          {settled.map((thrown) => {
+            const card = coachCard(thrown.cardId);
+            const name = card ? card.name : thrown.cardId;
+            return (
+              <span
+                key={thrown.seq}
+                title={`${name}. ${card ? card.plain : ""}`}
+                className="border-neutral-black/30 bg-offwhite flex size-6 items-center justify-center rounded-full border text-xs opacity-50 shadow-sm"
+              >
+                <span aria-hidden="true">{card ? card.icon : "?"}</span>
+                <span className="sr-only">{name}, settled</span>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -326,6 +374,22 @@ function TileText({ tile }: { tile: BoardTile }) {
 }
 
 /** The card's own name, or its id if a game was played with a card we no longer ship. */
+/**
+ * The cards to hold out to this player right now.
+ *
+ * In a live game this is the game's card set unchanged. In a scripted Gym
+ * level it is narrowed to the cards taught at or before that level, because a
+ * player replaying level 1 still holds everything they earned later and the
+ * level 1 script has no beat for any of it (Steve, 2026-09-07). See
+ * `cardsThroughLevel` in lib/gym/levels for the full reasoning.
+ */
+function heldDeck(board: BoardState): readonly string[] {
+  const deck = cardsInPlay(board);
+  if (board.mode !== "gym" || !board.levelId) return deck;
+  const allowed = cardsThroughLevel(board.levelId);
+  return deck.filter((cardId) => allowed.includes(cardId));
+}
+
 function cardLabel(cardId: string): string {
   const card = coachCard(cardId);
   return card ? `${card.icon} ${card.name}` : cardId;
@@ -527,7 +591,7 @@ function CardHand({
   // card with a resolution token.
   if (board.mode === "gym" && tile.parentId === null) return null;
 
-  const deck = cardsInPlay(board);
+  const deck = heldDeck(board);
   if (deck.length === 0) return null;
 
   const run = (cardId: string) => {
@@ -3017,7 +3081,7 @@ export function LiveBoard({
     },
     [gameId],
   );
-  const deck = cardsInPlay(board);
+  const deck = heldDeck(board);
   const cardCounts = useMemo(() => {
     const tally: Record<string, number> = {};
     for (const thrown of board.throws) {
