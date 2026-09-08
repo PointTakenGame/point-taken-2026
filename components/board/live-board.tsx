@@ -99,6 +99,7 @@ import {
 } from "@/app/game/[gameId]/actions";
 import type { Side, TileCorner, Uuid } from "@/lib/events/types";
 import { useBossDraft } from "@/components/gym/boss-draft";
+import { useBossFlash } from "@/components/gym/boss-flash";
 import { useCookedPlacement } from "@/components/gym/cooked-placement";
 import { useHiddenSurfaces } from "@/components/gym/hidden-surfaces";
 import { useTaughtMoves } from "@/components/gym/taught-moves";
@@ -3113,6 +3114,7 @@ export function LiveBoard({
   const pointedSlot = usePointedSlot();
   const pointedTileId = usePointedTile();
   const bossDraft = useBossDraft();
+  const bossFlash = useBossFlash();
   // Board chrome level 1 keeps off screen until the Director's script says
   // otherwise (components/gym/hidden-surfaces.ts). Empty in a live game.
   const hiddenSurfaces = useHiddenSurfaces();
@@ -3494,7 +3496,12 @@ export function LiveBoard({
                   armedCardId !== null &&
                   !canThrowCard(board, tile.id, armedCardId, me.role, me.playerId).ok
                 }
-                flash={tile.id === flashTileId}
+                flash={
+                  tile.id === flashTileId ||
+                  (bossFlash !== null &&
+                    tile.parentId === bossFlash.parentId &&
+                    tile.corner === bossFlash.corner)
+                }
                 selected={tile.id === selectedTileId}
               >
                 <p className="font-tiles text-center">

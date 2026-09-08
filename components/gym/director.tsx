@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 
 import { bossAct } from "@/app/gym/actions";
 import { clearBossDraft, publishBossDraft } from "@/components/gym/boss-draft";
+import { publishBossFlash } from "@/components/gym/boss-flash";
 import {
   clearCookedPlacement,
   publishCookedPlacement,
@@ -454,6 +455,12 @@ function Director({
           // move and the cleanup above never runs. Take the draft down by
           // hand rather than leaving Bob's words hanging in an empty slot.
           clearBossDraft();
+        } else if (plan) {
+          // BRAIN-T260905-27: flag the slot the tile just landed in, so the
+          // board can flash it the same way it flashes the player's own
+          // throw. Keyed by slot, not tile id: the server-generated id never
+          // comes back through `ActionResult`.
+          publishBossFlash({ parentId: plan.parentId, corner: plan.corner });
         }
         router.refresh();
       });
