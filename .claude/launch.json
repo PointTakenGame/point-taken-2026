@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pt-2026",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "TMPDIR=/tmp npm run dev"],
+      "port": 3100,
+      "url": "http://localhost:3100"
+    }
+  ]
+}
