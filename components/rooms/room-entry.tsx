@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { createRoom, joinRoom, type RoomResult } from "@/app/join/actions";
+import { joinRoom, type RoomResult } from "@/app/join/actions";
 import { AgreementTick, useAgreed } from "@/components/legal/agreement";
 import { ArrowGlyph } from "@/components/account/account-shell";
 import { JOIN_CODE_LENGTH } from "@/lib/games/joinCode";
@@ -60,45 +60,6 @@ export function useRoom() {
 
 const BUTTON =
   "form-base btn-primary font-secondary disabled:cursor-not-allowed disabled:opacity-50";
-
-/**
- * The front door, arranged the way Rannie draws it (Figma `1096:244927`,
- * pulled 2026-09-02, spec BRAIN-T260902-21): the room code first, an OR, and
- * then starting a room underneath. That is the opposite of the order this
- * screen used to be in, and the order is the point. Almost everyone arriving
- * here has been sent a code by somebody else; the person opening a room is the
- * one who already knows what they came to do.
- *
- * Her two actions are plain text, with no button chrome at all. Kept, but each
- * carries an underline so it is visibly a thing you can press: a bare word in
- * the middle of an empty page is a lovely drawing and an invisible control.
- */
-export function RoomEntry({ signedIn }: { signedIn: boolean }) {
-  const { pending, error, enter } = useRoom();
-  const agreed = useAgreed();
-  const blocked = !signedIn && !agreed;
-
-  return (
-    <div className="flex w-full flex-col items-center gap-6">
-      {signedIn ? null : <AgreementTick id="pt-agreement-room" />}
-
-      <JoinByCode signedIn={signedIn} />
-
-      <span className="text-ink font-secondary text-[10px] tracking-[0.3em]">OR</span>
-
-      <button
-        type="button"
-        className="text-ink font-secondary cursor-pointer underline decoration-gold decoration-2 underline-offset-4 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={blocked || pending}
-        onClick={() => enter(createRoom)}
-      >
-        {pending ? "Working..." : "Create a room"}
-      </button>
-
-      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
-    </div>
-  );
-}
 
 /**
  * The room-code half on its own.

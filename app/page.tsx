@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Profile } from "@/app/account/profile";
 import { StartPlaying } from "@/app/account/start-playing";
 import { Wordmark } from "@/components/brand/art";
-import { RoomEntry } from "@/components/rooms/room-entry";
+import { AgreementTick } from "@/components/legal/agreement";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { HomeLinks } from "@/components/home/home-links";
 import { CalendarStrip } from "@/components/account/calendar-strip";
@@ -21,18 +21,20 @@ import { readLeaderboard } from "@/lib/db/leaderboard";
  * player with an account has somewhere to be, and the room code field they
  * would have come here for is on the Live play card.
  *
- * **Signed out, it is the front door**, rebuilt 2026-09-02 from Rannie's
- * landing frame (Figma `1096:244927`, spec BRAIN-T260902-21). Hers is almost
- * nothing: the wordmark large and centred over the dot-grid ground, a
- * room-number field with "Join a game" beside it, the word OR, and "Create a
- * room" under that.
+ * **Signed out, it is the front door**, originally built 2026-09-02 from
+ * Rannie's landing frame (Figma `1096:244927`, spec BRAIN-T260902-21) and
+ * trimmed 2026-09-08 (Steve): the room-code field, "Join a game" and "Create
+ * a room" moved off this screen entirely, since offering them before a
+ * visitor has an account was confusing. They live only on the profile's Live
+ * play card now (`components/account/hero.tsx`). What is left here is the
+ * wordmark, the Terms of Use / Privacy Policy tick, "Set me up" for a guest
+ * account, and a Login button back to an existing one.
  *
- * One thing on it is not hers and is not optional. Every action here quietly
- * mints an account, so the visitor ticks the Terms of Use and the Privacy
- * Policy before any of them will fire, and `/api/auth/anonymous` refuses
- * without it. There is one tick box for the whole screen, inside RoomEntry,
- * and the guest-account button below reads the same answer rather than asking
- * again.
+ * Every action here quietly mints an account, so the visitor ticks the Terms
+ * of Use and the Privacy Policy before any of them will fire, and
+ * `/api/auth/anonymous` refuses without it. There is one tick box for the
+ * whole screen, and the guest-account button below reads the same answer
+ * rather than asking again.
  *
  * There is no site nav on the signed-out half. She does not draw one on any of
  * the three 832-tall frames, and the four-tab account hub is how you get around
@@ -80,13 +82,14 @@ export default async function Home() {
               <Wordmark width={420} />
             </h1>
 
-            <RoomEntry signedIn={false} />
-
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-p-sm text-ink-soft">
-                Or take the guest account on its own and look around first.
-              </p>
-              <StartPlaying label="Set me up" withTick={false} />
+            <div className="flex flex-col items-center gap-4">
+              <AgreementTick id="pt-agreement-home" />
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <StartPlaying label="Set me up" withTick={false} />
+                <Link href="/signin" className="form-base font-secondary">
+                  Login
+                </Link>
+              </div>
             </div>
 
             <HomeLinks signedIn={false} />

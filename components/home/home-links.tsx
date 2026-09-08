@@ -23,8 +23,8 @@ export function HomeLinks({ signedIn }: { signedIn: boolean }) {
           >
             Sign in
           </Link>{" "}
-          to get back to those games. Otherwise just start a room: an account comes with
-          it.
+          to get back to those games. Otherwise &ldquo;Set me up&rdquo; above gets you a
+          guest account in one click.
         </p>
       )}
     </footer>
