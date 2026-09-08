@@ -3839,40 +3839,49 @@ export function LiveBoard({
           on one click. The move banner below takes the same spot. */}
       {hiddenSurfaces.includes("card-tray") || movingTile ? null : (
         <div
-          className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+          className="pointer-events-none fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
           style={{ right: "27rem" }}
         >
-          <RuleCardTray
-            deck={deck}
-            counts={cardCounts}
-            armedCardId={armedCardId}
-            onArm={(cardId) => {
-              setArmedCardId(cardId);
-              setThrowError(null);
-              // A card and a tile's action card both want the click on a tile,
-              // so arming one closes the other, and closes an open draft with it.
-              if (cardId) {
-                setPencilEditTileId(null);
-                setSelectedTileId(null);
-                setDraft(null);
+          {/* This wrapper's own box spans the whole reserved gutter (fixed
+              with both left and right set), so without this inner
+              pointer-events-auto its empty padding would swallow clicks
+              meant for board content, like a tile's reply buttons or the
+              composer's Place button, that pans underneath it
+              (BRAIN-T260908-03). Only the tray's own visible content should
+              be clickable. */}
+          <div className="pointer-events-auto">
+            <RuleCardTray
+              deck={deck}
+              counts={cardCounts}
+              armedCardId={armedCardId}
+              onArm={(cardId) => {
+                setArmedCardId(cardId);
+                setThrowError(null);
+                // A card and a tile's action card both want the click on a tile,
+                // so arming one closes the other, and closes an open draft with it.
+                if (cardId) {
+                  setPencilEditTileId(null);
+                  setSelectedTileId(null);
+                  setDraft(null);
+                }
+              }}
+              hint={
+                throwError ??
+                (throwPending
+                  ? "Playing that card..."
+                  : armedCardId
+                    ? "Now click the reason you want to play it on."
+                    : // First-use nudge: shown until this player has thrown any
+                      // card at all, then it steps aside for the refusal/arm
+                      // hints above. A tester dragged a card onto a tile and
+                      // nothing happened, because throwing one is click-then-
+                      // click, not drag-and-drop, and nothing on the tray said so.
+                      deck.length > 0 && Object.keys(cardCounts).length === 0
+                      ? "Click a card, then click the reason it applies to."
+                      : null)
               }
-            }}
-            hint={
-              throwError ??
-              (throwPending
-                ? "Playing that card..."
-                : armedCardId
-                  ? "Now click the reason you want to play it on."
-                  : // First-use nudge: shown until this player has thrown any
-                    // card at all, then it steps aside for the refusal/arm
-                    // hints above. A tester dragged a card onto a tile and
-                    // nothing happened, because throwing one is click-then-
-                    // click, not drag-and-drop, and nothing on the tray said so.
-                    deck.length > 0 && Object.keys(cardCounts).length === 0
-                    ? "Click a card, then click the reason it applies to."
-                    : null)
-            }
-          />
+            />
+          </div>
         </div>
       )}
 
@@ -3901,10 +3910,14 @@ export function LiveBoard({
           really does put it back. */}
       {movingTile && (
         <div
-          className="fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
+          className="pointer-events-none fixed bottom-[calc(2rem+var(--dev-bar-h,0px))] left-8 z-40 flex flex-col items-center"
           style={{ right: "27rem" }}
         >
-          <div className="border-gold bg-sand flex max-w-lg flex-col items-center gap-2 rounded-lg border-2 p-3 shadow-md">
+          {/* Same pointer-events split as the rule-card tray above: this
+              flow asks the player to click an empty board spot inside this
+              same reserved band, so its own empty padding must not capture
+              that click. */}
+          <div className="border-gold bg-sand pointer-events-auto flex max-w-lg flex-col items-center gap-2 rounded-lg border-2 p-3 shadow-md">
             <span className="font-secondary text-p-sm text-neutral-black text-center">
               {moveError ??
                 (movePending
