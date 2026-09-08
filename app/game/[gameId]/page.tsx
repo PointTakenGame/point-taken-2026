@@ -81,6 +81,12 @@ export default async function GamePage({
         <>
           <Certificate level={level} board={board} />
           <FinishedMap board={board} endedAt={seat.seat.game.ended_at} />
+          {/*
+            The same celebratory beat the non-gym ending shows, dismissing in
+            place onto the certificate already rendered underneath rather than
+            navigating anywhere: there is no "Play Again" from inside a level.
+          */}
+          <WinOverlay board={board} exitLabel="Go to game wrapup" exitHref={null} />
           {hotseat}
         </>
       );

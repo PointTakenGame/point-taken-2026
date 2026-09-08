@@ -190,4 +190,22 @@ describe("WinOverlay: buttons", () => {
       ),
     ).toBeTruthy();
   });
+
+  it("with exitHref null, dismisses in place instead of linking anywhere", async () => {
+    const user = userEvent.setup();
+    render(
+      <WinOverlay
+        board={makeBoard({ winCondition: "threads_resolved" })}
+        exitLabel="Go to game wrapup"
+        exitHref={null}
+      />,
+    );
+
+    const exit = screen.getByText("Go to game wrapup");
+    expect(exit.tagName).toBe("BUTTON");
+
+    await user.click(exit);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("🎉 You both won. Show results")).toBeTruthy();
+  });
 });

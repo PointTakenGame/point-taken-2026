@@ -83,7 +83,22 @@ function ReopenPill({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function WinOverlay({ board }: { board: BoardState }) {
+export function WinOverlay({
+  board,
+  exitLabel = "Play Again",
+  exitHref = "/",
+}: {
+  board: BoardState;
+  /** Label on the bottom pill. Defaults to the non-Gym "Play Again". */
+  exitLabel?: string;
+  /**
+   * Where the bottom pill navigates. `null` means there is nowhere to send
+   * the player: it dismisses the overlay in place instead, the same as the
+   * close button, revealing whatever recap is already rendered underneath
+   * (the Gym's certificate, in practice, which has its own way out).
+   */
+  exitHref?: string | null;
+}) {
   const variant = deriveVariant(board);
   // Identifies a particular win, not just a win condition: a fresh
   // topic-agreed win with different revised text is still a *new* win and
@@ -235,13 +250,26 @@ export function WinOverlay({ board }: { board: BoardState }) {
         </div>
       </div>
 
-      <Link
-        href="/"
-        onClick={(event) => event.stopPropagation()}
-        className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md px-4 py-1.5"
-      >
-        Play Again
-      </Link>
+      {exitHref ? (
+        <Link
+          href={exitHref}
+          onClick={(event) => event.stopPropagation()}
+          className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md px-4 py-1.5"
+        >
+          {exitLabel}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            close();
+          }}
+          className="bg-gold text-neutral-white font-primary text-p-sm rounded-full tracking-wide shadow-md px-4 py-1.5"
+        >
+          {exitLabel}
+        </button>
+      )}
     </div>
   );
 }
