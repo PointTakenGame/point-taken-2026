@@ -541,8 +541,11 @@ function Director({
   // Hand the coach's sample answers to the board, which draws them in the
   // open slots. Republishing an unchanged list is a no-op, and unmounting
   // clears the offer so a board that outlives the Director shows plain slots.
+  // A propose beat is cooked the same as a tile beat (see lockedText above),
+  // so it needs the same feed or its composer locks with nothing to reveal.
   const samples =
-    beat?.kind === "player" && beat.expect.kind === "tile"
+    beat?.kind === "player" &&
+    (beat.expect.kind === "tile" || beat.expect.kind === "propose")
       ? beat.expect.suggestions
       : null;
   useEffect(() => {
