@@ -74,7 +74,7 @@ otherwise is wrong. [ruled]
   arrive wanting the relationship back, not a logic exercise. Onboarding copy that
   reads as a puzzle app loses them.
 - **Two willing people who already disagree.** Canonical mode is exactly two players
-  (`lib/board/setup.ts:182`).
+  (`lib/board/setup.ts:220`).
 - **Classrooms, workplaces, community groups**, where a facilitator brings the game to
   people who did not individually ask for it. Testing has happened in bars,
   nonprofits, private-equity firms, high schools, and with Army officers. [ruled]
@@ -95,19 +95,18 @@ Quiet. Two people typing, mostly not speaking. The board grows as a tree of shor
 claims rather than a scrolling transcript, so nothing said ten minutes ago has to be
 held in anyone's head. The shape of it:
 
-1. Both players sign, in good faith and not as a contract, three lines: Play fair
-   (Mutual Respect), Stay on the thread (Honest Thinking), Pin it down (Shared
-   Facts). See `rules.md` section 3 for the normative wording and its ruling id.
-   An older four-item version is superseded: the fourth line was folded into Play
-   fair and the `same_team` id is dead (`lib/board/setup.ts:26-30`).
+1. Both players sign, in good faith and not as a contract, three lines: Mutual
+   Respect, Honest Thinking, Shared Evidence. See `rules.md` section 3 for the
+   normative wording and its ruling id. Older sources listing four lines are wrong:
+   there is no fourth line, it is folded into Mutual Respect, and the `same_team`
+   id is dead (`lib/board/setup.ts:42-47`).
 2. They pick a topic phrased as a question starting with "Should", one they actually
    disagree about. [ruled]
 3. Plus argues yes, Minus argues no. Each writes short reasons, one idea each, hanging
    every new one off an existing claim. There is no turn timer where writing stalls: turn
    timers are out of scope for this edition and belong to the Heart edition instead
-   [ruled Steve 2026-09-03, BRAIN-T260903-01]. An earlier version of this item described a
-   30-second speaker and 45-second summarize window as a ruling awaiting a build; that was
-   a mistake and is superseded.
+   [ruled Steve 2026-09-03, BRAIN-T260903-01]. The 30-second speaker and 45-second summarize
+   windows some older sources describe are neither ruled nor built.
 4. A thread closes when both players place the **same** resolution mark on the same
    claim: 👍 "point taken, you actually moved me", or 👀 "now I see why we disagree".
    Both must agree which. [ruled, Steve 2026-08-23, `lib/board/rules.ts:45`]

@@ -53,7 +53,12 @@ play is the real pair; Gym and Dojo were never two modes.
    state with nowhere durable to write. The single largest rewrite risk.
 3. **Four mechanics are one interaction.** Tile relocation, the Help Me Understand handback, all three
    Steel Man rungs, and revise-topic-together are propose-and-approve. Build one component and one
-   action pair, once `[ruled]` (`BRAIN-T260816-12`: approval belongs to the tile's author).
+   action pair, once `[ruled]` (`BRAIN-T260816-12`: approval belongs to the tile's author). **Code
+   disagrees for tile relocation**: `relocateTile` (`app/game/[gameId]/actions.ts:439-471`) appends
+   `tile_relocated` directly, bypassing the proposal primitive, under a doc comment citing a
+   2026-09-05 ruling (`BRAIN-T260905-64`) and a 2026-09-06 ruling settling "the open half of
+   `BRAIN-T260816-12`." Nobody has reconciled that later pair against this finding or against Phase
+   3.3 below; see findings, RULED-BUT-CONTRADICTED.
 
 **The platform is the rebuild stack** `[ruled]` (`BRAIN-T260819-11`): Supabase (Postgres, anonymous
 auth, Supavisor pooling from day one), Vercel, Resend, Anthropic, Sentry. Off AWS entirely. Postgres
@@ -83,8 +88,14 @@ Land or discard the in-flight work, resolve the onboarding-step collision (`BRAI
 fix the PDF history-strip over-deletion (`BRAIN-T260815-35`). All three items were written against the
 retired Nuxt client.
 
-GAP: are phase 0's three items closed by the platform rebuild, or does each still owe a fix in this
-repo? Nobody has re-derived them since the stack changed.
+**Built: two of the three items are moot.** No PDF feature of any kind exists in this repo, so there
+is no history strip to over-delete `[unratified]`. The onboarding overlay was rebuilt from scratch,
+restructured rather than ported line for line (`components/onboarding/onboarding-overlay.tsx`, header
+comment), so it does not carry forward the old step-collision defect `[unratified]`.
+
+GAP: "land or discard the in-flight work" is still open. Nobody has said which in-flight work that
+phrase referred to, so code cannot say whether it was landed, discarded, or never re-derived after
+the stack changed.
 
 ### Phase 1. The record layer
 
@@ -95,7 +106,7 @@ Nothing else can be built on top until this is settled, because everything else 
   `[ruled]`; a dedicated table keyed by `game_id` and `seq` with `schema_version`, a JSONB payload,
   server-stamped time, and projections rebuildable from the log `[ruled]`. It exists here:
   `supabase/migrations/0001_event_log.sql`, `0002_event_type_catalogue.sql`, row shape `GameEventRow`
-  at `lib/events/types.ts:327-338`, catalogue of 28 types at `:248-277` `[unratified]`.
+  at `lib/events/types.ts:405-416`, catalogue of 32 types at `:314-347` `[unratified]`.
 - **1.1a Built: the four award events landed as their own migration.** `level_cleared`,
   `badge_granted`, `points_changed`, `certificate_granted` `[unratified: supabase/migrations/0014_awards.sql,
   lib/events/types.ts:342-345,392-395]`, not the names this row originally called for
@@ -104,13 +115,14 @@ Nothing else can be built on top until this is settled, because everything else 
   expressible. `points_changed` carries the dock and the refund level 3 needs, since the scoring
   model is replay-derived. Awarding a card and awarding a certificate are **two events, not one**
   `[ruled]` (`BIZ-T260819-16`).
-- **1.2 Tile fields.** `revised` is live at `lib/board/project.ts:33`, set at `:562` `[unratified]`.
-  GAP: does a tile still need a `ruleCard` field of its own in the new schema, or does the thrown card
-  live only in the event payload? The retired backend carried both and its handler was never wired.
+- **1.2 Tile fields.** `revised` is live at `lib/board/project.ts:34`, set at `:621` `[unratified]`.
+  **Built: no separate `ruleCard` field.** `BoardTile` carries no card field; card association lives
+  only on the separate `BoardThrow` projection, keyed by `targetTileId`, and in the event payload
+  (`lib/board/project.ts`, `BoardTile` and `BoardThrow` interfaces) `[unratified]`.
 - **1.3 Mode, level, and boss on the game record** `[ruled]` (`BRAIN-T260816-09`), plus the route
   split so practice and live play are two pages, not one page with a flag. `levelId` and `bossId`
-  already project at `lib/board/project.ts:308-309, 365-366, 430-431`, and the coach projects at
-  `:194` and `:512` `[unratified]`.
+  already project at `lib/board/project.ts:356-357, 415-416, 487-488`, and the coach projects at
+  `:208` and `:566-571` `[unratified]`.
   The mode enum is `GameMode = "gym" | "live"` (`lib/db/types.ts:16`) `[unratified]`. The source
   specifies `'dojo' | 'gym'`, which names the retired word and omits the live mode; build to the code.
   Nathan reached the same "build to the code" ruling on 2026-08-29.
@@ -139,14 +151,23 @@ Depends on 1.1, 1.2, and phase 2.
 - **3.1 Hand UI and aiming**, and wire the throw end to end.
 - **3.2 Throw resolution.**
 - **3.3 The propose-and-approve primitive, built once**, serving all four mechanics from finding 3.
-  Approval belongs to the author of the tile being changed `[ruled]`.
+  Approval belongs to the author of the tile being changed `[ruled]`. **Code disagrees for tile
+  relocation**, which now bypasses this primitive entirely; see finding 3 above and findings,
+  RULED-BUT-CONTRADICTED.
 
 In this repo `card_thrown`, `card_throw_declined`, `proposal_made`, `proposal_accepted`, and
-`proposal_rejected` are live event types `[unratified]` (`lib/events/types.ts:248-277`), but rungs are
-not built: `app/game/[gameId]/actions.ts:197` reads that every throw so far is a card throw.
+`proposal_rejected` are live event types `[unratified]` (`lib/events/types.ts:314-347`), but rungs are
+not built: `app/game/[gameId]/actions.ts:210-211` reads that every throw so far is a card throw.
 
-GAP: one socket or action pair for the whole proposal primitive, or one per mechanic? Named as an open
-engineering call for brain to make.
+**Built: the socket question is answered as a hybrid, half-settling the GAP below.** `acceptProposal`
+and its reject counterpart (`app/game/[gameId]/actions.ts:623-720`) are one shared action pair,
+branching internally on `topic_revision`, `tile_relocation` (a legacy branch, since relocation no
+longer creates a proposal), and `steelman_tile` `[unratified]`. Proposal *creation* stays one call per
+mechanic, since each takes a different input shape.
+
+GAP: was the shared-pair-with-per-mechanic-creation split above a deliberate engineering call, or
+just where the build stopped? Nobody has ruled on whether this is the intended shape or a
+placeholder.
 
 ### Phase 4. The Gym shell
 
@@ -165,8 +186,8 @@ Built: all four scripted opponents write real moves. Each level is its own scrip
 `lib/gym/levels/` (`onboarding.ts`, `ground-rules.ts`, `claim-size.ts`, `clarity.ts`), collected in
 `SCRIPTED_LEVELS` at `lib/gym/levels/index.ts:8` `[unratified]`, and all four were played end to end
 and cleared (`docs/handoffs/2026-09-04_overnight-result.md`, `BRAIN-T260904-20`). `app/gym/page.tsx`
-is no longer a level-select page; it redirects to `/#ladder`, since the profile's ladder strip
-(`components/account/progression/ladder-strip.tsx`) is the level select now `[ruled Steve
+redirects to `/#ladder`; the profile's ladder strip
+(`components/account/progression/ladder-strip.tsx`) is the level select `[ruled Steve
 2026-09-04]`.
 
 ### Phase 5. Card mechanics
@@ -260,12 +281,11 @@ player reads without checking.
 
 **Two engineering findings embedded in the beat sheets** `[ruled]`, both of which bite this repo:
 
-1. **Built: there is no minimum thread count.** `MIN_THREADS_TO_END` no longer exists in
-   `lib/board/rules.ts`; `threadsWinReached()` ends the game once every live thread is resolved,
+1. **Built: there is no minimum thread count.** `lib/board/rules.ts` carries no
+   `MIN_THREADS_TO_END` constant; `threadsWinReached()` ends the game once every live thread is resolved,
    whatever their number, so a two-thread Gym level wins on the same rule as everyone else
    `[ruled Steve 2026-09-01]` (`BRAIN-T260901-06`, reconfirmed 2026-09-03: "it is all threads, not
-   four threads"). This entry previously said level 1's win was unreachable against shipped code;
-   that finding is resolved and this is its tombstone.
+   four threads").
 2. **The rung-0 question test does not exist in the tile validator.** The approved implementation is a
    trailing question mark plus a list of interrogative openers, with no model call; a refusal names the
    rule and hands the text back (`BRAIN-T260823-43`, `BIZ-T260824-14`). Build it in the tile validator
@@ -313,9 +333,9 @@ Also `[ruled Steve 2026-09-03]` (`BRAIN-T260903-11`): the profile also carries a
 with a global percentile, and a ladder rank with divisions, as tiles to iterate on. The data behind
 both is invented sample data until the progression layer lands.
 
-The profile no longer plans around a six-stat block with Cards Landed in it. The progression port
+The profile plans no six-stat block and no Cards Landed stat. The progression port
 landed partially: the profile hero shows three figures, Games played, Cooperation score, and Points
-`[unratified: components/account/hero.tsx:195,201,208]`, and match history shows a per-game outcome
+`[unratified: components/account/hero.tsx:226,232,239]`, and match history shows a per-game outcome
 label rather than an aggregate stat `[unratified: components/account/match-list.tsx:32-35]`. No
 Cards Landed stat exists under any name; see `rules.md` section 13 item 14, which is now the
 normative account of what the profile shows.
@@ -364,7 +384,7 @@ Gym's on-screen certificate (`components/gym/certificate.tsx`). Badge display na
 placeholders pending the badge taxonomy, and no certificate exports as an image `[BRAIN-T260904-11]`.
 That last one is live: `components/board/use-game-feed.ts:44-56` opens a Supabase Realtime channel
 on `postgres_changes` INSERT against `game_events`, filtered to the game, and is consumed by
-`components/board/live-board.tsx:58,1677` and `components/board/game-setup.tsx:18,122`. Writes still
+`components/board/live-board.tsx:77,2946` and `components/board/game-setup.tsx:18,143`. Writes still
 go through server actions, and the subscription triggers a refetch rather than carrying state
 `[unratified]`. `tech-spec.md` section 3 is the normative account.
 
@@ -386,11 +406,22 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
   thread per side** travels with it to level 5 `[ruled]`; two per side through level 4.
 - **The revise-topic-together win condition** `[ruled]`. It scores as a team award and should be the
   largest award on its level, being a win condition rather than a move.
-  GAP: the exact point value of the revise-topic win, and the tile affordance, which has never been
-  written down anywhere.
+  **Built: the tile affordance.** A click-to-propose UI is wired end to end: `topic-cell.tsx` calls
+  `proposeTopicRevision` (`components/board/topic-cell.tsx:233`), which is a server action at
+  `app/game/[gameId]/actions.ts:396` `[unratified]`. `topic_agreed` is also already a first-class
+  `WinCondition` (`lib/db/types.ts:20`) and the award engine (`lib/gym/awards.ts:37,55`) already
+  treats it as cooperative, identically to `threads_resolved`, for the purpose of triggering the same
+  award batch `[unratified]`. This narrows the row: the affordance is not unwritten, and the win
+  condition already exists in code, so "deferred" describes only the missing distinct point value
+  below, not the whole feature.
+  GAP: the exact point value of the revise-topic win. Code shows no special or larger award for it:
+  `grantLevelAwards` derives every `points_changed` event from a level's own beats
+  (`lib/gym/awards.ts:81-92`), not from which win condition ended the game, so nothing currently makes
+  this award "the largest on its level." Nobody has said what value it should carry or how it should
+  be wired in.
 - **Communal points**, arriving at level 5 `[ruled]` (`BIZ-T260819-17`). Personal through level 4.
 - **Generosity tokens** and **re-opening a finished game** (`BRAIN-T260816-14`), both `[ruled]`.
-  Certificates on the profile are no longer on this list: a certificate wall is built and reads real
+  Certificates on the profile are not on this list: a certificate wall is built and reads real
   award data (see section 2 Phase 6, item 6.1).
 - **Typed tiles** (definitions, claims, facts, values). Wishlist, with an unestimated blast radius
   reaching stored games, the action payloads, and the evaluator's input contract.
@@ -415,8 +446,7 @@ Deferred by scheduling, not closed by ruling. The difference matters if somethin
   2026-09-07). Level 1 of the Gym runs two threads, one per side, on the tile board's two bottom
   diagonals; level 2 and up in the Gym, and live play, run four threads total, two per side, which
   is the tile board's full capacity `[ruled Steve 2026-09-05]` (`BRAIN-T260905-33`). Six threads
-  belongs only to compact mode, when it ships, not before. The four-minimum this entry used to
-  carry is gone.
+  belongs only to compact mode, when it ships, not before.
 - **The event log's physical home**, an open engineering call: inline on the game record or its own
   table. This repo answers it with its own table `[unratified]`, which does not make the call ruled.
 - **Boss roster coverage.** Skin tones are deliberately uncorrelated with name origin `[ruled]`. No
@@ -441,11 +471,16 @@ from both name the boss Bogdan, confirmed done at `BRAIN-T260903-36` and in comm
 
 ## 8. Known stale references
 
-**This repo's own `README.md` and `CLAUDE.md` are stale about the Gym.** Both say the scripted practice
-opponent was taken off the critical path by a 2026-08-17 scope ruling, and `app/gym/page.tsx` repeats
-it in a comment. That is no longer true. The dev roadmap's last six open questions were answered by
-Steve on 2026-08-19, after that ruling, and Steve put the Gym levels 1 to 4 back on the critical path
-on 2026-08-28. Read those three comments as history, not as scope.
+**This repo's own `README.md` is stale about the Gym.** It says the scripted practice opponent was
+taken off the critical path by a 2026-08-17 scope ruling. That is wrong: the dev roadmap's
+last six open questions were answered by Steve on 2026-08-19, after that ruling, and Steve put the
+Gym levels 1 to 4 back on the critical path on 2026-08-28. Read that comment as history, not as
+scope.
+
+**Built: `CLAUDE.md` and `app/gym/page.tsx` are both correct.** This repo's `CLAUDE.md` states the
+critical-path ruling correctly and names this file, `docs/roadmap.md`, as the source of record.
+`app/gym/page.tsx` does not level-select; its redirect to `/#ladder` (section 2 Phase 4) carries no
+comment about the scope ruling either way. Only `README.md` needs the fix.
 
 Two other stale claims circulate in the older sources. **Boss assignments:** Kranky Karl at level 2,
 Sloppy Salma at level 3, and Twisty Thibault at level 4 are all pre-ruling; the live assignment is the

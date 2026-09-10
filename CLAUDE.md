@@ -101,7 +101,7 @@ bind its socket under a very long temp path and panics with `binding to a port: 
 permitted`. If your temp path is short you will never see it, and Vercel is unaffected.
 
 `http://localhost:3100/api/health?deep=1` is the fastest proof the app is talking to the right
-database with every migration applied. It should report 28 catalogue types in the database, 28
+database with every migration applied. It should report 32 catalogue types in the database, 32
 in code, and empty `missing_in_db` / `missing_in_code`.
 
 **Driving both seats yourself.** A real game needs two people, and there is no practice
@@ -267,7 +267,7 @@ Settled, and not up for redesign in a surface pull request:
   tab bar. Steve, 2026-09-04, `BRAIN-T260904-22`, matching Rannie's connector arrows.
 - a level opens on two cards over the empty board: the boss intro, then the agreement. The
   agreement names the level, the boss, and the topic, then the three pledges from the
-  production game (Mutual Respect, Honest Thinking, Shared Facts, `SIGNING_LINES` in
+  production game (Mutual Respect, Honest Thinking, Shared Evidence, `SIGNING_LINES` in
   `lib/board/setup.ts`), one button agrees to all three, and only then does START THE GAME
   ungrey. No level shows a rule card before play; a card is met on the board the moment the
   script teaches it. Steve, 2026-09-05, `BRAIN-T260905-39`, superseding the rule-card intro
