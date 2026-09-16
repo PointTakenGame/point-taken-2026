@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/brand/art";
 import { AgreementTick } from "@/components/legal/agreement";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { HomeLinks } from "@/components/home/home-links";
+import { LandingOnboarding } from "@/components/onboarding/landing-onboarding";
 import { CalendarStrip } from "@/components/account/calendar-strip";
 import { LeaderboardBoard } from "@/components/account/leaderboard-board";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
@@ -118,6 +119,7 @@ export default async function Home() {
         </main>
       )}
       {dev ? <HotseatBar me={me} players={demoPlayers} /> : null}
+      {me ? null : <LandingOnboarding />}
     </>
   );
 }

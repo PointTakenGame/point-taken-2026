@@ -152,7 +152,7 @@ describe("OnboardingOverlay: dismissal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onClose from Finish on the last step", async () => {
+  it("calls onClose from Finish on the last step when there is no end screen", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<OnboardingOverlay open onClose={onClose} />);
@@ -169,6 +169,60 @@ describe("OnboardingOverlay: dismissal", () => {
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("OnboardingOverlay: end screen", () => {
+  it("shows the end screen instead of closing when Finish is pressed and one is given", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OnboardingOverlay open onClose={onClose} endScreen={<p>Two ways forward</p>} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("Two ways forward")).toBeTruthy();
+    expect(screen.queryByText("Two ways to win.")).toBeNull();
+  });
+
+  it("still closes from the close button while the end screen is showing", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <OnboardingOverlay open onClose={onClose} endScreen={<p>Two ways forward</p>} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    await user.click(screen.getByLabelText("Close tutorial"));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets past the end screen back to step one on reopen", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <OnboardingOverlay open onClose={vi.fn()} endScreen={<p>Two ways forward</p>} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    expect(screen.getByText("Two ways forward")).toBeTruthy();
+
+    rerender(
+      <OnboardingOverlay
+        open={false}
+        onClose={vi.fn()}
+        endScreen={<p>Two ways forward</p>}
+      />,
+    );
+    rerender(
+      <OnboardingOverlay open onClose={vi.fn()} endScreen={<p>Two ways forward</p>} />,
+    );
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
   });
 });
 
