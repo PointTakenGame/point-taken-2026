@@ -172,6 +172,32 @@ describe("OnboardingOverlay: dismissal", () => {
   });
 });
 
+describe("OnboardingOverlay: onFinish", () => {
+  it("calls onFinish instead of onClose from Finish on the last step, when given", async () => {
+    const onClose = vi.fn();
+    const onFinish = vi.fn();
+    const user = userEvent.setup();
+    render(<OnboardingOverlay open onClose={onClose} onFinish={onFinish} />);
+
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("still calls onClose from the close button and Skip when onFinish is given", async () => {
+    const onClose = vi.fn();
+    const onFinish = vi.fn();
+    const user = userEvent.setup();
+    render(<OnboardingOverlay open onClose={onClose} onFinish={onFinish} />);
+
+    await user.click(screen.getByLabelText("Close tutorial"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+});
+
 describe("OnboardingOverlay: reopening", () => {
   it("resets to step one the next time it opens", async () => {
     const user = userEvent.setup();

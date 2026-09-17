@@ -1,19 +1,17 @@
 /** @vitest-environment jsdom */
 
 /**
- * Interaction tests for the landing-page tutorial: that it opens with
- * nothing stored, that Skip exits from any point, that one card's
- * dialogue / tap / detail / practice / confirmed sequence advances the
- * tracker correctly, and that all four cards lead to the end screen with
- * both of its paths present and gated on one agreement tick.
+ * Interaction tests for the three-stage landing popup: intro, then the
+ * unmodified five-step walkthrough (already covered in its own right by
+ * onboarding-overlay.test.tsx), then the end screen. Focuses on what this
+ * wrapper adds: opening on stage 1 with nothing stored, moving between
+ * stages, Skip/close working from every stage, and the end screen's two
+ * paths.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { coachCard } from "@/lib/coach/cards";
-import { CARD_LESSONS } from "@/components/onboarding/landing-tutorial-content";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -22,6 +20,7 @@ vi.mock("next/navigation", () => ({
 const { LandingOnboarding } = await import("./landing-onboarding");
 
 beforeEach(() => {
+  window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
   document.cookie = "pt-terms-agreed=; path=/; max-age=0";
 });
 
@@ -30,114 +29,119 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** Walks one card's full dialogue -> tap -> detail -> practice -> confirmed
- *  sequence, picking whichever verdict the practice step calls for. */
-async function clearOneCard(
-  user: ReturnType<typeof userEvent.setup>,
-  lesson: (typeof CARD_LESSONS)[number],
-  isLastCard: boolean,
-) {
-  const card = coachCard(lesson.cardId);
-  if (!card) throw new Error(`no coach card for ${lesson.cardId}`);
-
-  for (const line of lesson.dialogue) {
-    const isLastLine = line === lesson.dialogue[lesson.dialogue.length - 1];
-    await user.click(
-      screen.getByRole("button", { name: isLastLine ? "Continue" : "Next" }),
-    );
-  }
-  await user.click(screen.getByRole("button", { name: `Tap the ${card.name} card` }));
-  await user.click(screen.getByRole("button", { name: "Try it yourself" }));
-
-  const verdict = lesson.examples[lesson.practice.exampleIndex].verdict;
-  await user.click(
-    screen.getByRole("button", {
-      name: verdict === "breaks" ? "Breaks it" : "Fine as is",
-    }),
-  );
-  await user.click(screen.getByRole("button", { name: "Continue" }));
-  await user.click(
-    screen.getByRole("button", { name: isLastCard ? "See what's next" : "Next card" }),
-  );
+/** From a fresh render, gets from stage 1 to the end screen. */
+async function reachEndScreen(user: ReturnType<typeof userEvent.setup>) {
+  render(<LandingOnboarding />);
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+  await user.click(screen.getByRole("button", { name: "Finish" }));
 }
 
-describe("LandingOnboarding: opens unconditionally", () => {
-  it("shows the first card's dialogue on mount with nothing stored", () => {
+describe("LandingOnboarding: opens unconditionally on stage 1", () => {
+  it("shows the intro on mount with nothing stored", () => {
     render(<LandingOnboarding />);
-    expect(screen.getByText(CARD_LESSONS[0].dialogue[0])).toBeTruthy();
-    expect(screen.getByText("Learn the card")).toBeTruthy();
+    expect(
+      screen.getByText("Point Taken is a game about disagreeing well."),
+    ).toBeTruthy();
   });
 });
 
-describe("LandingOnboarding: Skip", () => {
-  it("closes the overlay from the dialogue step", async () => {
+describe("LandingOnboarding: stage 1, the intro", () => {
+  it("Skip closes the whole popup", async () => {
     const user = userEvent.setup();
     render(<LandingOnboarding />);
 
-    await user.click(screen.getByLabelText("Skip tutorial"));
-    expect(screen.queryByText(CARD_LESSONS[0].dialogue[0])).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+  });
+
+  it("the close button closes the whole popup", async () => {
+    const user = userEvent.setup();
+    render(<LandingOnboarding />);
+
+    await user.click(screen.getByLabelText("Close tutorial"));
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+  });
+
+  it("Next moves to stage 2, the five-step walkthrough", async () => {
+    const user = userEvent.setup();
+    render(<LandingOnboarding />);
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Each player writes two starting reason tiles supporting their opinion.",
+      ),
+    ).toBeTruthy();
   });
 });
 
-describe("LandingOnboarding: one card's lesson", () => {
-  it("advances dialogue, reveals the card, expands it, and runs the practice call", async () => {
+describe("LandingOnboarding: stage 2, the walkthrough", () => {
+  it("Skip tutorial from the walkthrough closes the whole popup", async () => {
     const user = userEvent.setup();
     render(<LandingOnboarding />);
-    const lesson = CARD_LESSONS[0];
-    const card = coachCard(lesson.cardId)!;
 
-    for (const line of lesson.dialogue.slice(0, -1)) {
-      expect(screen.getByText(line)).toBeTruthy();
-      await user.click(screen.getByRole("button", { name: "Next" }));
-    }
-    expect(screen.getByText(lesson.dialogue[lesson.dialogue.length - 1])).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 1 of 5")).toBeTruthy();
 
-    expect(screen.getByText("Tap the card.")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: `Tap the ${card.name} card` }));
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    expect(screen.queryByText("Step 1 of 5")).toBeNull();
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+  });
 
-    expect(screen.getByText("Examples")).toBeTruthy();
-    expect(screen.getByText(`“${lesson.examples[0].text}”`)).toBeTruthy();
-    expect(screen.getByText(`“${lesson.examples[2].text}”`)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Try it yourself" }));
+  it("finishing the last step moves to stage 3, not straight to closed", async () => {
+    const user = userEvent.setup();
+    render(<LandingOnboarding />);
 
-    expect(screen.getByText("Make the call")).toBeTruthy();
-    expect(screen.getByText("Practice the call")).toBeTruthy();
-    const verdict = lesson.examples[lesson.practice.exampleIndex].verdict;
-    await user.click(
-      screen.getByRole("button", {
-        name: verdict === "breaks" ? "Breaks it" : "Fine as is",
-      }),
-    );
-    expect(screen.getByText("Right call")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    await user.click(screen.getByRole("button", { name: "Finish" }));
 
-    expect(screen.getByText("Card earned")).toBeTruthy();
-    expect(screen.getByText(`${card.name} is yours.`)).toBeTruthy();
+    expect(screen.queryByText("Step 5 of 5")).toBeNull();
+    expect(screen.getByText("One thing before you jump in.")).toBeTruthy();
   });
 });
 
-describe("LandingOnboarding: all four cards to the end screen", () => {
-  it("offers both starting a live game and training in the Gym, both gated on one tick", async () => {
+describe("LandingOnboarding: stage 3, the end screen", () => {
+  it("offers both paths, gated on one agreement tick", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    await reachEndScreen(user);
 
-    for (let i = 0; i < CARD_LESSONS.length; i += 1) {
-      await clearOneCard(user, CARD_LESSONS[i], i === CARD_LESSONS.length - 1);
-    }
-
-    const startButton = screen.getByRole("button", { name: "Start playing now" });
-    const gymButton = screen.getByRole("button", { name: "Go train in the Gym" });
-    expect(startButton).toHaveProperty("disabled", true);
+    const gymButton = screen.getByRole("button", { name: "Go to the Gym" });
+    const startButton = screen.getByRole("button", {
+      name: "Play a game from the beginning",
+    });
     expect(gymButton).toHaveProperty("disabled", true);
+    expect(startButton).toHaveProperty("disabled", true);
 
     await user.click(screen.getByRole("checkbox"));
-    expect(startButton).toHaveProperty("disabled", false);
     expect(gymButton).toHaveProperty("disabled", false);
+    expect(startButton).toHaveProperty("disabled", false);
+  });
 
-    for (const lesson of CARD_LESSONS) {
-      const card = coachCard(lesson.cardId)!;
-      expect(screen.getByText(card.name)).toBeTruthy();
-    }
+  it("names all four cards and the empty-hand mechanic", async () => {
+    const user = userEvent.setup();
+    await reachEndScreen(user);
+
+    expect(screen.getByText(/"You" is Taboo/)).toBeTruthy();
+    expect(screen.getByText("Stick to the Thread's Root")).toBeTruthy();
+    expect(screen.getByText("No Exaggeration")).toBeTruthy();
+    expect(screen.getByText("Help Me Understand")).toBeTruthy();
+    expect(screen.getByText(/one per Gym level/)).toBeTruthy();
+  });
+
+  it("close button closes the whole popup from the end screen too", async () => {
+    const user = userEvent.setup();
+    await reachEndScreen(user);
+
+    await user.click(screen.getByLabelText("Close tutorial"));
+    expect(screen.queryByText("One thing before you jump in.")).toBeNull();
   });
 });

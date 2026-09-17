@@ -166,11 +166,21 @@ export function OnboardingOverlay({
   open,
   onClose,
   myRole = "plus",
+  onFinish,
 }: {
   open: boolean;
   onClose: () => void;
   /** No live game role exists at every entry point this overlay is reachable from, so it defaults to plus, same as the retired component did when the prop was left unset. */
   myRole?: OnboardingRole;
+  /**
+   * Fires instead of `onClose` when `handleNext` completes the walkthrough
+   * from its last step (the "Finish" button). Every other exit (the X
+   * button, Escape, Skip tutorial) still calls `onClose`, unchanged. Omit
+   * this prop and "Finish" calls `onClose` exactly as it always has: every
+   * existing call site (the live board, the "?" launcher, `HomeLinks`'
+   * "How to play") passes nothing here and is unaffected.
+   */
+  onFinish?: () => void;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
   const steps = buildSteps(myRole);
@@ -216,7 +226,11 @@ export function OnboardingOverlay({
 
   function handleNext() {
     if (isLastStep) {
-      onClose();
+      if (onFinish) {
+        onFinish();
+      } else {
+        onClose();
+      }
       return;
     }
     goTo(stepIndex + 1);
