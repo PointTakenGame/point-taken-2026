@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * The landing-page popup: three stages shown in order over the signed-out
- * front door, on every visit, new player or returning.
+ * The landing-page popup: three stages shown in order over whatever `/`
+ * renders underneath, on every visit, every visitor, signed in or out.
  *
  * 1. A short intro to what the game is, before anything else.
  * 2. The existing five-step walkthrough (`OnboardingOverlay`), reused
@@ -13,16 +13,19 @@
  *    pressed, so this wrapper can move to stage 3 instead of the walkthrough
  *    just closing. Every other call site passes nothing there and is
  *    unaffected.
- * 3. An end screen: go train in the Gym (recommended, and it mints a guest
- *    account first, since `/gym` otherwise bounces a signed-out visitor
- *    back to `/#ladder`), or play a live game from the beginning, reusing
- *    `StartPlaying` exactly as the plain landing page does.
+ * 3. An end screen: go train in the Gym (recommended; mints a guest account
+ *    first only if the visitor doesn't already have one, since `/gym`
+ *    otherwise bounces a signed-out visitor back to `/#ladder`), or play a
+ *    live game from the beginning, reusing `StartPlaying` exactly as the
+ *    plain landing page does.
  *
  * Nothing here is read from or written to storage: `useState(true)` for
  * whether the popup is open at all, and a plain stage variable for which of
  * the three is showing. Both reset to their initial values the moment this
  * component unmounts, which is exactly what "reopens every visit" needs and
- * nothing more.
+ * nothing more. `signedIn` is the one piece of state this component does not
+ * own: it comes from the server (`currentPlayerId()` in app/page.tsx), the
+ * same source of truth every other page already asks.
  */
 
 import { useState, type ReactNode } from "react";
@@ -121,13 +124,18 @@ function IntroStage({ onNext, onClose }: { onNext: () => void; onClose: () => vo
 }
 
 /**
- * Mints a guest account the same way `StartPlaying` does, then goes to the
- * Gym instead of refreshing in place. Needed because `/gym` redirects a
- * signed-out visitor straight back to `/#ladder` (app/gym/page.tsx): a
- * brand-new visitor reaching this screen has no account yet, so a plain
- * link to `/gym` would just bounce them home.
+ * Goes to the Gym, minting a guest account first the same way `StartPlaying`
+ * does, but only when the visitor doesn't already have one: `/gym` redirects
+ * a signed-out visitor straight back to `/#ladder` (app/gym/page.tsx), so a
+ * brand-new visitor needs an account before that link means anything. A
+ * visitor who already has an account (`signedIn`) skips straight to `/gym`,
+ * same as clicking the level ladder from their own Profile would.
+ *
+ * The agreement tick only gates the minting path: a signed-in visitor
+ * already agreed when their account was made, and this button isn't about
+ * to make a new one, so there is nothing left here for the tick to gate.
  */
-function GoToGymButton() {
+function GoToGymButton({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const agreed = useAgreed();
   const [busy, setBusy] = useState(false);
@@ -137,10 +145,12 @@ function GoToGymButton() {
     setBusy(true);
     setFailed(null);
     try {
-      const res = await fetch("/api/auth/anonymous", { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `sign-in failed (${res.status})`);
+      if (!signedIn) {
+        const res = await fetch("/api/auth/anonymous", { method: "POST" });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `sign-in failed (${res.status})`);
+        }
       }
       router.push("/gym");
     } catch (err) {
@@ -154,10 +164,10 @@ function GoToGymButton() {
       <button
         type="button"
         onClick={start}
-        disabled={busy || !agreed}
+        disabled={busy || (!signedIn && !agreed)}
         className="form-base btn-primary bg-green border-green text-neutral-black w-full py-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Getting you a name..." : "Go to the Gym"}
+        {busy ? (signedIn ? "One sec..." : "Getting you a name...") : "Go to the Gym"}
       </button>
       <span className="font-label text-stat-good text-xs font-bold tracking-widest uppercase">
         Recommended
@@ -167,7 +177,7 @@ function GoToGymButton() {
   );
 }
 
-function EndStage({ onClose }: { onClose: () => void }) {
+function EndStage({ onClose, signedIn }: { onClose: () => void; signedIn: boolean }) {
   return (
     <PopupShell onClose={onClose} label="Ready to play">
       <div className="flex flex-col items-center gap-5 pt-2 pr-8 text-center">
@@ -195,7 +205,7 @@ function EndStage({ onClose }: { onClose: () => void }) {
         <AgreementTick id="pt-agreement-onboarding-end" />
 
         <div className="flex w-full max-w-sm flex-col items-center gap-4">
-          <GoToGymButton />
+          <GoToGymButton signedIn={signedIn} />
           <StartPlaying label="Play a game from the beginning" withTick={false} />
         </div>
       </div>
@@ -203,7 +213,7 @@ function EndStage({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function LandingOnboarding() {
+export function LandingOnboarding({ signedIn = false }: { signedIn?: boolean }) {
   const [open, setOpen] = useState(true);
   const [stage, setStage] = useState<Stage>("intro");
 
@@ -216,7 +226,7 @@ export function LandingOnboarding() {
   }
 
   if (stage === "end") {
-    return <EndStage onClose={close} />;
+    return <EndStage onClose={close} signedIn={signedIn} />;
   }
 
   return <IntroStage onNext={() => setStage("walkthrough")} onClose={close} />;

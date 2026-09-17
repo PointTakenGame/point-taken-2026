@@ -119,7 +119,7 @@ export default async function Home() {
         </main>
       )}
       {dev ? <HotseatBar me={me} players={demoPlayers} /> : null}
-      {me ? null : <LandingOnboarding />}
+      <LandingOnboarding signedIn={me !== null} />
     </>
   );
 }

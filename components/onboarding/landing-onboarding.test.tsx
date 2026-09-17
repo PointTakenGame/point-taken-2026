@@ -13,8 +13,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+const push = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 const { LandingOnboarding } = await import("./landing-onboarding");
@@ -27,11 +28,15 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 /** From a fresh render, gets from stage 1 to the end screen. */
-async function reachEndScreen(user: ReturnType<typeof userEvent.setup>) {
-  render(<LandingOnboarding />);
+async function reachEndScreen(
+  user: ReturnType<typeof userEvent.setup>,
+  signedIn = false,
+) {
+  render(<LandingOnboarding signedIn={signedIn} />);
   await user.click(screen.getByRole("button", { name: "Next" }));
   await user.click(screen.getByRole("button", { name: "Go to step 5" }));
   await user.click(screen.getByRole("button", { name: "Finish" }));
@@ -143,5 +148,40 @@ describe("LandingOnboarding: stage 3, the end screen", () => {
 
     await user.click(screen.getByLabelText("Close tutorial"));
     expect(screen.queryByText("One thing before you jump in.")).toBeNull();
+  });
+});
+
+describe("LandingOnboarding: stage 3, Go to the Gym when signed out", () => {
+  it("is disabled until the tick, then mints a guest account before navigating", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    await reachEndScreen(user, false);
+
+    const gymButton = screen.getByRole("button", { name: "Go to the Gym" });
+    expect(gymButton).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox"));
+    expect(gymButton).toHaveProperty("disabled", false);
+
+    await user.click(gymButton);
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/anonymous", { method: "POST" });
+    expect(push).toHaveBeenCalledWith("/gym");
+  });
+});
+
+describe("LandingOnboarding: stage 3, Go to the Gym when already signed in", () => {
+  it("is enabled without the tick and skips minting an account", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    await reachEndScreen(user, true);
+
+    const gymButton = screen.getByRole("button", { name: "Go to the Gym" });
+    expect(gymButton).toHaveProperty("disabled", false);
+
+    await user.click(gymButton);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/gym");
   });
 });
