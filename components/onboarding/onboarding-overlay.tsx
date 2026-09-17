@@ -34,13 +34,7 @@
  * one on open and never wrote a seen flag anywhere, so this does not either.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 
 import { RESOLUTION_TOKENS } from "@/lib/board/rules";
@@ -172,24 +166,13 @@ export function OnboardingOverlay({
   open,
   onClose,
   myRole = "plus",
-  endScreen,
 }: {
   open: boolean;
   onClose: () => void;
   /** No live game role exists at every entry point this overlay is reachable from, so it defaults to plus, same as the retired component did when the prop was left unset. */
   myRole?: OnboardingRole;
-  /**
-   * Shown in place of the five steps once Finish is pressed on the last one,
-   * instead of closing straight away. Omitted everywhere Finish should keep
-   * closing the overlay directly, which is everywhere except the landing
-   * page's every-visit walkthrough (`components/onboarding/landing-onboarding.tsx`):
-   * the live board, the "?" launcher, and every other `OnboardingLauncher`
-   * call site pass nothing here and are unaffected.
-   */
-  endScreen?: ReactNode;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [finished, setFinished] = useState(false);
   const steps = buildSteps(myRole);
   const step = steps[stepIndex];
   const isFirstStep = stepIndex === 0;
@@ -206,10 +189,7 @@ export function OnboardingOverlay({
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
-    if (open) {
-      setStepIndex(0);
-      setFinished(false);
-    }
+    if (open) setStepIndex(0);
   }
 
   // Body scroll lock while open, and Escape closes. The retired component
@@ -236,11 +216,7 @@ export function OnboardingOverlay({
 
   function handleNext() {
     if (isLastStep) {
-      if (endScreen) {
-        setFinished(true);
-      } else {
-        onClose();
-      }
+      onClose();
       return;
     }
     goTo(stepIndex + 1);
@@ -270,135 +246,129 @@ export function OnboardingOverlay({
           <CloseIcon />
         </button>
 
-        {finished && endScreen ? (
-          endScreen
-        ) : (
-          <>
-            <div className="flex flex-col gap-1 pr-8 text-center">
-              <h2
-                id="onboarding-heading"
-                className="font-primary text-p-lg text-neutral-black"
-              >
-                {step.heading}
-              </h2>
-              {step.subtitle ? (
-                <p className="font-secondary text-p-sm text-gray">
-                  {step.subtitleHref ? (
-                    <a
-                      href={step.subtitleHref}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="hover:text-neutral-black underline underline-offset-2"
-                    >
-                      {step.subtitle}
-                    </a>
-                  ) : (
-                    step.subtitle
-                  )}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex min-h-48 items-center justify-center">
-              {step.media.kind === "video" ? (
-                <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
-                  <OnboardingVideo key={step.media.src} src={step.media.src} />
-                </div>
-              ) : step.media.kind === "embed" ? (
-                <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
-                  {/* Permissions and referrer policy carried over verbatim from the
-                      retired client's OnboardingVideo.vue, which is what YouTube's
-                      own share dialog emits. */}
-                  <iframe
-                    key={step.media.src}
-                    src={step.media.src}
-                    title="How to play Point Taken"
-                    className="h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                </div>
+        <div className="flex flex-col gap-1 pr-8 text-center">
+          <h2
+            id="onboarding-heading"
+            className="font-primary text-p-lg text-neutral-black"
+          >
+            {step.heading}
+          </h2>
+          {step.subtitle ? (
+            <p className="font-secondary text-p-sm text-gray">
+              {step.subtitleHref ? (
+                <a
+                  href={step.subtitleHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="hover:text-neutral-black underline underline-offset-2"
+                >
+                  {step.subtitle}
+                </a>
               ) : (
-                <div className="flex w-full flex-col items-center gap-2">
-                  <Image
-                    src={step.media.top}
-                    alt=""
-                    width={420}
-                    height={240}
-                    unoptimized
-                    className="h-auto w-full max-w-sm rounded-lg border border-gray/30 object-contain"
-                  />
-                  <span className="font-primary text-p-md text-gray">OR</span>
-                  <Image
-                    src={step.media.bottom}
-                    alt=""
-                    width={420}
-                    height={240}
-                    unoptimized
-                    className="h-auto w-full max-w-sm object-contain"
-                  />
-                </div>
+                step.subtitle
               )}
-            </div>
+            </p>
+          ) : null}
+        </div>
 
-            {step.showTokenLegend ? (
-              <ul className="flex flex-col items-center gap-2">
-                {RESOLUTION_TOKENS.map((token) => (
-                  <li key={token} className="flex items-center gap-3 text-p-sm">
-                    <TokenGlyph token={token} size={24} />
-                    <span className="text-gray">{tokenLabel(token)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <div className="flex flex-col items-center gap-3 pt-2">
-              <div className="flex items-center gap-2">
-                {steps.map((dotStep, index) => (
-                  <button
-                    key={dotStep.id}
-                    type="button"
-                    aria-label={`Go to step ${index + 1}`}
-                    onClick={() => goTo(index)}
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      index === stepIndex ? ACCENT_DOT[myRole] : "bg-gray/30"
-                    }`}
-                  />
-                ))}
-              </div>
-              <p className="text-p-sm font-secondary text-gray">
-                Step {stepIndex + 1} of {steps.length}
-              </p>
-              <div className="flex w-full items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className={`form-base flex items-center gap-1 border-gray bg-offwhite text-neutral-black ${isFirstStep ? "invisible" : ""}`}
-                  onClick={() => goTo(stepIndex - 1)}
-                  disabled={isFirstStep}
-                >
-                  <ArrowIcon direction="left" />
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="text-p-sm font-secondary text-gray underline"
-                  onClick={onClose}
-                >
-                  Skip tutorial
-                </button>
-                <button
-                  type="button"
-                  className={`form-base btn-primary flex items-center gap-1 ${ACCENT_BUTTON[myRole]}`}
-                  onClick={handleNext}
-                >
-                  {isLastStep ? "Finish" : "Next"}
-                  {isLastStep ? null : <ArrowIcon direction="right" />}
-                </button>
-              </div>
+        <div className="flex min-h-48 items-center justify-center">
+          {step.media.kind === "video" ? (
+            <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
+              <OnboardingVideo key={step.media.src} src={step.media.src} />
             </div>
-          </>
-        )}
+          ) : step.media.kind === "embed" ? (
+            <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
+              {/* Permissions and referrer policy carried over verbatim from the
+                  retired client's OnboardingVideo.vue, which is what YouTube's
+                  own share dialog emits. */}
+              <iframe
+                key={step.media.src}
+                src={step.media.src}
+                title="How to play Point Taken"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div className="flex w-full flex-col items-center gap-2">
+              <Image
+                src={step.media.top}
+                alt=""
+                width={420}
+                height={240}
+                unoptimized
+                className="h-auto w-full max-w-sm rounded-lg border border-gray/30 object-contain"
+              />
+              <span className="font-primary text-p-md text-gray">OR</span>
+              <Image
+                src={step.media.bottom}
+                alt=""
+                width={420}
+                height={240}
+                unoptimized
+                className="h-auto w-full max-w-sm object-contain"
+              />
+            </div>
+          )}
+        </div>
+
+        {step.showTokenLegend ? (
+          <ul className="flex flex-col items-center gap-2">
+            {RESOLUTION_TOKENS.map((token) => (
+              <li key={token} className="flex items-center gap-3 text-p-sm">
+                <TokenGlyph token={token} size={24} />
+                <span className="text-gray">{tokenLabel(token)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <div className="flex items-center gap-2">
+            {steps.map((dotStep, index) => (
+              <button
+                key={dotStep.id}
+                type="button"
+                aria-label={`Go to step ${index + 1}`}
+                onClick={() => goTo(index)}
+                className={`h-2 w-2 rounded-full transition-colors ${
+                  index === stepIndex ? ACCENT_DOT[myRole] : "bg-gray/30"
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-p-sm font-secondary text-gray">
+            Step {stepIndex + 1} of {steps.length}
+          </p>
+          <div className="flex w-full items-center justify-between gap-2">
+            <button
+              type="button"
+              className={`form-base flex items-center gap-1 border-gray bg-offwhite text-neutral-black ${isFirstStep ? "invisible" : ""}`}
+              onClick={() => goTo(stepIndex - 1)}
+              disabled={isFirstStep}
+            >
+              <ArrowIcon direction="left" />
+              Back
+            </button>
+            <button
+              type="button"
+              className="text-p-sm font-secondary text-gray underline"
+              onClick={onClose}
+            >
+              Skip tutorial
+            </button>
+            <button
+              type="button"
+              className={`form-base btn-primary flex items-center gap-1 ${ACCENT_BUTTON[myRole]}`}
+              onClick={handleNext}
+            >
+              {isLastStep ? "Finish" : "Next"}
+              {isLastStep ? null : <ArrowIcon direction="right" />}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
