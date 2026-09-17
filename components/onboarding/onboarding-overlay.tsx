@@ -237,7 +237,15 @@ export function OnboardingOverlay({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+    // `bottom-[var(--dev-bar-h,0px)]` rather than `inset-0`: the dev hot-seat
+    // bar (components/dev/hotseat-bar.tsx) is `fixed bottom-0 z-50`, above
+    // this overlay's z-40, and on a long step (step 5's images push the
+    // dialog low enough) it covered Finish. `--dev-bar-h` is the bar's own
+    // measured height, published to the document root the same way
+    // components/board/live-board.tsx already reserves space for it; the
+    // `,0px` fallback keeps this a no-op wherever the bar isn't rendered,
+    // production included.
+    <div className="fixed inset-x-0 top-0 bottom-[var(--dev-bar-h,0px)] z-40 flex items-center justify-center p-4">
       {/* Purely decorative: no onClick here, so click-outside-to-close is not
           implemented. The retired component's own click-outside behavior
           could not be confirmed from its source, so it was not guessed at.

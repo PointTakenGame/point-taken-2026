@@ -51,10 +51,22 @@ function CloseIcon() {
   );
 }
 
-/** The chrome stages 1 and 3 share: same backdrop, same dialog panel, same
- *  close button as `OnboardingOverlay` itself, so all three stages read as
- *  one popup rather than three different ones. Stage 2 is `OnboardingOverlay`
- *  rendered on its own, which draws this same chrome itself. */
+/**
+ * The chrome stages 1 and 3 share: same backdrop, same dialog panel, same
+ * close button as `OnboardingOverlay` itself, so all three stages read as
+ * one popup rather than three different ones. Stage 2 is `OnboardingOverlay`
+ * rendered on its own, which draws this same chrome itself.
+ *
+ * `bottom-[var(--dev-bar-h,0px)]` on the outer layer, not just padding on the
+ * dialog, so the dialog's own `items-center` centering shrinks to fit above
+ * the bar too, rather than staying centered on the full viewport and
+ * growing past the shrunk space. `--dev-bar-h` is the dev hot-seat bar's own
+ * measured height (components/dev/hotseat-bar.tsx, `fixed bottom-0 z-50`,
+ * above this popup's z-40), published to the document root the same way
+ * `components/board/live-board.tsx` already reserves space for it. The
+ * `,0px` fallback is what keeps this a no-op in production, where the bar
+ * never renders and the property is never set.
+ */
 function PopupShell({
   onClose,
   label,
@@ -65,7 +77,7 @@ function PopupShell({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-x-0 top-0 bottom-[var(--dev-bar-h,0px)] z-40 flex items-center justify-center p-4">
       <div
         className="bg-neutral-black/40 absolute inset-0 backdrop-blur-sm"
         aria-hidden="true"
