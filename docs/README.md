@@ -40,6 +40,8 @@ the game *is*, not what happened to it.
 | `script.md` | The strings players read | Nathan |
 | `tech-spec.md` | Architecture, data model, file layout | Coding agents |
 | `ui-components.md` | Component inventory with states | Rannie, Audrey |
+| `solo-play.md` | One human against a model opponent, beside live play | Coding agents, Steve |
+| `coach.md` | What the coach is, when it may speak, and the bar its reasoning is held to | Coding agents, Steve |
 
 
 ## How to read a value in these files: the status markers
