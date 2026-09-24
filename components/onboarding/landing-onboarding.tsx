@@ -13,11 +13,19 @@
  *    pressed, so this wrapper can move to stage 3 instead of the walkthrough
  *    just closing. Every other call site passes nothing there and is
  *    unaffected.
- * 3. An end screen: go train in the Gym (recommended; mints a guest account
- *    first only if the visitor doesn't already have one, since `/gym`
- *    otherwise bounces a signed-out visitor back to `/#ladder`), or play a
- *    live game from the beginning, reusing `StartPlaying` exactly as the
- *    plain landing page does.
+ * 3. An end screen with the two ways in, and both of them open a board
+ *    rather than a menu. "Go to the Gym" opens the level the player should
+ *    do next (`startCurrentLevel`), and "Play a game from the beginning"
+ *    opens a fresh live room (`createRoom`). Both run through `useRoom`, the
+ *    hook every other entry point already uses, which mints a guest account
+ *    and retries when the action answers `signIn`.
+ *
+ *    They used to do neither. The Gym button pushed `/gym`, which redirects
+ *    to `/#ladder` and so put the visitor back on the page they were already
+ *    on, and the live button was `StartPlaying`, which mints an account and
+ *    calls `router.refresh()` without navigating anywhere. Both read as dead
+ *    buttons to a first-time visitor, which is the one visitor this popup
+ *    exists for.
  *
  * Nothing here is read from or written to storage: `useState(true)` for
  * whether the popup is open at all, and a plain stage variable for which of
@@ -29,10 +37,11 @@
  */
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 
-import { StartPlaying } from "@/app/account/start-playing";
+import { startCurrentLevel } from "@/app/gym/actions";
+import { createRoom } from "@/app/join/actions";
 import { AgreementTick, useAgreed } from "@/components/legal/agreement";
+import { useRoom } from "@/components/rooms/room-entry";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { COACH_CARDS } from "@/lib/coach/cards";
 
@@ -136,55 +145,62 @@ function IntroStage({ onNext, onClose }: { onNext: () => void; onClose: () => vo
 }
 
 /**
- * Goes to the Gym, minting a guest account first the same way `StartPlaying`
- * does, but only when the visitor doesn't already have one: `/gym` redirects
- * a signed-out visitor straight back to `/#ladder` (app/gym/page.tsx), so a
- * brand-new visitor needs an account before that link means anything. A
- * visitor who already has an account (`signedIn`) skips straight to `/gym`,
- * same as clicking the level ladder from their own Profile would.
+ * Opens the level this player should do next and goes to its board.
  *
- * The agreement tick only gates the minting path: a signed-in visitor
- * already agreed when their account was made, and this button isn't about
- * to make a new one, so there is nothing left here for the tick to gate.
+ * The destination is the server's call, not this component's: `startCurrentLevel`
+ * reads the ladder and returns the first rung the player has not cleared, so a
+ * brand-new visitor lands in level 1 and somebody coming back lands where they
+ * left off. Nothing here needs to know which that is.
+ *
+ * `useRoom` carries the guest-account handshake: when the action answers
+ * `signIn`, it POSTs /api/auth/anonymous and calls again, so one press does one
+ * thing. The agreement tick gates the button only for a signed-out visitor,
+ * who is about to be given an account by pressing it; somebody already signed
+ * in agreed when their account was made and is not asked twice.
  */
 function GoToGymButton({ signedIn }: { signedIn: boolean }) {
-  const router = useRouter();
   const agreed = useAgreed();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  async function start() {
-    setBusy(true);
-    setFailed(null);
-    try {
-      if (!signedIn) {
-        const res = await fetch("/api/auth/anonymous", { method: "POST" });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `sign-in failed (${res.status})`);
-        }
-      }
-      router.push("/gym");
-    } catch (err) {
-      setFailed(err instanceof Error ? err.message : String(err));
-      setBusy(false);
-    }
-  }
+  const { pending, error, enter } = useRoom();
 
   return (
     <div className="flex w-full flex-col items-center gap-1">
       <button
         type="button"
-        onClick={start}
-        disabled={busy || (!signedIn && !agreed)}
+        onClick={() => enter(startCurrentLevel)}
+        disabled={pending || (!signedIn && !agreed)}
         className="form-base btn-primary bg-green border-green text-neutral-black w-full py-4 text-lg disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? (signedIn ? "One sec..." : "Getting you a name...") : "Go to the Gym"}
+        {pending ? "Opening your level..." : "Go to the Gym"}
       </button>
       <span className="font-label text-stat-good text-xs font-bold tracking-widest uppercase">
         Recommended
       </span>
-      {failed && <p className="font-secondary text-p-sm text-orange">{failed}</p>}
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Opens a fresh live room and drops the visitor into it, the same call and the
+ * same hook as "Start a new game" on the profile's Live play card. Gated on the
+ * one tick the end screen already shows, for the same reason as the Gym button
+ * above.
+ */
+function PlayFromBeginningButton({ signedIn }: { signedIn: boolean }) {
+  const agreed = useAgreed();
+  const { pending, error, enter } = useRoom();
+
+  return (
+    <div className="flex w-full flex-col items-center gap-1">
+      <button
+        type="button"
+        onClick={() => enter(createRoom)}
+        disabled={pending || (!signedIn && !agreed)}
+        className="form-base font-secondary w-full disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {pending ? "Opening a room..." : "Play a game from the beginning"}
+      </button>
+      {error && <p className="font-secondary text-p-sm text-orange">{error}</p>}
     </div>
   );
 }
@@ -218,7 +234,7 @@ function EndStage({ onClose, signedIn }: { onClose: () => void; signedIn: boolea
 
         <div className="flex w-full max-w-sm flex-col items-center gap-4">
           <GoToGymButton signedIn={signedIn} />
-          <StartPlaying label="Play a game from the beginning" withTick={false} />
+          <PlayFromBeginningButton signedIn={signedIn} />
         </div>
       </div>
     </PopupShell>

@@ -18,6 +18,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
+/** Both end-screen buttons call a server action through `useRoom`. The actions
+ *  themselves are covered where they live; what matters here is that the right
+ *  one is called and that the board it returns is where the visitor lands. */
+const startCurrentLevel = vi.fn(async () => ({ ok: true as const, gameId: "gym-1" }));
+vi.mock("@/app/gym/actions", () => ({
+  startCurrentLevel: () => startCurrentLevel(),
+}));
+
+const createRoom = vi.fn(async () => ({ ok: true as const, gameId: "room-1" }));
+vi.mock("@/app/join/actions", () => ({
+  createRoom: () => createRoom(),
+  joinRoom: vi.fn(),
+}));
+
 const { LandingOnboarding } = await import("./landing-onboarding");
 
 beforeEach(() => {
@@ -152,9 +166,7 @@ describe("LandingOnboarding: stage 3, the end screen", () => {
 });
 
 describe("LandingOnboarding: stage 3, Go to the Gym when signed out", () => {
-  it("is disabled until the tick, then mints a guest account before navigating", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-    vi.stubGlobal("fetch", fetchMock);
+  it("is disabled until the tick, then opens the level the player is due", async () => {
     const user = userEvent.setup();
     await reachEndScreen(user, false);
 
@@ -165,15 +177,30 @@ describe("LandingOnboarding: stage 3, Go to the Gym when signed out", () => {
     expect(gymButton).toHaveProperty("disabled", false);
 
     await user.click(gymButton);
+    expect(startCurrentLevel).toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/game/gym-1");
+  });
+
+  it("mints a guest account and retries when the action asks for one", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    startCurrentLevel
+      .mockResolvedValueOnce({ ok: false, error: "no name", signIn: true } as never)
+      .mockResolvedValueOnce({ ok: true, gameId: "gym-1" });
+    const user = userEvent.setup();
+    await reachEndScreen(user, false);
+
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Go to the Gym" }));
+
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/anonymous", { method: "POST" });
-    expect(push).toHaveBeenCalledWith("/gym");
+    expect(startCurrentLevel).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenCalledWith("/game/gym-1");
   });
 });
 
 describe("LandingOnboarding: stage 3, Go to the Gym when already signed in", () => {
-  it("is enabled without the tick and skips minting an account", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+  it("is enabled without the tick and goes straight to the board", async () => {
     const user = userEvent.setup();
     await reachEndScreen(user, true);
 
@@ -181,7 +208,20 @@ describe("LandingOnboarding: stage 3, Go to the Gym when already signed in", () 
     expect(gymButton).toHaveProperty("disabled", false);
 
     await user.click(gymButton);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/gym");
+    expect(push).toHaveBeenCalledWith("/game/gym-1");
+  });
+});
+
+describe("LandingOnboarding: stage 3, Play a game from the beginning", () => {
+  it("opens a fresh live room and goes to its board", async () => {
+    const user = userEvent.setup();
+    await reachEndScreen(user, true);
+
+    await user.click(
+      screen.getByRole("button", { name: "Play a game from the beginning" }),
+    );
+
+    expect(createRoom).toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith("/game/room-1");
   });
 });

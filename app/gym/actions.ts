@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { projectBoard, type BoardState } from "@/lib/board/project";
 import * as rules from "@/lib/board/rules";
 import { SIGNING_LINE_IDS } from "@/lib/board/setup";
+import { readPlayerAwards } from "@/lib/db/awards";
 import { createGame } from "@/lib/db/games";
 import { ensureDisplayName } from "@/lib/db/players";
 import { appendGameEvent, appendGameEvents, readGameEvents } from "@/lib/events/append";
@@ -22,6 +23,7 @@ import {
   scriptContext,
   type Level,
 } from "@/lib/gym/script";
+import { ladderFor } from "@/lib/progression/state";
 import { currentPlayerId } from "@/lib/supabase/session";
 
 /**
@@ -69,6 +71,43 @@ function bossActor(level: Level): { actorRole: Side; source: "system"; actorId: 
     source: "system",
     actorId: bossPlayerId(level.bossId),
   };
+}
+
+/**
+ * Opens the level this player should do next, without them having to pick one.
+ *
+ * "Next" is the ladder's own answer: `ladderFor` marks as `current` the first
+ * designed rung the player has not cleared, so somebody who has never trained
+ * gets level 1 and somebody who cleared 1 and 2 gets 3. A player who skipped
+ * ahead is pointed back at the earliest gap, which is the same rule the ladder
+ * strip draws on the profile; this action and that strip must not disagree
+ * about where "you are here" is.
+ *
+ * This exists for the buttons that offer training as a destination rather than
+ * as a menu (the landing popup's "Go to the Gym"). The ladder strip keeps
+ * calling `startLevel` with the rung the player actually clicked.
+ *
+ * The signed-out answer is `signIn`, not a failure: the caller mints a guest
+ * account and calls again, the same handshake `createRoom` already uses.
+ */
+export async function startCurrentLevel(): Promise<StartLevelResult> {
+  const playerId = await currentPlayerId();
+  if (!playerId) {
+    return {
+      ok: false,
+      error: "Start playing first, so you have a name to train with.",
+      signIn: true,
+    };
+  }
+
+  const ladder = ladderFor(await readPlayerAwards(playerId));
+  // Every designed rung carries an id; the undesigned ones above level 4 are
+  // null and can never be opened, so they are filtered out before choosing.
+  const playable = ladder.filter((rung) => rung.id !== null);
+  const next = playable.find((rung) => rung.status === "current") ?? playable[0];
+  if (!next?.id) return { ok: false, error: "No level is ready to play yet." };
+
+  return startLevel(next.id);
 }
 
 export async function startLevel(levelId: string): Promise<StartLevelResult> {
