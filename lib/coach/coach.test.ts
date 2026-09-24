@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { projectBoard } from "@/lib/board/project";
 import type { AnyGameEvent, EventPayloads, GameEventType } from "@/lib/events/types";
 import { COACH_CARDS, coachCard, coachCardsMatchDeck } from "./cards";
+import { quotesTheTile } from "./evaluate";
 
 const GAME = "00000000-0000-4000-8000-000000000000";
 const ALICE = "11111111-1111-4111-8111-111111111111";
@@ -45,6 +46,29 @@ function reading(forPlayer: string, tileId = TILE) {
     latency_ms: 900,
   } satisfies EventPayloads["ai_feedback_returned"];
 }
+
+describe("the coach only speaks about words that are there", () => {
+  const tile = "All politicians are corrupt, and that is why the bill failed.";
+
+  it("accepts a phrase the player actually wrote", () => {
+    expect(quotesTheTile("All politicians are corrupt", tile)).toBe(true);
+  });
+
+  it("forgives case, punctuation and spacing, which are not a misquote", () => {
+    expect(quotesTheTile('"all   POLITICIANS are corrupt,"', tile)).toBe(true);
+  });
+
+  it("rejects a phrase the model brought with it", () => {
+    // The finding may well be right. Saying it is still off the table, because
+    // nothing on the page backs it up.
+    expect(quotesTheTile("every single politician", tile)).toBe(false);
+  });
+
+  it("rejects an empty or missing phrase", () => {
+    expect(quotesTheTile(null, tile)).toBe(false);
+    expect(quotesTheTile("   ", tile)).toBe(false);
+  });
+});
 
 describe("the coach's deck", () => {
   it("never drifts from the rule cards the game deals", () => {

@@ -60,7 +60,7 @@ import {
  * segment later is the reading a player received, not the string we sent.
  */
 export const COACH_MODEL = "claude-haiku-4-5-20251001";
-export const COACH_PROMPT_VERSION = "brain-2026-08-24.5";
+export const COACH_PROMPT_VERSION = "brain-2026-08-24.6";
 export const COACH_SCHEMA_VERSION = "coach-v1";
 
 /** Past this the coach gives up and says nothing. A player waiting on advice
@@ -127,6 +127,8 @@ Most reasons find nothing. Silence is the normal answer. Do not reach.
 If anything was found, write feedback the player can act on. Address the player as "you". Keep it to one or two sentences, plain, no jargon, no praise padding. Name what the words on the page do, never what you think the player believes.
 
 House style: never use an em dash or an en dash. Use a comma, a colon, or a full stop.
+
+The feedback must contain the trigger phrase, the player's own words, exactly as they wrote them. Naming what a phrase on the page does is the whole job; advice that would fit any reason at all is not feedback.
 
 If you can rewrite the reason so it stops breaking anything, put it in suggestion. The rewrite must argue the same side just as strongly: you are fixing how it is said, never softening what is said. It must fit on a tile, ${TILE_MAX_CHARS} characters or fewer. If you cannot stay under that, return null instead of a shorter argument the player did not make. Say whether the rewrite preserves their stance, and how confident you are in it.
 
@@ -300,6 +302,31 @@ function selectSuggestion(
 }
 
 /**
+ * Did the model point at words that are actually there?
+ *
+ * The reading already returns the phrase that triggered it, and until now
+ * nothing checked it. A model that is reaching cannot usually quote the reason,
+ * because there is nothing in it to quote, so a phrase that does not appear in
+ * the tile is the cheapest signal we have that the finding was invented.
+ *
+ * Compared loosely: case, surrounding punctuation and runs of whitespace do not
+ * count as a misquote. A phrase the model tidied on the way out is still a
+ * phrase it found.
+ */
+export function quotesTheTile(phrase: string | null, tile: string): boolean {
+  if (phrase === null) return false;
+  const loose = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[\u2018\u2019\u201c\u201d]/g, "'")
+      .replace(/[^a-z0-9' ]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const needle = loose(phrase);
+  return needle.length > 0 && loose(tile).includes(needle);
+}
+
+/**
  * Returns null when the coach could not read the tile at all. That is not the
  * same as the coach having nothing to say, which is a verdict with no cards.
  */
@@ -312,6 +339,11 @@ export async function evaluateTile(
     const response = await client().messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      // Pinned, so the same reason reads the same way twice. At the default the
+      // fixture scores move on their own and a prompt edit cannot be told apart
+      // from luck, which makes every threshold in coach-eval.test.ts softer than
+      // it looks.
+      temperature: 0,
       system: SYSTEM,
       tools: [TOOL],
       tool_choice: { type: "tool", name: TOOL.name },
@@ -330,9 +362,13 @@ export async function evaluateTile(
         raw.clarification_needed === true && readRelation(raw.relation) !== "irrelevant",
     });
 
-    const card = cardFor(findings);
     const latencyMs = Math.round(performance.now() - startedAt);
     const triggerPhrase = text(raw.trigger_phrase);
+
+    // Speak only about words that are on the page. The findings stay as the
+    // model reported them, because the corpus should record what it saw; what
+    // an unquotable finding loses is the right to say anything about it.
+    const card = quotesTheTile(triggerPhrase, input.text) ? cardFor(findings) : null;
 
     // No card means the coach stays quiet, whatever the checklist logged. A
     // research-only violation is a row in the corpus, not a thing to say.

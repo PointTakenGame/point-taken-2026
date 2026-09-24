@@ -220,10 +220,11 @@ DO NOT FLAG IF:
   OG-3: Vague statement with no named group ("Things have gotten worse")
   OG-4: Specific scoped population (study participants) without generalizing beyond it
   OG-5: Hedged by attribution to others ("Some researchers argue that...")
-  OG-6: If in doubt -> false
+  OG-6: FREQUENCY HEDGE, not a scale word: often, frequently, commonly, usually, generally, typically, tends to, in many cases, more often than not. These state a tendency, not a universal, and CONDITION A is not met by them ("Politicians often break promises" -> NOT flagged)
+  OG-7: If in doubt -> false
 FLAGGED: "All politicians are corrupt." / "Most young people have no interest in history."
 NOT FLAGGED: "Many voters feel disconnected." / "This argument is unconvincing." / "Tuition debt stops low-income students from graduating."
-ALSO NOT FLAGGED: "Licensing rules keep many small businesses from ever opening."
+ALSO NOT FLAGGED: "Licensing rules keep many small businesses from ever opening." / "Unions often slow down reform." / "Deregulated markets frequently hurt consumers."
 
 CHECK 4: EXAGGERATION (Hyperbole Used as Fact)
 DEFINITION: A claim presented as factual but so extreme or disproportionate relative to available evidence that it distorts reality in a way that misleads. Does NOT require a scale word. It is about magnitude.
