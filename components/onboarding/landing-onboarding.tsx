@@ -1,41 +1,30 @@
 "use client";
 
 /**
- * The new-account popup: three stages shown in order over the profile of an
- * account that was just set up.
+ * The tutorial popup: three stages shown in order over the profile.
  *
  * 1. A short intro to what the game is, before anything else.
  * 2. The existing five-step walkthrough (`OnboardingOverlay`), reused
- *    unchanged: same component, same steps, same everything, used exactly
- *    the way the live board and the "?" launcher already use it. The only
- *    thing this wrapper adds is `onFinish`, an additive prop on that
- *    component that fires when the walkthrough's own last-step "Finish" is
- *    pressed, so this wrapper can move to stage 3 instead of the walkthrough
- *    just closing. Every other call site passes nothing there and is
- *    unaffected.
- * 3. An end screen with the two ways in, and both of them open a board
- *    rather than a menu. "Go to the Gym" opens the level the player should
- *    do next (`startCurrentLevel`), and "Play a game from the beginning"
- *    opens a fresh live room (`createRoom`). Both run through `useRoom`, the
- *    hook every other entry point already uses, which mints a guest account
- *    and retries when the action answers `signIn`.
+ *    unchanged apart from an additive `onFinish` prop that fires on its
+ *    last step's "Finish", so this wrapper can move to stage 3 instead of
+ *    the walkthrough just closing. Every other call site passes nothing there.
+ * 3. An end screen with the two ways in, and both open a board rather than a
+ *    menu: "Go to the Gym" opens the level the player should do next
+ *    (`startCurrentLevel`) and "Play a game from the beginning" opens a fresh
+ *    live room (`createRoom`), both through `useRoom`, which mints a guest
+ *    account when needed.
  *
- *    They used to do neither. The Gym button pushed `/gym`, which redirects
- *    to `/#ladder` and so put the visitor back on the page they were already
- *    on, and the live button was `StartPlaying`, which mints an account and
- *    calls `router.refresh()` without navigating anywhere. Both read as dead
- *    buttons to a first-time visitor, which is the one visitor this popup
- *    exists for.
- *
- * When it shows: once, to an account just set up in this browser, and to
- * nobody else. Setting up an account ("Set me up" on the front door, which
- * is `StartPlaying`) leaves a marker (onboarding-pending.ts); this reads it,
- * shows the popup over the new profile, and consumes it at once. So a
- * signed-out visitor is set up first and gets the walkthrough after, and a
- * player going back to their profile never sees it again. It used to open on
- * every visit to "/" for everyone. `signedIn` comes from the server
- * (`currentPlayerId()` in app/page.tsx), the same source of truth every other
- * page asks; the stage variable resets when this unmounts.
+ * When it opens (rules in onboarding-pending.ts):
+ * - Signed out: never. The visitor is set up first ("Set me up" is
+ *   `StartPlaying`, which leaves a marker) and the popup opens straight
+ *   after, over the new profile.
+ * - Signed in: the first visit to "/" each day, and not again that day.
+ * - On demand: `HowToPlayButton` (onboarding-launcher.tsx) opens it at any
+ *   time, ignoring the day.
+ * Showing it for any reason records today, so a new account counts as that
+ * day's showing and is not followed by a second one. `signedIn` comes from
+ * the server (`currentPlayerId()` in app/page.tsx); the stage variable resets
+ * when this unmounts.
  */
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -47,6 +36,9 @@ import { useRoom } from "@/components/rooms/room-entry";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import {
   clearOnboardingPending,
+  onOnboardingRequested,
+  recordOnboardingShown,
+  useOnboardingDue,
   useOnboardingPending,
 } from "@/components/onboarding/onboarding-pending";
 import { COACH_CARDS } from "@/lib/coach/cards";
@@ -248,19 +240,39 @@ function EndStage({ onClose, signedIn }: { onClose: () => void; signedIn: boolea
 }
 
 export function LandingOnboarding({ signedIn = false }: { signedIn?: boolean }) {
-  // Owed only to an account just set up in this browser (see
-  // onboarding-pending.ts): never to a returning player, and never to a
-  // signed-out visitor, who is set up first and gets the popup after.
-  const owed = useOnboardingPending();
+  const pending = useOnboardingPending();
+  const dueToday = useOnboardingDue();
+  // Signed out is never due: the account step comes first, and the marker
+  // that "Set me up" leaves is what brings the popup after it.
+  const owed = pending || (signedIn && dueToday);
   const [open, setOpen] = useState(false);
+  const [autoShown, setAutoShown] = useState(false);
   const [stage, setStage] = useState<Stage>("intro");
 
-  // Latched on first sight and consumed straight away, so a refresh or a
-  // reload mid-walkthrough does not bring it back.
-  if (owed && !open) setOpen(true);
+  // Opens itself once per mount. Latched, because where storage is blocked
+  // "due" never turns false and would reopen it the moment it was closed.
+  if (owed && !open && !autoShown) {
+    setOpen(true);
+    setAutoShown(true);
+  }
+
+  // Whatever opened it, today is now spent and a marker is consumed, so a
+  // refresh or a reload mid-walkthrough does not bring it back.
   useEffect(() => {
-    if (open) clearOnboardingPending();
+    if (!open) return;
+    clearOnboardingPending();
+    recordOnboardingShown();
   }, [open]);
+
+  // On demand, from the How to play button: from the top, whatever the day.
+  useEffect(
+    () =>
+      onOnboardingRequested(() => {
+        setStage("intro");
+        setOpen(true);
+      }),
+    [],
+  );
 
   if (!open) return null;
 

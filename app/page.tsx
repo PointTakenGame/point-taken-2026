@@ -7,6 +7,7 @@ import { AgreementTick } from "@/components/legal/agreement";
 import { HotseatBar } from "@/components/dev/hotseat-bar";
 import { HomeLinks } from "@/components/home/home-links";
 import { LandingOnboarding } from "@/components/onboarding/landing-onboarding";
+import { HowToPlayButton } from "@/components/onboarding/onboarding-launcher";
 import { CalendarStrip } from "@/components/account/calendar-strip";
 import { LeaderboardBoard } from "@/components/account/leaderboard-board";
 import { hotseatAllowed } from "@/lib/dev/hotseat";
@@ -120,6 +121,7 @@ export default async function Home() {
       )}
       {dev ? <HotseatBar me={me} players={demoPlayers} /> : null}
       <LandingOnboarding signedIn={me !== null} />
+      {me ? <HowToPlayButton /> : null}
     </>
   );
 }

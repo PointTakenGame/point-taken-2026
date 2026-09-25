@@ -14,6 +14,7 @@
 import { useState, type ReactNode } from "react";
 
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import { requestOnboarding } from "@/components/onboarding/onboarding-pending";
 
 const DEFAULT_CLASS =
   "font-label border-ink bg-card text-ink hover:bg-sand self-start rounded-full border-[1.5px] px-5 py-2 text-xs font-bold tracking-widest uppercase transition-colors";
@@ -42,5 +43,29 @@ export function OnboardingLauncher({
       </button>
       <OnboardingOverlay open={open} onClose={() => setOpen(false)} />
     </>
+  );
+}
+
+/**
+ * A visible "How to play" for a signed-in player, fixed to the corner of the
+ * page. Opens the full tutorial popup (`LandingOnboarding`, mounted by
+ * app/page.tsx) whatever the once-a-day rule says, which is the point: the
+ * popup opens itself once a day, and a player who is lost between those
+ * times needs somewhere obvious to ask for it. The launchers above open the
+ * plain five-step walkthrough and stay where they are; the small "Help" in
+ * the account footer is easy to miss.
+ *
+ * Bottom left, because the feedback button owns the bottom right and the dev
+ * hot-seat bar (`--dev-bar-h`) sits under both.
+ */
+export function HowToPlayButton() {
+  return (
+    <button
+      type="button"
+      onClick={requestOnboarding}
+      className="font-label border-ink bg-card text-ink hover:bg-sand fixed bottom-[calc(1rem+var(--dev-bar-h,0px))] left-4 z-30 cursor-pointer rounded-full border-[1.5px] px-4 py-2 text-xs font-bold tracking-widest uppercase shadow-md transition-colors"
+    >
+      How to play
+    </button>
   );
 }

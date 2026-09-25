@@ -33,19 +33,22 @@ vi.mock("@/app/join/actions", () => ({
 }));
 
 const { LandingOnboarding } = await import("./landing-onboarding");
-const { markOnboardingPending, clearOnboardingPending } =
+const { HowToPlayButton } = await import("./onboarding-launcher");
+const { markOnboardingPending, clearOnboardingPending, localDate, requestOnboarding } =
   await import("./onboarding-pending");
 
 beforeEach(() => {
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
   document.cookie = "pt-terms-agreed=; path=/; max-age=0";
   clearOnboardingPending();
+  window.localStorage.removeItem("pt.onboarding.lastShown");
 });
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 /** The popup is owed to an account just set up, which leaves this marker. */
@@ -65,42 +68,151 @@ async function reachEndScreen(
   await user.click(screen.getByRole("button", { name: "Finish" }));
 }
 
-describe("LandingOnboarding: who sees it", () => {
-  it("shows the intro to an account that was just set up", () => {
-    mount();
-    expect(
-      screen.getByText("Point Taken is a game about disagreeing well."),
-    ).toBeTruthy();
+const INTRO = "Point Taken is a game about disagreeing well.";
+const LAST_SHOWN = "pt.onboarding.lastShown";
+
+function yesterday(): string {
+  const day = new Date();
+  day.setDate(day.getDate() - 1);
+  return localDate(day);
+}
+
+describe("LandingOnboarding: signed out", () => {
+  it("shows nothing: the account step comes first", () => {
+    render(<LandingOnboarding signedIn={false} />);
+    expect(screen.queryByText(INTRO)).toBeNull();
   });
 
-  it("shows nothing to a returning player, who has no marker", () => {
-    render(<LandingOnboarding signedIn />);
-    expect(
-      screen.queryByText("Point Taken is a game about disagreeing well."),
-    ).toBeNull();
+  it("shows nothing on a new day either", () => {
+    window.localStorage.setItem(LAST_SHOWN, yesterday());
+    render(<LandingOnboarding signedIn={false} />);
+    expect(screen.queryByText(INTRO)).toBeNull();
   });
 
-  it("consumes the marker on first sight, so a remount does not replay it", () => {
-    const first = mount(true);
-    expect(window.localStorage.getItem("pt.onboarding.pending")).toBeNull();
-    first.unmount();
-
-    render(<LandingOnboarding signedIn />);
-    expect(
-      screen.queryByText("Point Taken is a game about disagreeing well."),
-    ).toBeNull();
-  });
-
-  it("opens over the page when the marker is set after it mounted", () => {
-    render(<LandingOnboarding signedIn />);
-    expect(
-      screen.queryByText("Point Taken is a game about disagreeing well."),
-    ).toBeNull();
+  it("opens straight after an account is set up, as the next thing they see", () => {
+    render(<LandingOnboarding signedIn={false} />);
+    expect(screen.queryByText(INTRO)).toBeNull();
 
     act(() => markOnboardingPending());
-    expect(
-      screen.getByText("Point Taken is a game about disagreeing well."),
-    ).toBeTruthy();
+    expect(screen.getByText(INTRO)).toBeTruthy();
+  });
+});
+
+describe("LandingOnboarding: signed in, once a day", () => {
+  it("opens on the first visit of the day and records today", () => {
+    render(<LandingOnboarding signedIn />);
+    expect(screen.getByText(INTRO)).toBeTruthy();
+    expect(window.localStorage.getItem(LAST_SHOWN)).toBe(localDate());
+  });
+
+  it("does not open again that day, however many times they come back", () => {
+    const first = render(<LandingOnboarding signedIn />);
+    expect(screen.getByText(INTRO)).toBeTruthy();
+    first.unmount();
+
+    for (let visit = 0; visit < 3; visit += 1) {
+      const again = render(<LandingOnboarding signedIn />);
+      expect(screen.queryByText(INTRO)).toBeNull();
+      again.unmount();
+    }
+  });
+
+  it("opens again on a new day", () => {
+    window.localStorage.setItem(LAST_SHOWN, yesterday());
+    render(<LandingOnboarding signedIn />);
+    expect(screen.getByText(INTRO)).toBeTruthy();
+    expect(window.localStorage.getItem(LAST_SHOWN)).toBe(localDate());
+  });
+
+  it("stores a date string, not a timestamp", () => {
+    render(<LandingOnboarding signedIn />);
+    expect(window.localStorage.getItem(LAST_SHOWN)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("counts getting an account as that day's showing: no second popup", () => {
+    const fresh = mount(false);
+    expect(screen.getByText(INTRO)).toBeTruthy();
+    expect(window.localStorage.getItem("pt.onboarding.pending")).toBeNull();
+    expect(window.localStorage.getItem(LAST_SHOWN)).toBe(localDate());
+    fresh.unmount();
+
+    render(<LandingOnboarding signedIn />);
+    expect(screen.queryByText(INTRO)).toBeNull();
+  });
+});
+
+describe("LandingOnboarding: storage that cannot be read or written", () => {
+  it("still renders, and falls back to showing the tutorial to a signed-in player", () => {
+    const blocked = () => {
+      throw new Error("blocked");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(blocked);
+
+    render(<LandingOnboarding signedIn />);
+    expect(screen.getByText(INTRO)).toBeTruthy();
+  });
+
+  it("stays closed once dismissed, even though it can never remember that", async () => {
+    const blocked = () => {
+      throw new Error("blocked");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(blocked);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(blocked);
+    const user = userEvent.setup();
+
+    render(<LandingOnboarding signedIn />);
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    expect(screen.queryByText(INTRO)).toBeNull();
+  });
+
+  it("does not throw for a signed-out visitor either", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<LandingOnboarding signedIn={false} />);
+    expect(screen.queryByText(INTRO)).toBeNull();
+  });
+});
+
+describe("LandingOnboarding: on demand", () => {
+  it("opens from the top even after today's showing", () => {
+    window.localStorage.setItem(LAST_SHOWN, localDate());
+    render(<LandingOnboarding signedIn />);
+    expect(screen.queryByText(INTRO)).toBeNull();
+
+    act(() => requestOnboarding());
+    expect(screen.getByText(INTRO)).toBeTruthy();
+  });
+
+  it("opens again on a second request after being closed", async () => {
+    window.localStorage.setItem(LAST_SHOWN, localDate());
+    const user = userEvent.setup();
+    render(<LandingOnboarding signedIn />);
+
+    act(() => requestOnboarding());
+    await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    expect(screen.queryByText(INTRO)).toBeNull();
+
+    act(() => requestOnboarding());
+    expect(screen.getByText(INTRO)).toBeTruthy();
+  });
+
+  it("is what the How to play button does", async () => {
+    window.localStorage.setItem(LAST_SHOWN, localDate());
+    const user = userEvent.setup();
+    render(
+      <>
+        <LandingOnboarding signedIn />
+        <HowToPlayButton />
+      </>,
+    );
+    expect(screen.queryByText(INTRO)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "How to play" }));
+    expect(screen.getByText(INTRO)).toBeTruthy();
   });
 });
 
