@@ -46,6 +46,7 @@ import { AnchoredCard } from "@/components/ui/anchored-card";
 import type { BoardState } from "@/lib/board/project";
 import type { TileCorner, Uuid } from "@/lib/events/types";
 import { levelById } from "@/lib/gym/levels";
+import { levelRemaining, type Remaining } from "@/lib/gym/remaining";
 import {
   currentBeat,
   levelPoints,
@@ -376,6 +377,10 @@ function Director({
     [level, board, dismissed],
   );
   const beat = currentBeat(level, progress);
+  const remaining = useMemo(
+    () => levelRemaining(level, board, progress),
+    [level, board, progress],
+  );
 
   // One boss move per (beat, board) pair. A second render with the same
   // board must not fire again; a refreshed board with the same beat may,
@@ -762,12 +767,17 @@ function Director({
     writeDismissed(gameId, next);
   };
 
-  const step = `Level ${level.number} · ${progress.done.length + 1} of ${level.beats.length}`;
+  const step = `Level ${level.number}`;
   const score = scoreboard(level, progress);
 
   return (
     <>
-      <CoachPersona step={step} score={score} thinking={!bubbleReady} />
+      <CoachPersona
+        step={step}
+        score={score}
+        remaining={remaining}
+        thinking={!bubbleReady}
+      />
       {!bubbleReady ? null : beat.kind === "pause" ? (
         <PauseBubble
           beat={beat}
@@ -781,6 +791,7 @@ function Director({
           level={level}
           board={board}
           progress={progress}
+          remaining={remaining}
           targetSelector={targetSelector}
           error={error}
         />
@@ -811,13 +822,17 @@ function Director({
 function CoachPersona({
   step,
   score,
+  remaining,
   thinking = false,
 }: {
   step: string;
   score: { total: number; delta: number; label: string } | null;
+  remaining: Remaining;
   /** True while a beat's `delayMs` is holding its bubble back. */
   thinking?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const stuck = remaining.blockers.length > 0;
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex flex-col items-center px-4">
       <div
@@ -828,6 +843,17 @@ function CoachPersona({
           🧘
         </span>
         <span className="font-label text-ink-soft">Coach · {step}</span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="gym-remaining"
+          onClick={() => setOpen((current) => !current)}
+          className={`font-label shrink-0 cursor-pointer rounded-full border-[1.5px] px-3 py-0.5 ${
+            stuck ? "border-orange bg-orange text-ink" : "border-ink text-ink"
+          }`}
+        >
+          {stuck ? "Stuck · " : ""}What&rsquo;s left ({remaining.todo.length})
+        </button>
         {score ? (
           <span className="font-label text-ink shrink-0">
             {score.total} pts
@@ -841,6 +867,7 @@ function CoachPersona({
           </span>
         ) : null}
       </div>
+      {open ? <RemainingPanel remaining={remaining} /> : null}
       {/* The coach's thought space: under the card, always in the same place,
           empty when the coach has nothing going on. */}
       <div className="relative w-full" aria-live="polite">
@@ -850,6 +877,51 @@ function CoachPersona({
           </span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What is left before this level clears. Opened from the coach's pill so it
+ * never covers the board unasked; the pill itself says how many things are
+ * left and turns orange when something is stuck. See lib/gym/remaining.ts.
+ */
+function RemainingPanel({ remaining }: { remaining: Remaining }) {
+  return (
+    <div
+      id="gym-remaining"
+      className="sticker pointer-events-auto mt-2 flex w-80 max-w-full flex-col gap-3 rounded-2xl p-4 text-left"
+    >
+      <h2 className="font-figure text-ink text-lg font-black tracking-wide uppercase">
+        Still to do on this level
+      </h2>
+      {remaining.blockers.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className="font-label text-ink">Stuck right now</span>
+          {remaining.blockers.map((blocker) => (
+            <p
+              key={blocker}
+              className="font-secondary text-p-sm text-ink border-orange border-l-[3px] pl-3"
+            >
+              {blocker}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {remaining.todo.length > 0 ? (
+        <ul className="font-secondary text-p-sm text-ink flex flex-col gap-1.5">
+          {remaining.todo.map((item) => (
+            <li key={item} className="flex gap-2">
+              <span aria-hidden>&#9675;</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : remaining.blockers.length === 0 ? (
+        <p className="font-secondary text-p-sm text-ink">
+          Nothing left to do. The level closes on its own.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1003,6 +1075,7 @@ function LineBubble({
   level,
   board,
   progress,
+  remaining,
   targetSelector,
   error,
 }: {
@@ -1010,6 +1083,7 @@ function LineBubble({
   level: Level;
   board: BoardState;
   progress: LevelProgress;
+  remaining: Remaining;
   targetSelector: string | null;
   error: string | null;
 }) {
@@ -1034,7 +1108,9 @@ function LineBubble({
         : beat.coach
       : beat.kind === "boss"
         ? (beat.coach ?? null)
-        : (beat.coach ?? "Every thread is closing. One moment."));
+        : remaining.blockers.length > 0
+          ? "Every step of the script is done, but the game is still open."
+          : (beat.coach ?? "Every thread is closing. One moment."));
 
   const suggestions =
     beat.kind === "player" &&
@@ -1044,6 +1120,7 @@ function LineBubble({
 
   if (
     !line &&
+    remaining.blockers.length === 0 &&
     !(beat.kind === "boss" && beat.bossSays) &&
     !error &&
     suggestions.length === 0
@@ -1060,6 +1137,18 @@ function LineBubble({
           </p>
         ) : null}
         {line ? <Paragraphs className="font-secondary text-ink" text={line} /> : null}
+
+        {/* A thread that cannot close, said plainly. The script has no beat
+            for this: any legal token counts as the player's move, so a
+            mismatched token walks past the beat that would have said so. */}
+        {remaining.blockers.map((blocker) => (
+          <p
+            key={blocker}
+            className="font-secondary text-p-sm text-ink border-orange border-l-[3px] pl-3"
+          >
+            {blocker}
+          </p>
+        ))}
 
         {/*
           Nothing is said here about where to click, on purpose. The sample
