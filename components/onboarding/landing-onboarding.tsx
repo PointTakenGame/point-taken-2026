@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * The landing-page popup: three stages shown in order over whatever `/`
- * renders underneath, on every visit, every visitor, signed in or out.
+ * The new-account popup: three stages shown in order over the profile of an
+ * account that was just set up.
  *
  * 1. A short intro to what the game is, before anything else.
  * 2. The existing five-step walkthrough (`OnboardingOverlay`), reused
@@ -27,22 +27,28 @@
  *    buttons to a first-time visitor, which is the one visitor this popup
  *    exists for.
  *
- * Nothing here is read from or written to storage: `useState(true)` for
- * whether the popup is open at all, and a plain stage variable for which of
- * the three is showing. Both reset to their initial values the moment this
- * component unmounts, which is exactly what "reopens every visit" needs and
- * nothing more. `signedIn` is the one piece of state this component does not
- * own: it comes from the server (`currentPlayerId()` in app/page.tsx), the
- * same source of truth every other page already asks.
+ * When it shows: once, to an account just set up in this browser, and to
+ * nobody else. Setting up an account ("Set me up" on the front door, which
+ * is `StartPlaying`) leaves a marker (onboarding-pending.ts); this reads it,
+ * shows the popup over the new profile, and consumes it at once. So a
+ * signed-out visitor is set up first and gets the walkthrough after, and a
+ * player going back to their profile never sees it again. It used to open on
+ * every visit to "/" for everyone. `signedIn` comes from the server
+ * (`currentPlayerId()` in app/page.tsx), the same source of truth every other
+ * page asks; the stage variable resets when this unmounts.
  */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { startCurrentLevel } from "@/app/gym/actions";
 import { createRoom } from "@/app/join/actions";
 import { AgreementTick, useAgreed } from "@/components/legal/agreement";
 import { useRoom } from "@/components/rooms/room-entry";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import {
+  clearOnboardingPending,
+  useOnboardingPending,
+} from "@/components/onboarding/onboarding-pending";
 import { COACH_CARDS } from "@/lib/coach/cards";
 
 type Stage = "intro" | "walkthrough" | "end";
@@ -242,8 +248,19 @@ function EndStage({ onClose, signedIn }: { onClose: () => void; signedIn: boolea
 }
 
 export function LandingOnboarding({ signedIn = false }: { signedIn?: boolean }) {
-  const [open, setOpen] = useState(true);
+  // Owed only to an account just set up in this browser (see
+  // onboarding-pending.ts): never to a returning player, and never to a
+  // signed-out visitor, who is set up first and gets the popup after.
+  const owed = useOnboardingPending();
+  const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("intro");
+
+  // Latched on first sight and consumed straight away, so a refresh or a
+  // reload mid-walkthrough does not bring it back.
+  if (owed && !open) setOpen(true);
+  useEffect(() => {
+    if (open) clearOnboardingPending();
+  }, [open]);
 
   if (!open) return null;
 

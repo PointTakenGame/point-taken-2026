@@ -4,13 +4,13 @@
  * Interaction tests for the three-stage landing popup: intro, then the
  * unmodified five-step walkthrough (already covered in its own right by
  * onboarding-overlay.test.tsx), then the end screen. Focuses on what this
- * wrapper adds: opening on stage 1 with nothing stored, moving between
+ * wrapper adds: showing once to a just-set-up account and to nobody else, moving between
  * stages, Skip/close working from every stage, and the end screen's two
  * paths.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const push = vi.fn();
@@ -33,10 +33,13 @@ vi.mock("@/app/join/actions", () => ({
 }));
 
 const { LandingOnboarding } = await import("./landing-onboarding");
+const { markOnboardingPending, clearOnboardingPending } =
+  await import("./onboarding-pending");
 
 beforeEach(() => {
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
   document.cookie = "pt-terms-agreed=; path=/; max-age=0";
+  clearOnboardingPending();
 });
 
 afterEach(() => {
@@ -45,20 +48,56 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The popup is owed to an account just set up, which leaves this marker. */
+function mount(signedIn = false) {
+  markOnboardingPending();
+  return render(<LandingOnboarding signedIn={signedIn} />);
+}
+
 /** From a fresh render, gets from stage 1 to the end screen. */
 async function reachEndScreen(
   user: ReturnType<typeof userEvent.setup>,
   signedIn = false,
 ) {
-  render(<LandingOnboarding signedIn={signedIn} />);
+  mount(signedIn);
   await user.click(screen.getByRole("button", { name: "Next" }));
   await user.click(screen.getByRole("button", { name: "Go to step 5" }));
   await user.click(screen.getByRole("button", { name: "Finish" }));
 }
 
-describe("LandingOnboarding: opens unconditionally on stage 1", () => {
-  it("shows the intro on mount with nothing stored", () => {
-    render(<LandingOnboarding />);
+describe("LandingOnboarding: who sees it", () => {
+  it("shows the intro to an account that was just set up", () => {
+    mount();
+    expect(
+      screen.getByText("Point Taken is a game about disagreeing well."),
+    ).toBeTruthy();
+  });
+
+  it("shows nothing to a returning player, who has no marker", () => {
+    render(<LandingOnboarding signedIn />);
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+  });
+
+  it("consumes the marker on first sight, so a remount does not replay it", () => {
+    const first = mount(true);
+    expect(window.localStorage.getItem("pt.onboarding.pending")).toBeNull();
+    first.unmount();
+
+    render(<LandingOnboarding signedIn />);
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+  });
+
+  it("opens over the page when the marker is set after it mounted", () => {
+    render(<LandingOnboarding signedIn />);
+    expect(
+      screen.queryByText("Point Taken is a game about disagreeing well."),
+    ).toBeNull();
+
+    act(() => markOnboardingPending());
     expect(
       screen.getByText("Point Taken is a game about disagreeing well."),
     ).toBeTruthy();
@@ -68,7 +107,7 @@ describe("LandingOnboarding: opens unconditionally on stage 1", () => {
 describe("LandingOnboarding: stage 1, the intro", () => {
   it("Skip closes the whole popup", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    mount();
 
     await user.click(screen.getByRole("button", { name: "Skip tutorial" }));
     expect(
@@ -78,7 +117,7 @@ describe("LandingOnboarding: stage 1, the intro", () => {
 
   it("the close button closes the whole popup", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    mount();
 
     await user.click(screen.getByLabelText("Close tutorial"));
     expect(
@@ -88,7 +127,7 @@ describe("LandingOnboarding: stage 1, the intro", () => {
 
   it("Next moves to stage 2, the five-step walkthrough", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    mount();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
@@ -103,7 +142,7 @@ describe("LandingOnboarding: stage 1, the intro", () => {
 describe("LandingOnboarding: stage 2, the walkthrough", () => {
   it("Skip tutorial from the walkthrough closes the whole popup", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    mount();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
@@ -117,7 +156,7 @@ describe("LandingOnboarding: stage 2, the walkthrough", () => {
 
   it("finishing the last step moves to stage 3, not straight to closed", async () => {
     const user = userEvent.setup();
-    render(<LandingOnboarding />);
+    mount();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     await user.click(screen.getByRole("button", { name: "Go to step 5" }));
