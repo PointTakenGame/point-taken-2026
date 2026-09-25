@@ -47,7 +47,7 @@ export function RuleCardTray({
   /** What to say under the row: the prompt to pick a target, or a refusal. */
   hint: string | null;
 }) {
-  if (deck.length === 0) return null;
+  const empty = deck.length === 0;
 
   return (
     <div data-ui="card-tray" className="w-[34rem]">
@@ -59,7 +59,21 @@ export function RuleCardTray({
         My rule cards
       </span>
       <div className="border-gray/30 bg-offwhite -mt-px flex flex-col items-center gap-2 rounded-2xl rounded-tl-none border px-5 py-3 shadow-lg">
-        <div className="flex items-center gap-3">
+        {empty && (
+          // Said out loud rather than drawn as a bare box: a live round holds
+          // only the cards both players have earned (lib/board/setup.ts), so a
+          // player who has cleared no Gym level holds none, and an empty tray
+          // reads as something that failed to load.
+          <div className="flex flex-col items-center gap-0.5 py-1 text-center">
+            <span className="font-primary text-p-md text-neutral-black">
+              You don&rsquo;t have any cards yet
+            </span>
+            <span className="text-p-sm text-gray">
+              Cards are earned in the Gym, one per level.
+            </span>
+          </div>
+        )}
+        <div className={empty ? "hidden" : "flex items-center gap-3"}>
           {deck.map((cardId) => {
             const card = coachCard(cardId);
             const armed = armedCardId === cardId;
