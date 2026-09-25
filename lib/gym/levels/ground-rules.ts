@@ -62,7 +62,7 @@ export const GROUND_RULES: Level = {
   rootTarget: 4,
   playerSide: "plus",
   bossSide: "minus",
-  banner: "Four threads this time, two reasons from each of you. That's a standard game.",
+  banner: "Four threads this time. That's a standard game.",
   // Echoes rambling-rosa's habit in lib/progression/sample.ts.
   bossHabit: "wanders off the thread's root",
   bossTip:
@@ -85,7 +85,7 @@ export const GROUND_RULES: Level = {
       kind: "pause",
       id: "p1-four-threads",
       title: "Four threads, and points",
-      body: "Two reasons from each of you this time, four threads is the normal game.\n\nAnd there's a score now. You'll get points for catching Rosa with a card, and only for that. Nothing you write scores; catching does.",
+      body: "Four threads this time, which is the normal game. Each of you opens some with a reason of your own.\n\nAnd there's a score now. You'll get points for catching Rosa with a card, and only for that. Nothing you write scores; catching does.",
       button: "Got it",
       anchor: { tile: "topic" },
     },
@@ -113,7 +113,7 @@ export const GROUND_RULES: Level = {
       kind: "player",
       id: "player-root-a",
       coach:
-        "Rosa has put two reasons down on her side. Your first: one reason to stop changing the clocks.",
+        "Rosa has put her reasons down on her side. Your first: one reason to stop changing the clocks.",
       nudge: "Hang it off the topic. This one starts a thread of your own.",
       expect: {
         kind: "tile",
