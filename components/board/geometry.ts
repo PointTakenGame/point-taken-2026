@@ -103,10 +103,10 @@ export const TILE_BODY_PX = Math.round(OUTER_FRAME_REM * 16 * TILE_BODY_RATIO);
  *
  * Not a Figma measurement. Rannie's frames use one stroke weight everywhere;
  * this is a decision layered on top of her palette, not a port of one of her
- * values. `TileShape`'s border classes are written out literally at 3px and
- * 9px (Tailwind's arbitrary-value scanner needs the literal class text, not
- * a computed one), so these two numbers are the ones to change together if
- * the ruling ever changes.
+ * values. `TileShape` reads these widths through `strokeStyle`, which also
+ * holds them to a minimum on screen when the board is zoomed out. These two
+ * numbers are the widths at life size, and the ones to change together if the
+ * ruling ever changes.
  */
 export type TileWeight = "normal" | "root";
 export const TILE_BORDER_PX: Record<TileWeight, number> = { normal: 3, root: 9 };

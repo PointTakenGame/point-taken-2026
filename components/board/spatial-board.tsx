@@ -1665,6 +1665,10 @@ export function SpatialBoard<T extends SpatialTile>({
           height: `${canvasHeight}rem`,
           transform: `scale(${zoom})`,
           transformOrigin: "top left",
+          // Read by TileShape's borders (see `strokeStyle` there): the zoom,
+          // and the thinnest line a tile outline may be on the screen.
+          ["--board-zoom" as string]: zoom,
+          ["--min-stroke" as string]: "2.5px",
         }}
       >
         {layout.positions.get(TOPIC_CELL_ID) ? (

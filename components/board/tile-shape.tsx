@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import {
   INNER_FRAME_RATIO,
   OCTAGON_CLIP,
+  TILE_BORDER_PX,
   TILE_CONTENT_INSET_PX,
   type TileWeight,
 } from "@/components/board/geometry";
@@ -174,6 +175,32 @@ export function SideAvatar({
   );
 }
 
+/**
+ * A tile's border, held to a minimum on the screen rather than on the board.
+ *
+ * The board is drawn at life size and then scaled (`transform: scale(zoom)`
+ * in spatial-board.tsx), so a 3px border is 3px times the zoom: at 40% it is a
+ * 1.2px line of a pale tint, and a tile's outline all but disappears (playtest:
+ * "the orange outline is too faint zoomed out"). The board publishes the zoom
+ * as `--board-zoom` and the least line it wants to see as `--min-stroke`; the
+ * border is the larger of its own width and that minimum divided back through
+ * the zoom, capped so the lowest zoom does not draw a slab. At life size and
+ * above the minimum is already met, so the border is exactly what it was.
+ *
+ * Where nothing publishes them (a tile in a list, a popup, a test), the
+ * fallbacks are 1 and 0px, and the border is its plain width.
+ *
+ * `base` is the width in px at life size, `weight` how much of the minimum
+ * this line gets (the fine outer ring wants less than the bold inner one), and
+ * `cap` the widest it may grow to. Custom properties rather than a computed
+ * number, so a zoom change repaints the CSS and not the React tree. `--w` is
+ * read by the `::before` too, which must inset by the same amount.
+ */
+function strokeStyle(base: number, weight: number, cap: number): CSSProperties {
+  const width = `min(max(${base}px, calc(var(--min-stroke, 0px) * ${weight} / var(--board-zoom, 1))), ${cap}px)`;
+  return { "--w": width, borderWidth: "var(--w)" } as CSSProperties;
+}
+
 export function TileShape({
   side,
   size = 13,
@@ -264,9 +291,10 @@ export function TileShape({
     >
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
         <div
-          className={`absolute inset-0 overflow-hidden rotate-45 border before:absolute before:[inset:-1px] before:rotate-45 before:[border:inherit] before:content-[''] ${
+          className={`absolute inset-0 overflow-hidden rotate-45 border-solid before:absolute before:[inset:calc(var(--w)*-1)] before:rotate-45 before:[border:inherit] before:content-[''] ${
             SIDE_WASH[side]
           } ${selected ? SIDE_BORDER[side] : SIDE_WASH_BORDER[side]}`}
+          style={strokeStyle(1, 0.5, 3)}
         />
       </div>
       <div
@@ -275,11 +303,14 @@ export function TileShape({
         aria-hidden="true"
       >
         <div
-          className={`absolute inset-0 overflow-hidden rotate-45 bg-offwhite before:absolute before:rotate-45 before:[border:inherit] before:content-[''] ${
+          className={`absolute inset-0 overflow-hidden rotate-45 border-solid bg-offwhite before:absolute before:[inset:calc(var(--w)*-1)] before:rotate-45 before:[border:inherit] before:content-[''] ${
+            weight === "root" ? SIDE_BORDER_ROOT[side] : SIDE_BORDER[side]
+          }`}
+          style={
             weight === "root"
-              ? "border-[9px] before:[inset:-9px]"
-              : "border-[3px] before:[inset:-3px]"
-          } ${weight === "root" ? SIDE_BORDER_ROOT[side] : SIDE_BORDER[side]}`}
+              ? strokeStyle(TILE_BORDER_PX.root, 1.5, 14)
+              : strokeStyle(TILE_BORDER_PX.normal, 1, 7)
+          }
         />
       </div>
       <div
