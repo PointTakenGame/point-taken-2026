@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AgreementTick, useAgreed } from "@/components/legal/agreement";
+import { markOnboardingPending } from "@/components/onboarding/onboarding-pending";
 
 /**
  * Signs in anonymously, then re-renders the page as the new player.
@@ -37,6 +38,8 @@ export function StartPlaying({
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `sign-in failed (${res.status})`);
       }
+      // A new account is owed the walkthrough once, straight after this.
+      markOnboardingPending();
       router.refresh();
     } catch (err) {
       setFailed(err instanceof Error ? err.message : String(err));
