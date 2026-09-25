@@ -34,9 +34,7 @@ describe("OnboardingOverlay: visibility", () => {
   it("renders the first step when open", () => {
     render(<OnboardingOverlay open onClose={vi.fn()} />);
     expect(
-      screen.getByText(
-        "Each player writes two starting reason tiles supporting their opinion.",
-      ),
+      screen.getByText("Each player writes reason tiles that back their side."),
     ).toBeTruthy();
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
   });
@@ -127,7 +125,7 @@ describe("OnboardingOverlay: step four, the explainer", () => {
       "https://www.youtube-nocookie.com/embed/bqh1aegbaU8",
     );
     const link = screen.getByRole("link", {
-      name: "You can also watch this video on YouTube",
+      name: "Or watch it on YouTube",
     });
     expect(link.getAttribute("href")).toBe("https://www.youtube.com/watch?v=bqh1aegbaU8");
   });
@@ -209,5 +207,36 @@ describe("OnboardingOverlay: reopening", () => {
     rerender(<OnboardingOverlay open={false} onClose={vi.fn()} />);
     rerender(<OnboardingOverlay open onClose={vi.fn()} />);
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
+  });
+});
+
+describe("OnboardingOverlay: playtest copy", () => {
+  it("marks the video step as the recommended one", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingOverlay open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Go to step 4" }));
+    expect(screen.getByText("Watch this video (recommended).")).toBeTruthy();
+  });
+
+  it("tells the player which tile a token goes on, on the last step", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingOverlay open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    expect(
+      screen.getByText(
+        "Agree and agree-to-disagree tokens go on the first tile of a thread, not on later ones.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("gives the two images of the last step a wider dialog than the others", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingOverlay open onClose={vi.fn()} />);
+
+    expect(screen.getByRole("dialog").className).toContain("max-w-[680px]");
+    await user.click(screen.getByRole("button", { name: "Go to step 5" }));
+    expect(screen.getByRole("dialog").className).toContain("max-w-[880px]");
   });
 });

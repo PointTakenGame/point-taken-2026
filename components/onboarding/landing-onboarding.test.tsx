@@ -132,9 +132,7 @@ describe("LandingOnboarding: stage 1, the intro", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
     expect(
-      screen.getByText(
-        "Each player writes two starting reason tiles supporting their opinion.",
-      ),
+      screen.getByText("Each player writes reason tiles that back their side."),
     ).toBeTruthy();
   });
 });

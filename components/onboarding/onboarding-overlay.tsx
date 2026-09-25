@@ -93,7 +93,7 @@ function buildSteps(myRole: OnboardingRole): OnboardingStep[] {
   return [
     {
       id: "starting-tiles",
-      heading: "Each player writes two starting reason tiles supporting their opinion.",
+      heading: "Each player writes reason tiles that back their side.",
       media: {
         kind: "video",
         src:
@@ -105,26 +105,28 @@ function buildSteps(myRole: OnboardingRole): OnboardingStep[] {
     {
       id: "add-a-tile",
       heading: "Hover to add a tile.",
-      subtitle: "Write only one short idea per tile.",
+      subtitle: "One short idea per tile.",
       media: { kind: "video", src: "/onboarding/step2.mp4" },
     },
     {
       id: "resolve-a-thread",
-      heading: "Hover to resolve a thread by placing a token on the tile.",
-      subtitle: "What does each token mean?",
+      heading: "Hover to place a token and resolve a thread.",
+      subtitle: "What each token means:",
       media: { kind: "video", src: "/onboarding/step3.mp4" },
       showTokenLegend: true,
     },
     {
       id: "watch-the-explainer",
-      heading: "Learn more by watching this video.",
-      subtitle: "You can also watch this video on YouTube",
+      heading: "Watch this video (recommended).",
+      subtitle: "Or watch it on YouTube",
       subtitleHref: EXPLAINER_WATCH_URL,
       media: { kind: "embed", src: EXPLAINER_EMBED_URL },
     },
     {
       id: "two-ways-to-win",
       heading: "Two ways to win.",
+      subtitle:
+        "Agree and agree-to-disagree tokens go on the first tile of a thread, not on later ones.",
       media: {
         kind: "images",
         top: "/onboarding/step4-top.png",
@@ -257,7 +259,7 @@ export function OnboardingOverlay({
       <div
         role="dialog"
         aria-labelledby="onboarding-heading"
-        className={`relative z-10 flex max-h-full w-full max-w-[680px] flex-col gap-4 overflow-y-auto rounded-2xl border-2 bg-offwhite p-6 shadow-lg ${ACCENT_BORDER[myRole]}`}
+        className={`relative z-10 flex max-h-full w-full ${step.media.kind === "images" ? "max-w-[880px]" : "max-w-[680px]"} flex-col gap-4 overflow-y-auto rounded-2xl border-2 bg-offwhite p-6 shadow-lg ${ACCENT_BORDER[myRole]}`}
       >
         <button
           type="button"
@@ -293,13 +295,13 @@ export function OnboardingOverlay({
           ) : null}
         </div>
 
-        <div className="flex min-h-48 items-center justify-center">
+        <div className="flex items-center justify-center">
           {step.media.kind === "video" ? (
-            <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
+            <div className="aspect-video w-[min(100%,28rem,calc(34vh*1.7778))] overflow-hidden rounded-lg border border-gray/30">
               <OnboardingVideo key={step.media.src} src={step.media.src} />
             </div>
           ) : step.media.kind === "embed" ? (
-            <div className="aspect-video w-full max-w-md overflow-hidden rounded-lg border border-gray/30">
+            <div className="aspect-video w-[min(100%,28rem,calc(34vh*1.7778))] overflow-hidden rounded-lg border border-gray/30">
               {/* Permissions and referrer policy carried over verbatim from the
                   retired client's OnboardingVideo.vue, which is what YouTube's
                   own share dialog emits. */}
@@ -314,23 +316,23 @@ export function OnboardingOverlay({
               />
             </div>
           ) : (
-            <div className="flex w-full flex-col items-center gap-2">
+            <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
               <Image
                 src={step.media.top}
                 alt=""
-                width={420}
-                height={240}
+                width={480}
+                height={348}
                 unoptimized
-                className="h-auto w-full max-w-sm rounded-lg border border-gray/30 object-contain"
+                className="h-auto w-full max-w-xs rounded-lg border border-gray/30 object-contain sm:w-1/2"
               />
               <span className="font-primary text-p-md text-gray">OR</span>
               <Image
                 src={step.media.bottom}
                 alt=""
-                width={420}
-                height={240}
+                width={179}
+                height={161}
                 unoptimized
-                className="h-auto w-full max-w-sm object-contain"
+                className="h-auto w-full max-w-xs object-contain sm:w-1/2"
               />
             </div>
           )}
