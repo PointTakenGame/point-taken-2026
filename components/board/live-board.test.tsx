@@ -322,9 +322,7 @@ describe("LiveBoard: onboarding on arrival", () => {
     );
 
     expect(
-      screen.getByText(
-        "Each player writes two starting reason tiles supporting their opinion.",
-      ),
+      screen.getByText("Each player writes reason tiles that back their side."),
     ).toBeTruthy();
     expect(screen.getByText("Step 1 of 5")).toBeTruthy();
   });
