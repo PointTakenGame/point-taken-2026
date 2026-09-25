@@ -135,10 +135,10 @@ export function PlayerAgreement({
         onClick={onSign}
         className="font-secondary text-p-sm border-neutral-black mt-2 self-start rounded-full border-2 px-4 py-1 font-bold disabled:opacity-40"
       >
-        {signed ? "Signed" : "I stand behind all three"}
+        {signed ? "Committed" : "I commit to all three"}
       </button>
       <p className="font-secondary text-p-sm text-gray">
-        {peerSigned ? "Your peer has signed." : "Your peer has not signed yet."}
+        {peerSigned ? "Your peer has committed." : "Your peer has not committed yet."}
       </p>
     </div>
   );

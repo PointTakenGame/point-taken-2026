@@ -188,8 +188,10 @@ function BossIntroCard({ level, onNext }: { level: Level; onNext: () => void }) 
  * (Steve, 2026-09-05): one sentence naming the level, boss, and topic, then
  * the three signing-line pledges read in full.
  *
- * One button, "Agree, and Start the Game" (Steve, 2026-09-06, superseding his
- * own 2026-09-05 two-button version). Signing and starting were two clicks
+ * One button, "Commit, and Start the Game". Steve ruled "Agree, and Start the
+ * Game" on 2026-09-06 (superseding his own 2026-09-05 two-button version);
+ * playtester feedback changed the word to "commit" on 2026-09-25, overriding
+ * that wording. Signing and starting were two clicks
  * with nothing between them: the second button only ever ungreyed because the
  * first had just been pressed, so the pause it created taught nothing and read
  * as a form to get through. The single button still does both things in
@@ -244,7 +246,7 @@ function AgreementCard({
       <p className="font-secondary text-ink text-p-md">{introLine}</p>
 
       <p className="font-secondary text-ink text-p-md font-bold">
-        When you play Point Taken, you agree to three things:
+        When you play Point Taken, you commit to three things:
       </p>
 
       {/* Steve, 2026-09-07: gap-3 ran the three pledges together, so they read
@@ -269,7 +271,7 @@ function AgreementCard({
         disabled={pending}
         onClick={agreeAndStart}
       >
-        {"Agree, and Start the Game"}
+        {"Commit, and Start the Game"}
       </button>
 
       {error ? <p className="font-secondary text-p-sm text-red-700">{error}</p> : null}
